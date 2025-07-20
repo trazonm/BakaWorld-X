@@ -60,8 +60,8 @@ BakaWorld X is a full-stack web application that provides a seamless anime strea
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/yourusername/bakaworld-x.git
-   cd bakaworld-x
+   git clone https://github.com/trazonm/BakaWorld-X.git
+   cd BakaWorld-X
    ```
 
 2. **Install dependencies**
