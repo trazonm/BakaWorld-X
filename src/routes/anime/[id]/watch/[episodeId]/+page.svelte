@@ -134,12 +134,12 @@
 					<p class="text-gray-400 mb-4">
 						The video source could not be loaded. Please try again later.
 					</p>
-					<button
-						class="rounded-lg bg-blue-600 px-6 py-3 text-white transition-colors hover:bg-blue-700"
-						on:click={() => window.location.reload()}
-					>
-						Reload Page
-					</button>
+			<button
+				class="rounded-lg bg-blue-600 px-6 py-3 text-white transition-colors hover:bg-blue-700"
+				onclick={() => window.location.reload()}
+			>
+				Reload Page
+			</button>
 				</div>
 			</div>
 		{/if}
@@ -162,7 +162,7 @@
 				<select
 					id="language-select"
 					bind:value={selectedLanguage}
-					on:change={(e) => changeLanguage(e.currentTarget.value)}
+					onchange={(e) => changeLanguage(e.currentTarget.value)}
 					class="rounded-lg border border-gray-600 bg-gray-700 px-3 py-2 text-sm text-white focus:border-blue-500 focus:outline-none"
 				>
 					{#each languages as langOption}
@@ -175,7 +175,7 @@
 		<!-- Navigation -->
 		<div class="mb-8 flex items-center gap-4">
 			<button
-				on:click={goToPrevEpisode}
+				onclick={goToPrevEpisode}
 				disabled={!prevEpisode}
 				class="rounded-lg bg-gray-700 px-4 py-2 text-white hover:bg-gray-600 disabled:bg-gray-800 disabled:text-gray-500"
 			>
@@ -183,7 +183,7 @@
 			</button>
 
 			<button
-				on:click={goToNextEpisode}
+				onclick={goToNextEpisode}
 				disabled={!nextEpisode}
 				class="rounded-lg bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 disabled:bg-gray-800 disabled:text-gray-500"
 			>
