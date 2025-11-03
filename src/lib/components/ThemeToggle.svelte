@@ -39,7 +39,7 @@
 	<button
 		type="button"
 		class="inline-flex h-11 w-11 items-center justify-center rounded-lg bg-gray-900/90 text-white shadow-lg ring-1 ring-gray-700 transition-colors hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
-		on:click={() => isOpen = !isOpen}
+		onclick={() => isOpen = !isOpen}
 		aria-label="Toggle theme"
 		aria-expanded={isOpen}
 	>
@@ -67,7 +67,7 @@
 							? 'bg-blue-600 text-white'
 							: 'text-gray-300 hover:bg-gray-800'
 					}`}
-					on:click={() => setTheme('dark')}
+					onclick={() => setTheme('dark')}
 				>
 					<div class="flex items-center gap-3">
 						<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -83,7 +83,7 @@
 							? 'bg-blue-600 text-white'
 							: 'text-gray-300 hover:bg-gray-800'
 					}`}
-					on:click={() => setTheme('midnight')}
+					onclick={() => setTheme('midnight')}
 				>
 					<div class="flex items-center gap-3">
 						<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">

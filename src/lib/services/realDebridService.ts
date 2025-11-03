@@ -469,13 +469,10 @@ export function createRealDebridService(authToken: string) {
 }
 
 // Default instance (will be created in server endpoints with env variable)
-export const realDebridService = (() => {
-	try {
-		const { REAL_DEBRID_AUTH } = require('$env/static/private');
-		return new RealDebridService(REAL_DEBRID_AUTH);
-	} catch {
-		// Return instance without auth - will fail when used, but allows import
-		return new RealDebridService();
-	}
-})();
+// Note: This will be created lazily when needed, not at import time
+export function getDefaultRealDebridService(): RealDebridService {
+	// Dynamic import to avoid build-time issues
+	const auth = process.env.REAL_DEBRID_AUTH || '';
+	return new RealDebridService(auth);
+}
 

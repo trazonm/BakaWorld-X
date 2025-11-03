@@ -3,7 +3,7 @@ import type { RequestHandler } from '@sveltejs/kit';
 import { getSessionUser } from '$lib/server/session';
 import { findUserByUsername, updateUserDownloads, deleteDownloadById } from '$lib/server/userModel';
 import { createRealDebridService, UnknownResourceError } from '$lib/services/realDebridService';
-import { REAL_DEBRID_AUTH } from '$env/static/private';
+import { env } from '$env/dynamic/private';
 import type { JwtPayload } from 'jsonwebtoken';
 
 function getUsernameFromSession(session: string | JwtPayload | null): string | null {
@@ -26,7 +26,8 @@ export const POST: RequestHandler = async ({ request }) => {
   }
 
   try {
-    const realDebridService = createRealDebridService(REAL_DEBRID_AUTH);
+    const realDebridAuth = env.REAL_DEBRID_AUTH || process.env.REAL_DEBRID_AUTH || '';
+    const realDebridService = createRealDebridService(realDebridAuth);
     const downloads = Array.isArray(user.downloads) ? [...user.downloads] : [];
     
     // Map to store hash -> array of downloads with that hash

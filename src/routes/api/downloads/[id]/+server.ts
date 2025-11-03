@@ -4,7 +4,7 @@ import { getSessionUser } from '$lib/server/session';
 import { findUserByUsername, deleteDownloadById } from '$lib/server/userModel';
 import type { JwtPayload } from 'jsonwebtoken';
 import { createRealDebridService } from '$lib/services/realDebridService';
-import { REAL_DEBRID_AUTH } from '$env/static/private';
+import { env } from '$env/dynamic/private';
 import dns from 'dns';
 
 dns.setDefaultResultOrder('ipv4first');
@@ -40,7 +40,8 @@ export const DELETE: RequestHandler = async ({ request, params }) => {
 
   // Then delete from Real-Debrid (this may return 204 No Content)
   try {
-    const realDebridService = createRealDebridService(REAL_DEBRID_AUTH);
+    const realDebridAuth = env.REAL_DEBRID_AUTH || process.env.REAL_DEBRID_AUTH || '';
+    const realDebridService = createRealDebridService(realDebridAuth);
     await realDebridService.deleteTorrent(id);
     console.log(`Successfully deleted torrent from Real-Debrid: ${id}`);
   } catch (err: any) {

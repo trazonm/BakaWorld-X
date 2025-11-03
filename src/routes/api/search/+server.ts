@@ -1,6 +1,6 @@
 // SvelteKit endpoint for searching torrents via Jackett
 import type { RequestHandler } from '@sveltejs/kit';
-import { JACKETT_API_KEY } from '$env/static/private';
+import { env } from '$env/dynamic/private';
 import { getSessionUser } from '$lib/server/session';
 
 export const GET: RequestHandler = async ({ request }) => {
@@ -12,7 +12,11 @@ export const GET: RequestHandler = async ({ request }) => {
     if (!query) {
         return new Response(JSON.stringify({ error: 'Query parameter is required' }), { status: 400 });
     }
-    const apiURL = `https://jackett-service.gleeze.com/api/v2.0/indexers/all/results?apikey=${JACKETT_API_KEY}&Query=${encodeURIComponent(query)}`;
+    const jackettApiKey = env.JACKETT_API_KEY || process.env.JACKETT_API_KEY || '';
+    if (!jackettApiKey) {
+        return new Response(JSON.stringify({ error: 'JACKETT_API_KEY is not configured' }), { status: 500 });
+    }
+    const apiURL = `https://jackett-service.gleeze.com/api/v2.0/indexers/all/results?apikey=${jackettApiKey}&Query=${encodeURIComponent(query)}`;
     try {
         const response = await fetch(apiURL);
         if (!response.ok) {

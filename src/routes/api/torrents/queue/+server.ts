@@ -3,7 +3,7 @@ import type { RequestHandler } from '@sveltejs/kit';
 import { getSessionUser } from '$lib/server/session';
 import { findUserByUsername, updateUserDownloads } from '$lib/server/userModel';
 import { createRealDebridService, RealDebridService } from '$lib/services/realDebridService';
-import { REAL_DEBRID_AUTH } from '$env/static/private';
+import { env } from '$env/dynamic/private';
 import type { JwtPayload } from 'jsonwebtoken';
 import { Buffer } from 'node:buffer';
 
@@ -33,7 +33,8 @@ export const POST: RequestHandler = async ({ request }) => {
 			return new Response(JSON.stringify({ error: 'Magnet link or torrent link is required' }), { status: 400 });
 		}
 
-		const realDebridService = createRealDebridService(REAL_DEBRID_AUTH);
+		const realDebridAuth = env.REAL_DEBRID_AUTH || process.env.REAL_DEBRID_AUTH || '';
+		const realDebridService = createRealDebridService(realDebridAuth);
 		let linkToUse = magnetLink || link;
 
 		// Apply the same link conversion as handleLink

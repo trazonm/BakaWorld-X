@@ -1,10 +1,11 @@
 // Real-Debrid delete torrent endpoint
 import type { RequestHandler } from '@sveltejs/kit';
 import { createRealDebridService } from '$lib/services/realDebridService';
-import { REAL_DEBRID_AUTH } from '$env/static/private';
+import { env } from '$env/dynamic/private';
 
 export const DELETE: RequestHandler = async ({ params }) => {
-	const realDebridService = createRealDebridService(REAL_DEBRID_AUTH);
+	const realDebridAuth = env.REAL_DEBRID_AUTH || process.env.REAL_DEBRID_AUTH || '';
+	const realDebridService = createRealDebridService(realDebridAuth);
     try {
         const { id } = params;
         
