@@ -66,19 +66,24 @@
 </script>
 
 <nav class="relative z-50 px-4 py-4 md:px-8" style="background-color: var(--theme-bg-primary);">
-	<div class="container mx-auto flex items-center justify-center gap-6">
-		<a href="/" class="flex items-center gap-3">
+	<div class="container mx-auto flex items-center justify-between gap-4">
+		<!-- Left: Logo and Brand -->
+		<a href="/" class="flex items-center gap-3 flex-shrink-0">
 			<div style="color-scheme: light; filter: none; -webkit-filter: none;" class="logo-container">
 				<img src={logo} alt="BakaWorld Logo" class="h-10 w-10 rounded-full shadow-lg logo-image" />
 			</div>
 			<span class="text-2xl font-semibold text-white">BakaWorld χ</span>
 		</a>
-		<div class="hidden md:flex items-center gap-6 text-sm">
+		
+		<!-- Center: Navigation Links -->
+		<div class="hidden md:flex items-center gap-6 text-sm absolute left-1/2 transform -translate-x-1/2">
 			{#each navLinks as link}
 				<a href={link.href} class={linkClasses(link.href)}>{link.label}</a>
 			{/each}
 		</div>
-		<div class="flex items-center gap-3">
+		
+		<!-- Right: Theme Toggle, Logout, Mobile Menu -->
+		<div class="flex items-center gap-3 ml-auto">
 			<!-- Theme Toggle -->
 			<ThemeToggle />
 			
