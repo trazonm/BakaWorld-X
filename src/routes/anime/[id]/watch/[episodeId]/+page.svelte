@@ -37,6 +37,55 @@
 	$: embedUrl = videoData?.embedUrl || videoData?.sources?.[0]?.url;
 	$: loading = !embedUrl;
 
+	// Block popups from iframe
+	let iframeElement: HTMLIFrameElement;
+	
+	function handleIframeLoad() {
+		if (!iframeElement) return;
+		
+		// Try to access iframe content and block window.open
+		try {
+			// Block window.open from the parent window (though iframe can't access parent's window.open directly)
+			// Instead, we'll monitor for new window creation
+			const originalOpen = window.open;
+			window.open = function(url?: string | URL, target?: string, features?: string) {
+				// Block popups - don't open new windows
+				console.log('Blocked popup attempt:', url);
+				return null;
+			};
+			
+			// Also monitor beforeunload which might trigger popups
+			window.addEventListener('beforeunload', (e) => {
+				// Allow normal navigation, but this won't prevent iframe popups
+			});
+		} catch (e) {
+			// Cross-origin restriction - can't access iframe content
+			console.log('Cannot access iframe content (cross-origin)');
+		}
+	}
+
+	import { onMount, onDestroy } from 'svelte';
+	
+	// Store original window.open to restore later
+	let originalWindowOpen: typeof window.open;
+	
+	onMount(() => {
+		// Save original window.open
+		originalWindowOpen = window.open;
+		
+		// Override window.open to block popups
+		window.open = function(url?: string | URL, target?: string, features?: string) {
+			console.log('Blocked popup attempt to:', url);
+			return null; // Return null to block the popup
+		};
+	});
+	
+	onDestroy(() => {
+		// Restore original window.open
+		if (originalWindowOpen) {
+			window.open = originalWindowOpen;
+		}
+	});
 
 	function navigateToEpisode(episode: any) {
 		if (!episode) return;
@@ -68,14 +117,14 @@
 	<div class="relative w-full" style="padding-top: 56.25%;">
 		{#if embedUrl}
 			<iframe
+				bind:this={iframeElement}
 				src={embedUrl}
 				class="absolute top-0 left-0 w-full h-full"
 				frameborder="0"
 				scrolling="no"
 				allowfullscreen
 				title="Video Player"
-				sandbox="allow-scripts allow-same-origin allow-presentation allow-forms allow-fullscreen"
-				referrerpolicy="no-referrer"
+				onload={handleIframeLoad}
 			></iframe>
 		{:else}
 			<div class="absolute top-0 left-0 w-full h-full flex items-center justify-center bg-gray-900">
