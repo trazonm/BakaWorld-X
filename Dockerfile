@@ -36,13 +36,13 @@ COPY --from=builder /app/build ./build
 COPY --from=builder /app/static ./static
 COPY --from=builder /app/package.json ./
 
-# Expose port
-EXPOSE 3000
+# Expose port (default, can be overridden by env var)
+EXPOSE 5002
 
 # Set environment to production
 ENV NODE_ENV=production
 ENV HOST=0.0.0.0
-ENV PORT=3000
+ENV PORT=5002
 
 # Start the application (adapter-node creates index.js as entry point)
 CMD ["node", "build/index.js"]
