@@ -27,6 +27,7 @@
 	let loading = false;
 	let error = '';
 	let playerActivated = false; // Track if player has been activated on mobile
+	let isClient = false; // Track if we're on client side
 
 	// Language options for MegaPlay
 	const languages = [
@@ -53,8 +54,15 @@
 		}
 	}
 
-	// Check if on mobile
-	let isMobile = $derived(typeof window !== 'undefined' ? window.innerWidth < 768 : false);
+	// Check if we're on client and set initial activation state
+	import { onMount } from 'svelte';
+	onMount(() => {
+		isClient = true;
+		// Desktop is always activated, mobile starts deactivated
+		if (window.innerWidth >= 768) {
+			playerActivated = true;
+		}
+	});
 
 
 	function navigateToEpisode(episode: any) {
@@ -94,7 +102,7 @@
 				allowfullscreen
 				title="Video Player"
 				referrerpolicy="no-referrer"
-				style={playerActivated || window.innerWidth >= 768 ? 'pointer-events: auto;' : 'pointer-events: none;'}
+				style={playerActivated || !isClient ? 'pointer-events: auto;' : 'pointer-events: none;'}
 			></iframe>
 			<!-- Mobile overlay to prevent accidental clicks -->
 			{#if !playerActivated}
