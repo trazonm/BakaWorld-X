@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import { onMount } from 'svelte';
 	import type { PageData } from './$types';
 
 	export let data: PageData;
@@ -27,8 +26,6 @@
 	let selectedLanguage = 'sub';
 	let loading = false;
 	let error = '';
-	let playerActivated = false; // Track if player has been activated on mobile
-	let isClient = false; // Track if we're on client side
 
 	// Language options for MegaPlay
 	const languages = [
@@ -39,30 +36,6 @@
 	// Get the embed URL from videoData
 	$: embedUrl = videoData?.embedUrl || videoData?.sources?.[0]?.url;
 	$: loading = !embedUrl;
-
-	// Activate player on mobile (removes overlay)
-	function activatePlayer() {
-		playerActivated = true;
-	}
-
-	// Reset activation when language or episode changes
-	$: if (embedUrl && (selectedLanguage || episodeId)) {
-		// Only reset on mobile, desktop is always active
-		if (typeof window !== 'undefined' && window.innerWidth < 768) {
-			playerActivated = false;
-		} else {
-			playerActivated = true; // Desktop is always activated
-		}
-	}
-
-	// Check if we're on client and set initial activation state
-	onMount(() => {
-		isClient = true;
-		// Desktop is always activated, mobile starts deactivated
-		if (window.innerWidth >= 768) {
-			playerActivated = true;
-		}
-	});
 
 
 	function navigateToEpisode(episode: any) {
@@ -101,29 +74,9 @@
 				scrolling="no"
 				allowfullscreen
 				title="Video Player"
+				sandbox="allow-scripts allow-same-origin allow-presentation allow-forms"
 				referrerpolicy="no-referrer"
-				style={playerActivated || !isClient ? 'pointer-events: auto;' : 'pointer-events: none;'}
 			></iframe>
-			<!-- Mobile overlay to prevent accidental clicks -->
-			{#if !playerActivated}
-				<div 
-					class="absolute inset-0 flex items-center justify-center bg-black/20 backdrop-blur-[2px] md:hidden z-10"
-					onclick={activatePlayer}
-					role="button"
-					tabindex="0"
-					onkeydown={(e) => {
-						if (e.key === 'Enter' || e.key === ' ') {
-							e.preventDefault();
-							activatePlayer();
-						}
-					}}
-				>
-					<div class="text-center p-6 bg-black/60 rounded-lg border border-gray-600">
-						<p class="text-white font-semibold mb-2">Tap to activate video player</p>
-						<p class="text-gray-300 text-sm">This prevents accidental popups</p>
-					</div>
-				</div>
-			{/if}
 		{:else}
 			<div class="absolute top-0 left-0 w-full h-full flex items-center justify-center bg-gray-900">
 				<div class="max-w-lg text-center p-8">
