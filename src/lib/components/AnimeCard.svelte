@@ -5,7 +5,7 @@
 	export let anime: Anime;
 </script>
 
-<div class="anime-card bg-gray-900 rounded-xl shadow-xl overflow-hidden border border-gray-800 flex flex-col group" style="width: 300px;">
+<div class="anime-card bg-gray-900 rounded-xl shadow-xl overflow-hidden border border-gray-800 flex flex-col group w-full">
 	<!-- Image Container (300x400 aspect ratio) -->
 	<div class="relative w-full h-96" style="height: 400px;">
 		<img 
@@ -74,7 +74,7 @@
 		<!-- Action Button -->
 		<a 
 			href="/anime/{anime.id}" 
-			class="mt-auto inline-block text-center bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-2 rounded-lg transition-all duration-200 hover:shadow-lg hover:scale-105"
+			class="mt-auto inline-block text-center bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-3 rounded-lg transition-all duration-200 hover:shadow-lg hover:scale-105 touch-manipulation min-h-[44px]"
 		>
 			Watch Now
 		</a>

@@ -11,7 +11,8 @@ export function useAnimeSearch() {
 		error: '',
 		currentPage: 1,
 		totalPages: 1,
-		hasNextPage: false
+		hasNextPage: false,
+		hasSearched: false // Track if a search has been executed
 	};
 
 	const state = writable<AnimeSearchState>(initialState);
@@ -19,7 +20,7 @@ export function useAnimeSearch() {
 	async function search(query: string, page: number = 1) {
 		if (!query.trim()) return;
 
-		state.update(s => ({ ...s, loading: true, error: '', currentPage: page }));
+		state.update(s => ({ ...s, loading: true, error: '', currentPage: page, hasSearched: true }));
 
 		try {
 			const response = await animeSearchService.searchAnime(query, page);
@@ -32,14 +33,16 @@ export function useAnimeSearch() {
 				totalPages: response.totalPages,
 				hasNextPage: response.hasNextPage,
 				loading: false,
-				error: ''
+				error: '',
+				hasSearched: true
 			}));
 		} catch (error: any) {
 			state.update(s => ({
 				...s,
 				loading: false,
 				error: error.message || 'Search failed',
-				results: []
+				results: [],
+				hasSearched: true
 			}));
 		}
 	}

@@ -6,7 +6,9 @@ export const auth = writable<{ isLoggedIn: boolean; username: string }>({
 });
 
 export async function refreshAuth() {
-  const res = await fetch('/api/auth/session');
+  const res = await fetch('/api/auth/session', {
+    credentials: 'include' // Include cookies in request
+  });
   const data = await res.json();
   auth.set({
     isLoggedIn: data.isLoggedIn,

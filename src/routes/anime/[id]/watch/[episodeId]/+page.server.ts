@@ -2,15 +2,13 @@ import type { PageServerLoad } from './$types';
 import { error } from '@sveltejs/kit';
 
 export const load: PageServerLoad = async ({ params, fetch, url }) => {
-	const server = url.searchParams.get('server') || 'hd-2';
-	const category = url.searchParams.get('category') || 'dub';
+	const language = url.searchParams.get('language') || 'sub';
 	
 	try {
 		console.log('=== DEBUG INFO ===');
 		console.log('Anime ID:', params.id);
 		console.log('Episode ID from URL:', params.episodeId);
-		console.log('Server:', server);
-		console.log('Category:', category);
+		console.log('Language:', language);
 		
 		// Get anime details
 		const animeResponse = await fetch(`/api/search/anime/${params.id}`);
@@ -26,7 +24,7 @@ export const load: PageServerLoad = async ({ params, fetch, url }) => {
 			console.log('First few episode IDs:', animeData.episodes.slice(0, 3).map((ep: any) => ep.id));
 		}
 		
-		// Find the current episode
+		// Find the current episode (URL uses - instead of $)
 		const currentEpisode = animeData.episodes?.find((ep: any) => 
 			ep.id.replace(/\$/g, '-') === params.episodeId
 		);
@@ -42,12 +40,24 @@ export const load: PageServerLoad = async ({ params, fetch, url }) => {
 			throw error(404, 'Episode not found');
 		}
 		
-		// Get video sources with category parameter
-		const videoResponse = await fetch(`/api/anime/watch/${params.episodeId}?server=${server}&category=${category}`);
+		// Get video sources using MegaPlay embed
+		const videoResponse = await fetch(`/api/anime/watch/${params.episodeId}?language=${language}`);
+		console.log('Video response status:', videoResponse.status);
+		
 		if (!videoResponse.ok) {
-			throw error(videoResponse.status, 'Video sources not found');
+			const errorData = await videoResponse.json().catch(() => ({}));
+			console.error('Video sources API error:', videoResponse.status, errorData);
+			
+			// If it's a 503 (Service Unavailable), show the helpful error message
+			if (videoResponse.status === 503 && errorData.message) {
+				throw error(503, errorData.message);
+			}
+			
+			throw error(videoResponse.status, errorData.error || errorData.message || 'Video sources not found');
 		}
+		
 		const videoData = await videoResponse.json();
+		console.log('Video data received:', videoData ? 'Yes' : 'No', 'Sources:', videoData?.sources?.length || 0);
 		
 		// Find next and previous episodes
 		const currentIndex = animeData.episodes?.findIndex((ep: any) => 
@@ -68,12 +78,21 @@ export const load: PageServerLoad = async ({ params, fetch, url }) => {
 			videoData,
 			nextEpisode,
 			prevEpisode,
-			server,
-			category,
+			language,
 			animeId: params.id,
 			episodeId: params.episodeId
 		};
 	} catch (err) {
-		throw error(404, 'Content not found');
+		console.error('Page load error:', err);
+		
+		// If it's already a SvelteKit error, re-throw it
+		if (err && typeof err === 'object' && 'status' in err) {
+			throw err;
+		}
+		
+		// Otherwise throw a generic error
+		const errorMessage = err instanceof Error ? err.message : 'Content not found';
+		console.error('Throwing error:', errorMessage);
+		throw error(500, errorMessage);
 	}
 };

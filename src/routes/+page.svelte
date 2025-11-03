@@ -30,7 +30,7 @@
 </script>
 
 <main
-	class="flex h-screen w-screen flex-col items-center justify-center overflow-hidden "
+	class="flex min-h-[calc(100vh-5rem)] w-full flex-col items-center justify-center"
 >
 	<div class="flex flex-col items-center mb-40">
 		<h1 class="mt-12 mb-8 text-4xl font-extrabold text-white drop-shadow-lg">BakaWorld χ</h1>
@@ -64,6 +64,7 @@
 					const res = await fetch('/api/auth/login', {
 						method: 'POST',
 						headers: { 'Content-Type': 'application/json' },
+						credentials: 'include', // Include cookies in request
 						body: JSON.stringify({
 							username: formData.get('username'),
 							password: formData.get('password')
@@ -71,8 +72,11 @@
 					});
 					const data = await res.json();
 					if (data.success) {
+						// Wait a brief moment for cookie to be set, then refresh auth
+						await new Promise(resolve => setTimeout(resolve, 100));
 						await refreshAuth();
-						goto('/home');
+						// Use window.location for a full page reload to ensure cookie is read
+						window.location.href = '/home';
 					} else {
 						alert(data.message || 'Login failed');
 					}

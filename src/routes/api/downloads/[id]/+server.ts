@@ -3,6 +3,7 @@ import type { RequestHandler } from '@sveltejs/kit';
 import { getSessionUser } from '$lib/server/session';
 import { findUserByUsername, deleteDownloadById } from '$lib/server/userModel';
 import type { JwtPayload } from 'jsonwebtoken';
+import { createRealDebridService } from '$lib/services/realDebridService';
 import { REAL_DEBRID_AUTH } from '$env/static/private';
 import dns from 'dns';
 
@@ -13,13 +14,6 @@ function getUsernameFromSession(session: string | JwtPayload | null): string | n
     return session.username;
   }
   return null;
-}
-
-function getRealDebridHeaders() {
-  // Replace with your actual logic to get the Real-Debrid API key/token
-  return {
-    Authorization: `Bearer ${REAL_DEBRID_AUTH}`
-  };
 }
 
 export const DELETE: RequestHandler = async ({ request, params }) => {
@@ -40,23 +34,24 @@ export const DELETE: RequestHandler = async ({ request, params }) => {
   }
 
   console.log(`Received request to delete torrent with id: ${id}`);
+  
+  // Delete from database first
   await deleteDownloadById(user.username, id);
 
-
+  // Then delete from Real-Debrid (this may return 204 No Content)
   try {
-    const res = await fetch(`https://api.real-debrid.com/rest/1.0/torrents/delete/${id}`,
-      {
-        method: 'DELETE',
-        headers: getRealDebridHeaders()
-      }
-    );
-    if (!res.ok) {
-      console.error('Failed to delete from Real-Debrid:', await res.text());
-      return new Response(JSON.stringify({ error: 'Failed to delete from Real-Debrid' }), { status: 502 });
+    const realDebridService = createRealDebridService(REAL_DEBRID_AUTH);
+    await realDebridService.deleteTorrent(id);
+    console.log(`Successfully deleted torrent from Real-Debrid: ${id}`);
+  } catch (err: any) {
+    // If it's a 204 response or deletion succeeded, that's fine
+    if (err.message?.includes('204') || err.message?.includes('No Content')) {
+      console.log(`Torrent deleted from Real-Debrid (204 response): ${id}`);
+    } else {
+      console.error('Error deleting from Real-Debrid:', err);
+      // Don't fail the request - we already deleted from DB
+      // The client-side will handle cleanup
     }
-  } catch (err) {
-    console.error('Error deleting from Real-Debrid:', err);
-    return new Response(JSON.stringify({ error: 'Error contacting Real-Debrid' }), { status: 502 });
   }
   
   console.log(`Successfully deleted torrent with id: ${id} for user: ${username}`);

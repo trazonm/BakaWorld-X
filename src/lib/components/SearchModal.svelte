@@ -13,21 +13,24 @@
 	export let onSort: (key: 'Title' | 'Size' | 'Seeders') => void;
 	export let onAddToQueue: (result: SearchResult) => void;
 
-	$: filteredResults = results.filter(
-		(r) => r.Title && r.Title.toLowerCase().includes(modalSearch.trim().toLowerCase())
-	);
+	// Results are already filtered from parent
+	$: filteredResults = results;
 </script>
 
 {#if $showResultsStore}
-	<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/80">
+	<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-2 md:p-4">
 		<div
-			class="relative flex h-[32rem] max-h-full w-[80vw] flex-col rounded-lg bg-gray-900 p-8 shadow-2xl border border-gray-800"
+			class="relative flex h-[90vh] md:h-[32rem] max-h-full w-full md:w-[80vw] flex-col rounded-lg bg-gray-900 p-4 md:p-8 shadow-2xl border border-gray-800"
 		>
 			<button
-				class="absolute top-2 right-2 text-2xl text-gray-400 hover:text-gray-200"
-				on:click={() => showResultsStore.set(false)}>&times;</button
+				class="absolute top-2 right-2 text-2xl md:text-3xl text-gray-400 hover:text-gray-200 touch-manipulation min-h-[44px] min-w-[44px] flex items-center justify-center z-10"
+				on:click={() => showResultsStore.set(false)}
+				aria-label="Close modal"
+			>&times;</button
 			>
-			<h2 class="mb-4 text-2xl font-bold text-white">Search Results</h2>
+			<div class="flex items-center justify-between mb-4">
+				<h2 class="text-xl md:text-2xl font-bold text-white">Search Results</h2>
+			</div>
 			<input
 				type="text"
 				placeholder="Filter by name..."

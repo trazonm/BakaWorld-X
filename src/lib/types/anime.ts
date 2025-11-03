@@ -29,6 +29,7 @@ export interface AnimeSearchState {
 	currentPage: number;
 	totalPages: number;
 	hasNextPage: boolean;
+	hasSearched: boolean;
 }
 
 // Video streaming types for Hakai API

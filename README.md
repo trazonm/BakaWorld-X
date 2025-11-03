@@ -49,14 +49,72 @@ BakaWorld X is a full-stack web application that provides a seamless anime strea
 
 ## 🚀 Quick Start
 
-### Prerequisites
-- **Node.js** (v18 or higher)
+### Option 1: Docker (Recommended)
+
+**Prerequisites:**
+- Docker and Docker Compose installed
+- Real-Debrid account (for premium features)
+
+**Installation:**
+
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/trazonm/BakaWorld-X.git
+   cd BakaWorld-X
+   ```
+
+2. **Set up environment variables**
+   Copy the example environment file and edit it:
+   ```bash
+   cp .env.example .env
+   ```
+   
+   Edit `.env` with your configuration:
+   ```env
+   # Database (for Docker, these will connect to the postgres service)
+   DB_HOST=postgres
+   DB_PORT=5432
+   DB_NAME=bakaworld
+   DB_USER=bakaworld
+   DB_PASSWORD=your_secure_password
+
+   # JWT Secret (change this to a random secure string)
+   JWT_SECRET=your_super_secret_jwt_key_change_this
+
+   # Real-Debrid API
+   REAL_DEBRID_AUTH=your_realdebrid_api_key
+
+   # Jackett API (optional, for torrent search)
+   JACKETT_API_KEY=your_jackett_api_key
+
+   # Application Port
+   PORT=3000
+   ```
+
+3. **Start with Docker Compose**
+   ```bash
+   docker-compose up -d
+   ```
+
+4. **Access the application**
+   Navigate to `http://localhost:3000`
+
+**Docker Commands:**
+- View logs: `docker-compose logs -f app`
+- Stop services: `docker-compose down`
+- Stop and remove volumes: `docker-compose down -v`
+- Rebuild after changes: `docker-compose up -d --build`
+
+### Option 2: Local Development
+
+**Prerequisites:**
+- **Node.js** (v20 or higher)
 - **pnpm** (recommended) or npm
-- **PostgreSQL** database
+- **PostgreSQL** database (running locally or remote)
 - **Real-Debrid account** (for premium features)
 - **Jackett server** (for torrent search)
 
-### Installation
+**Installation:**
 
 1. **Clone the repository**
    ```bash
@@ -91,8 +149,9 @@ BakaWorld X is a full-stack web application that provides a seamless anime strea
 
 4. **Set up the database**
    ```bash
-   # Create PostgreSQL database and run migrations
-   # (Database setup instructions depend on your migration system)
+   # Create PostgreSQL database
+   createdb bakaworld
+   # Or use your preferred database setup method
    ```
 
 5. **Start the development server**

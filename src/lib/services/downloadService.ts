@@ -38,12 +38,14 @@ class DownloadService {
 		}
 	}
 
-	async getTorrentProgress(id: string): Promise<TorrentInfo | null> {
+	async getTorrentProgress(id: string): Promise<{ torrentInfo: TorrentInfo | null; status: number } | null> {
 		try {
 			const res = await fetch(`/api/torrents/info/${id}`);
 			if (res.ok) {
-				return await res.json();
+				return { torrentInfo: await res.json(), status: res.status };
 			}
+			// Return status for 404 (resource not found) or other errors
+			return { torrentInfo: null, status: res.status };
 		} catch (error) {
 			console.error('Failed to get torrent progress:', error);
 		}

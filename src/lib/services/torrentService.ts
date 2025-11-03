@@ -1,16 +1,18 @@
 // Service layer for torrent-related API calls
 import type { TorrentInfo, Download } from '$lib/types';
+import { RealDebridService } from './realDebridService';
 
 class TorrentService {
 	private torrentInfoCache: Record<string, TorrentInfo> = {};
 	private downloadCache: Record<string, Download> = {};
 
 	async getTorrentInfo(id: string): Promise<TorrentInfo> {
-		if (!this.torrentInfoCache[id]) {
-			const res = await fetch(`/api/torrents/info/${id}`);
-			if (res.ok) {
-				this.torrentInfoCache[id] = await res.json();
-			}
+		// Don't cache if we're actively polling
+		const res = await fetch(`/api/torrents/info/${id}`);
+		if (res.ok) {
+			const info = await res.json();
+			this.torrentInfoCache[id] = info;
+			return info;
 		}
 		return this.torrentInfoCache[id] || {} as TorrentInfo;
 	}
@@ -80,6 +82,89 @@ class TorrentService {
 		if (link.includes('magnet')) return this.addMagnet(link);
 		const redirectUrl = await this.getRedirectUrl(link);
 		return redirectUrl.includes('magnet') ? this.addMagnet(redirectUrl) : this.addTorrent(link);
+	}
+
+	/**
+	 * Check if torrents already exist by hash (returns all matches)
+	 */
+	async checkTorrentExists(magnetLink?: string, hash?: string): Promise<{ 
+		exists: boolean; 
+		torrent?: any; 
+		allTorrents?: any[];
+		count?: number;
+	}> {
+		const response = await fetch('/api/torrents/check-hash', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ magnetLink, hash })
+		});
+		if (!response.ok) {
+			return { exists: false };
+		}
+		return await response.json();
+	}
+
+	/**
+	 * Add torrent to queue (background service)
+	 * This immediately adds to Real-Debrid and saves to database
+	 */
+	async addToQueue(result: { MagnetUri?: string; Link?: string; Title?: string; Guid?: string }): Promise<{ id: string; existing: boolean }> {
+		const response = await fetch('/api/torrents/queue', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({
+				magnetLink: result.MagnetUri,
+				link: result.Link,
+				title: result.Title,
+				guid: result.Guid
+			})
+		});
+		
+		if (!response.ok) {
+			let errorMessage = 'Failed to add to queue';
+			try {
+				const text = await response.text();
+				if (text) {
+					const error = JSON.parse(text);
+					errorMessage = error.error || errorMessage;
+					if (error.details) {
+						console.error('Queue endpoint error details:', error.details);
+					}
+				} else {
+					errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+				}
+			} catch (e) {
+				errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+			}
+			throw new Error(errorMessage);
+		}
+		
+		const text = await response.text();
+		if (!text) {
+			throw new Error('Empty response from queue endpoint');
+		}
+		
+		let data;
+		try {
+			data = JSON.parse(text);
+		} catch (e) {
+			throw new Error('Invalid JSON response from queue endpoint');
+		}
+		
+		if (!data.id) {
+			throw new Error('Invalid response: missing torrent ID');
+		}
+		return { id: data.id, existing: data.existing || false };
+	}
+
+	/**
+	 * Poll progress for all active downloads (background service)
+	 */
+	async pollProgress(): Promise<void> {
+		await fetch('/api/torrents/poll-progress', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' }
+		});
 	}
 
 	clearCache(): void {

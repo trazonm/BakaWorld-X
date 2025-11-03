@@ -1,23 +1,31 @@
 <!-- Downloads Table Component -->
 <script lang="ts">
 	import DownloadRow from './DownloadRow.svelte';
+	import DownloadCard from './DownloadCard.svelte';
 	import type { Download } from '$lib/types';
+	import { createEventDispatcher } from 'svelte';
 
 	export let downloads: Download[];
 	export let loading: boolean;
 	export let error: string;
 	export let onDelete: (id: string) => void;
+
+	const dispatch = createEventDispatcher();
+
+	function handleToast(event: CustomEvent) {
+		dispatch('toast', event.detail);
+	}
 </script>
 
 <div class="bg-gray-900 rounded-lg border border-gray-800 overflow-hidden">
-	<div class="px-6 py-4 border-b border-gray-800">
-		<h2 class="text-xl font-semibold text-white">Downloads</h2>
+	<div class="px-4 md:px-6 py-4 border-b border-gray-800">
+		<h2 class="text-lg md:text-xl font-semibold text-white">Downloads</h2>
 		<p class="text-gray-400 text-sm mt-1">
 			{downloads.length} active download{downloads.length !== 1 ? 's' : ''}
 		</p>
 	</div>
 
-	{#if loading}
+	{#if loading && downloads.length === 0}
 		<div class="flex items-center justify-center py-12">
 			<div class="flex items-center space-x-3 text-gray-400">
 				<svg class="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -28,21 +36,29 @@
 			</div>
 		</div>
 	{:else if error}
-		<div class="flex items-center justify-center py-12">
+		<div class="flex items-center justify-center py-12 px-4">
 			<div class="text-red-400 text-center">
 				<p class="font-medium">Error loading downloads</p>
 				<p class="text-sm mt-1">{error}</p>
 			</div>
 		</div>
 	{:else if downloads.length === 0}
-		<div class="flex items-center justify-center py-12">
+		<div class="flex items-center justify-center py-12 px-4">
 			<div class="text-gray-400 text-center">
-				<p class="text-lg font-medium">No downloads yet</p>
-				<p class="text-sm mt-1">Start searching for torrents to see your downloads here</p>
+				<p class="text-base md:text-lg font-medium">No downloads yet</p>
+				<p class="text-xs md:text-sm mt-1">Start searching for torrents to see your downloads here</p>
 			</div>
 		</div>
 	{:else}
-		<div class="overflow-x-auto">
+		<!-- Mobile: Card View -->
+		<div class="md:hidden p-4 space-y-3">
+			{#each downloads as download (download.id)}
+				<DownloadCard {download} {onDelete} on:toast={handleToast} />
+			{/each}
+		</div>
+		
+		<!-- Desktop: Table View -->
+		<div class="hidden md:block overflow-x-auto">
 			<table class="min-w-full">
 				<thead class="bg-gray-800/50">
 					<tr class="border-b border-gray-700">
@@ -68,7 +84,7 @@
 				</thead>
 				<tbody class="bg-gray-900">
 					{#each downloads as download (download.id)}
-						<DownloadRow {download} {onDelete} />
+						<DownloadRow {download} {onDelete} on:toast={handleToast} />
 					{/each}
 				</tbody>
 			</table>

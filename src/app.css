@@ -42,10 +42,220 @@
   }
 }
 
-html, body {
+/* Theme Variables */
+:root {
+  /* Dark Theme (Default) */
+  --theme-bg-primary: #0f172a; /* slate-900 */
+  --theme-bg-secondary: #1e293b; /* slate-800 */
+  --theme-bg-tertiary: #334155; /* slate-700 */
+  --theme-text-primary: #f1f5f9; /* slate-100 */
+  --theme-text-secondary: #cbd5e1; /* slate-300 */
+  --theme-border: #334155; /* slate-700 */
+}
+
+[data-theme="dark"] {
+  --theme-bg-primary: #0f172a; /* slate-900 */
+  --theme-bg-secondary: #1e293b; /* slate-800 */
+  --theme-bg-tertiary: #334155; /* slate-700 */
+  --theme-text-primary: #f1f5f9; /* slate-100 */
+  --theme-text-secondary: #cbd5e1; /* slate-300 */
+  --theme-border: #334155; /* slate-700 */
+}
+
+[data-theme="midnight"] {
+  --theme-bg-primary: #000000; /* Pure black */
+  --theme-bg-secondary: #0a0a0a; /* Almost black */
+  --theme-bg-tertiary: #1a1a1a; /* Very dark gray */
+  --theme-text-primary: #ffffff; /* Pure white */
+  --theme-text-secondary: #a0a0a0; /* Light gray */
+  --theme-border: #1a1a1a; /* Very dark gray */
+}
+
+html {
   height: 100%;
   margin: 0;
-  @apply bg-gradient-to-br from-black via-gray-900 to-gray-800;
-  @apply max-h-screen;
-  /* overflow: hidden;  */
+  padding: 0;
+  background-color: var(--theme-bg-primary);
+  color: var(--theme-text-primary);
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  background-color: var(--theme-bg-primary);
+  color: var(--theme-text-primary);
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* Ensure body fills viewport when content is short, but can grow when needed */
+html {
+  overflow-y: auto; /* Only show scrollbar when content exceeds viewport */
+}
+
+body {
+  min-height: 100vh;
+  overflow-x: hidden;
+  box-sizing: border-box;
+}
+
+/* Hide scrollbar when content doesn't exceed viewport (requires JS or different approach) */
+/* For now, we'll use overlay scrollbar behavior */
+html::-webkit-scrollbar {
+  width: 8px;
+}
+
+html::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+html::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+}
+
+html::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+/* Prevent browser force dark mode from affecting images */
+/* Opera GX and some browsers invert images in force dark mode - counteract this */
+img {
+  color-scheme: light !important;
+  filter: invert(0) !important;
+  -webkit-filter: invert(0) !important;
+  mix-blend-mode: normal !important;
+  /* Force image to render in light mode context */
+  forced-color-adjust: none !important;
+  -webkit-forced-color-adjust: none !important;
+}
+
+/* Specifically protect logo and other important images with extra rules */
+img[src*="logo"],
+img[alt*="logo"],
+img[alt*="Logo"],
+img[alt*="BakaWorld Logo"] {
+  color-scheme: light !important;
+  filter: invert(0) !important;
+  -webkit-filter: invert(0) !important;
+  mix-blend-mode: normal !important;
+  forced-color-adjust: none !important;
+  -webkit-forced-color-adjust: none !important;
+  /* Counteract any potential inversion by forcing light rendering */
+  image-rendering: -webkit-optimize-contrast;
+  image-rendering: crisp-edges;
+}
+
+/* Wrap logo in a light-mode container to prevent browser dark mode */
+/* Use aggressive isolation to prevent Opera GX from affecting the logo */
+nav .logo-container {
+  /* Create an isolated rendering context */
+  isolation: isolate;
+  position: relative;
+  z-index: 1;
+  /* Force light color scheme */
+  color-scheme: only light !important;
+  /* Create a new stacking context */
+  transform: translateZ(0);
+  will-change: transform;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+nav .logo-image {
+  /* Prevent all filters and transformations */
+  filter: none !important;
+  -webkit-filter: none !important;
+  /* Force light color scheme */
+  color-scheme: only light !important;
+  /* Prevent color adjustments */
+  forced-color-adjust: none !important;
+  -webkit-forced-color-adjust: none !important;
+  /* Prevent blending */
+  mix-blend-mode: normal !important;
+  /* Ensure crisp rendering */
+  image-rendering: -webkit-optimize-contrast;
+  image-rendering: crisp-edges;
+  /* Create isolation */
+  isolation: isolate;
+  /* Hardware acceleration to bypass browser filters */
+  transform: translate3d(0, 0, 0);
+  -webkit-transform: translate3d(0, 0, 0);
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+/* Touch-friendly interactions */
+.touch-manipulation,
+button,
+a {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: rgba(59, 130, 246, 0.3);
+}
+
+/* Minimum touch target size (44x44px for accessibility) */
+button,
+a[role="button"] {
+  min-height: 44px;
+  min-width: 44px;
+}
+
+/* Compact download delete button overrides global minimums */
+.download-delete-button {
+  min-width: 1.75rem !important; /* match download button height (~28px) */
+  min-height: 1.75rem !important;
+  width: 1.75rem;
+  height: 1.75rem;
+  padding: 0;
+  line-height: 1;
+}
+
+/* Theme Utility Classes */
+.theme-bg-primary {
+  background-color: var(--theme-bg-primary) !important;
+}
+
+.theme-bg-secondary {
+  background-color: var(--theme-bg-secondary) !important;
+}
+
+.theme-bg-tertiary {
+  background-color: var(--theme-bg-tertiary) !important;
+}
+
+.theme-text-primary {
+  color: var(--theme-text-primary) !important;
+}
+
+.theme-text-secondary {
+  color: var(--theme-text-secondary) !important;
+}
+
+.theme-border {
+  border-color: var(--theme-border) !important;
+}
+
+/* Auto-apply theme to common container classes */
+[data-theme="midnight"] .min-h-screen,
+[data-theme="midnight"] .bg-black,
+[data-theme="midnight"] .bg-gray-900,
+[data-theme="midnight"] .bg-gray-800 {
+  background-color: var(--theme-bg-primary) !important;
+}
+
+[data-theme="midnight"] .bg-gray-700 {
+  background-color: var(--theme-bg-secondary) !important;
+}
+
+[data-theme="midnight"] .border-gray-800,
+[data-theme="midnight"] .border-gray-700 {
+  border-color: var(--theme-border) !important;
+}
+
+/* Improve text readability on mobile */
+@media (max-width: 640px) {
+  body {
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
 }

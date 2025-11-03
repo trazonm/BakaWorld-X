@@ -20,7 +20,8 @@ export async function getUsers() {
 }
 
 export async function findUserByUsername(username: string) {
-  const result = await query('SELECT * FROM users WHERE username = $1', [username]);
+  // Use LOWER() for case-insensitive lookup to handle existing usernames
+  const result = await query('SELECT * FROM users WHERE LOWER(username) = LOWER($1)', [username]);
   return result.rows[0];
 }
 

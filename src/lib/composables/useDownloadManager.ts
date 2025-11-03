@@ -10,26 +10,66 @@ export function useDownloadManager() {
 	const loading = writable(true);
 	const error = writable('');
 	let intervals: Record<string, any> = {};
+	let initialLoadComplete = false;
 	
 	const torrentManager = useTorrentManager();
 
-	async function fetchDownloads() {
+	async function fetchDownloads(silent = false) {
 		try {
-			loading.set(true);
+			// Only show loading on initial load, not during background refreshes
+			if (!silent && !initialLoadComplete) {
+				loading.set(true);
+			}
 			error.set('');
 			const downloadsList = await downloadService.getDownloads();
 			downloads.set(downloadsList);
+			initialLoadComplete = true;
 		} catch (e: any) {
 			error.set(e.message || 'Unknown error');
+			initialLoadComplete = true; // Mark as complete even on error
 		} finally {
-			loading.set(false);
+			// Only set loading to false if we were showing it
+			if (!silent) {
+				loading.set(false);
+			}
 		}
 	}
 
 	async function fetchProgress(id: string) {
 		try {
-			const torrentInfo = await downloadService.getTorrentProgress(id);
-			if (!torrentInfo) return;
+			const result = await downloadService.getTorrentProgress(id);
+			
+			// If request failed completely, return early
+			if (!result) {
+				return;
+			}
+
+			// If torrent doesn't exist (404), remove it and stop polling
+			if (result.status === 404) {
+				console.log(`Torrent ${id} not found (unknown_ressource), removing from UI and stopping polling`);
+				// Remove from UI
+				downloads.update(currentDownloads => 
+					currentDownloads.filter(d => d.id !== id)
+				);
+				// Stop polling
+				if (intervals[id]) {
+					clearInterval(intervals[id]);
+					delete intervals[id];
+				}
+				// Try to delete from database (idempotent - if already deleted, that's fine)
+				try {
+					await downloadService.deleteDownload(id);
+				} catch (err) {
+					console.warn('Error deleting missing torrent from database:', err);
+				}
+				return;
+			}
+
+			const torrentInfo = result.torrentInfo;
+			if (!torrentInfo) {
+				// If status is not 404 but torrentInfo is null, might be temporary error
+				return;
+			}
 
 			downloads.update(currentDownloads => {
 				const idx = currentDownloads.findIndex(d => d.id === id);

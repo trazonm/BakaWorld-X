@@ -1,6 +1,9 @@
-// SvelteKit endpoint for searching torrents via Jackett
+// Anime search endpoint using Consumet API
 import type { RequestHandler } from '@sveltejs/kit';
 import { getSessionUser } from '$lib/server/session';
+import { createConsumetService } from '$lib/services/consumetService';
+import { config } from '$lib/config';
+import '$lib/server/dns-config';
 
 export const GET: RequestHandler = async ({ request }) => {
     // TODO: Re-enable auth when ready
@@ -10,35 +13,34 @@ export const GET: RequestHandler = async ({ request }) => {
     // }
     
     const url = new URL(request.url);
-    const query = url.searchParams.get('query')?.toLowerCase();
+    const query = url.searchParams.get('query')?.trim();
     const page = parseInt(url.searchParams.get('page') || '1');
     
     if (!query) {
         return new Response(JSON.stringify({ error: 'Query parameter is required' }), { status: 400 });
     }
     
-    const apiURL = `https://consumet.mysynology.net/anime/zoro/${query}?page=${page}`;
-    
     try {
-        const response = await fetch(apiURL);
-        if (!response.ok) {
-            throw new Error(`Error fetching data from BakaServer: ${response.statusText}`);
-        }
-        const data = await response.json();
+        // Use config default (http://192.168.0.107:6000)
+        const baseUrl = config.consumet.baseUrl;
+        console.log('Anime search - Using base URL:', baseUrl);
+        console.log('Anime search - Query:', query, 'Page:', page);
         
-        // Use the pagination data from the external API if available, otherwise fallback to our logic
-        const results = data.results || [];
+        const consumetService = createConsumetService(baseUrl);
+        const result = await consumetService.searchAnime(query, 'zoro', page);
         
-        const processedData = {
-            currentPage: data.currentPage || page,
-            hasNextPage: data.hasNextPage !== undefined ? data.hasNextPage : results.length >= 25,
-            totalPages: data.totalPages || (data.hasNextPage ? page + 1 : page),
-            results: results
-        };
-        
-        return new Response(JSON.stringify(processedData), { status: 200 });
+        return new Response(JSON.stringify(result), { 
+            status: 200,
+            headers: { 'Content-Type': 'application/json' }
+        });
     } catch (error) {
         const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-        return new Response(JSON.stringify({ error: errorMessage }), { status: 500 });
+        const errorStack = error instanceof Error ? error.stack : undefined;
+        console.error('Anime search error:', errorMessage);
+        console.error('Error stack:', errorStack);
+        return new Response(JSON.stringify({ 
+            error: errorMessage,
+            details: errorStack
+        }), { status: 500 });
     }
 };

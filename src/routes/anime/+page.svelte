@@ -8,6 +8,10 @@
 	const animeSearch = useAnimeSearch();
 	const { state } = animeSearch;
 
+	// Local query for input field (doesn't update until search is executed)
+	let localQuery = '';
+	let lastSearchedQuery = '';
+
 	function handleSearch(event: CustomEvent<{ query: string }>) {
 		animeSearch.search(event.detail.query);
 	}
@@ -22,6 +26,12 @@
 
 	function handlePrev() {
 		animeSearch.prevPage();
+	}
+
+	// Sync local query only when a new search completes (when loading goes from true to false)
+	$: if ($state.hasSearched && !$state.loading && $state.query !== lastSearchedQuery) {
+		lastSearchedQuery = $state.query;
+		localQuery = $state.query;
 	}
 </script>
 
@@ -38,7 +48,7 @@
 	}
 </style>
 
-<div class="anime-search-container min-h-screen">
+<div class="anime-search-container">
 	<main class="container mx-auto px-4 py-8 max-w-7xl">
 		<!-- Header Section -->
 		<div class="text-center mb-8">
@@ -52,7 +62,7 @@
 
 		<!-- Search Form -->
 		<AnimeSearchForm 
-			bind:query={$state.query} 
+			bind:query={localQuery} 
 			loading={$state.loading} 
 			on:search={handleSearch} 
 		/>
@@ -73,6 +83,7 @@
 			loading={$state.loading}
 			error={$state.error}
 			query={$state.query}
+			hasSearched={$state.hasSearched}
 		/>
 
 		<!-- Pagination -->

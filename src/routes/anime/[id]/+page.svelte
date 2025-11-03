@@ -31,7 +31,7 @@
 	}
 </style>
 
-<div class="anime-detail-container min-h-screen">
+<div class="anime-detail-container">
 	<main class="container mx-auto px-4 py-8 max-w-7xl">
 		<!-- Header Section -->
 		<div class="flex flex-col lg:flex-row gap-8 mb-8">

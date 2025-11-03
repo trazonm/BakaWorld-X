@@ -12,6 +12,17 @@ export const config = {
 		timeout: 30000, // 30 seconds
 		retryAttempts: 3
 	},
+	consumet: {
+		baseUrl: 'http://192.168.0.107:6000',
+		defaultAnimeProvider: 'zoro',
+		defaultMangaProvider: 'mangadex'
+	},
+	comicVine: {
+		baseUrl: 'https://comicvine.gamespot.com/api'
+	},
+	realDebrid: {
+		apiBase: 'https://api.real-debrid.com/rest/1.0'
+	},
 	torrent: {
 		maxConcurrentDownloads: 5,
 		pollInterval: 2000,
