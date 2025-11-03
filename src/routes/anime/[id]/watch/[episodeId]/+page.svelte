@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
+	import { onMount, onDestroy } from 'svelte';
 	import type { PageData } from './$types';
 
 	export let data: PageData;
@@ -63,8 +64,6 @@
 			console.log('Cannot access iframe content (cross-origin)');
 		}
 	}
-
-	import { onMount, onDestroy } from 'svelte';
 	
 	// Store original window.open to restore later
 	let originalWindowOpen: typeof window.open;
