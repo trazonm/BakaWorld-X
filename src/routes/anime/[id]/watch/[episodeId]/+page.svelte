@@ -74,7 +74,7 @@
 				scrolling="no"
 				allowfullscreen
 				title="Video Player"
-				sandbox="allow-scripts allow-same-origin allow-presentation allow-forms"
+				sandbox="allow-scripts allow-same-origin allow-presentation allow-forms allow-fullscreen"
 				referrerpolicy="no-referrer"
 			></iframe>
 		{:else}
