@@ -34,7 +34,6 @@ RUN pnpm install --prod --frozen-lockfile
 # Copy built application from builder (adapter-node outputs to build/)
 COPY --from=builder /app/build ./build
 COPY --from=builder /app/static ./static
-COPY --from=builder /app/package.json ./
 
 # Expose port
 EXPOSE 3000
@@ -44,6 +43,6 @@ ENV NODE_ENV=production
 ENV HOST=0.0.0.0
 ENV PORT=3000
 
-# Start the application
-CMD ["node", "build"]
+# Start the application (adapter-node creates a server.js in build/)
+CMD ["node", "build/server.js"]
 
