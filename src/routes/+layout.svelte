@@ -66,7 +66,7 @@
 </script>
 
 <nav class="relative z-50 px-4 py-4 md:px-8" style="background-color: var(--theme-bg-primary);">
-	<div class="flex items-center justify-between gap-4">
+	<div class="container mx-auto flex items-center justify-center gap-6">
 		<a href="/" class="flex items-center gap-3">
 			<div style="color-scheme: light; filter: none; -webkit-filter: none;" class="logo-container">
 				<img src={logo} alt="BakaWorld Logo" class="h-10 w-10 rounded-full shadow-lg logo-image" />
