@@ -41,29 +41,56 @@
 
 	// Handle install button click
 	async function handleInstall() {
-		if (!deferredPrompt) {
-			// For iOS, show instructions
-			if (isIOS) {
-				alert('To install this app:\n1. Tap the Share button\n2. Select "Add to Home Screen"\n3. Tap "Add"');
+		// If we have the deferred prompt, use it (Android/Chrome)
+		if (deferredPrompt) {
+			try {
+				// Show the install prompt
+				deferredPrompt.prompt();
+
+				// Wait for the user's response
+				const { outcome } = await deferredPrompt.userChoice;
+
+				if (outcome === 'accepted') {
+					console.log('User accepted the install prompt');
+				} else {
+					console.log('User dismissed the install prompt');
+				}
+
+				// Clear the deferred prompt
+				deferredPrompt = null;
+				showBanner = false;
+				return;
+			} catch (error) {
+				console.error('Error showing install prompt:', error);
+				// Fall through to manual instructions
 			}
-			return;
 		}
 
-		// Show the install prompt
-		deferredPrompt.prompt();
-
-		// Wait for the user's response
-		const { outcome } = await deferredPrompt.userChoice;
-
-		if (outcome === 'accepted') {
-			console.log('User accepted the install prompt');
+		// Fallback: Show manual installation instructions
+		if (isIOS) {
+			alert('To install this app:\n\n1. Tap the Share button (square with arrow)\n2. Scroll down and tap "Add to Home Screen"\n3. Tap "Add"');
 		} else {
-			console.log('User dismissed the install prompt');
+			// For Android/Chrome/Edge
+			const isChrome = /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor);
+			const isEdge = /Edg/.test(navigator.userAgent);
+			const isSamsung = /SamsungBrowser/.test(navigator.userAgent);
+			
+			let instructions = 'To install this app:\n\n';
+			
+			if (isChrome || isEdge) {
+				instructions += '1. Look for the install icon in your browser\'s address bar\n';
+				instructions += '2. Or tap the menu (three dots) → "Install app"\n';
+				instructions += '3. Or tap the menu → "Add to Home screen"';
+			} else if (isSamsung) {
+				instructions += '1. Tap the menu (three lines) → "Add page to"\n';
+				instructions += '2. Select "Home screen"';
+			} else {
+				instructions += '1. Tap the browser menu\n';
+				instructions += '2. Look for "Add to Home Screen" or "Install" option';
+			}
+			
+			alert(instructions);
 		}
-
-		// Clear the deferred prompt
-		deferredPrompt = null;
-		showBanner = false;
 	}
 
 	onMount(() => {
