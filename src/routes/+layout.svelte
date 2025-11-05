@@ -67,17 +67,6 @@
 </script>
 
 <nav class="relative z-50 px-4 py-4 md:px-8 navbar-transparent">
-	<style>
-		.navbar-transparent {
-			background-color: var(--theme-bg-primary);
-		}
-		
-		@media (min-width: 768px) {
-			.navbar-transparent {
-				background-color: transparent !important;
-			}
-		}
-	</style>
 	<div class="container mx-auto flex items-center justify-between gap-4">
 		<!-- Left: Logo and Brand -->
 		<a href="/" class="flex items-center gap-3 flex-shrink-0">

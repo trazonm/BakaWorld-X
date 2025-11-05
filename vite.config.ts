@@ -11,7 +11,7 @@ export default defineConfig({
 			registerType: 'autoUpdate',
 			includeAssets: ['favicon.svg', 'apple-touch-icon.png', 'mask-icon.svg'],
 			manifest: {
-				name: 'BakaWorld X',
+				name: 'BakaWorld χ',
 				short_name: 'BakaWorld',
 				description: 'Watch anime, read manga and comics',
 				theme_color: '#0f172a',

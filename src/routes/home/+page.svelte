@@ -332,15 +332,6 @@
 		animation: gradientShift 10s ease infinite;
 	}
 
-	@keyframes gradientShift {
-		0%, 100% {
-			background-position: 0% 50%;
-		}
-		50% {
-			background-position: 100% 50%;
-		}
-	}
-
 	@keyframes shimmer {
 		0% {
 			transform: translateX(-100%) skewX(-15deg);
@@ -349,16 +340,33 @@
 			transform: translateX(200%) skewX(-15deg);
 		}
 	}
+
+	.home-background-layer {
+		position: fixed;
+		inset: 0;
+		z-index: 0;
+		pointer-events: none;
+		overflow: hidden;
+	}
+
+	.home-background-gradient {
+		position: absolute;
+		inset: 0;
+		background-color: var(--theme-bg-primary);
+		z-index: 0;
+	}
+
+	.home-background-particles {
+		position: absolute;
+		inset: 0;
+		z-index: 1;
+	}
+
 </style>
 
-<main class="min-h-[calc(100vh-5rem)] flex flex-col items-center justify-center w-full relative overflow-hidden epic-gradient">
-	<!-- Energy Aura Rings -->
-	<div class="aura-ring absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 opacity-30" style="animation-delay: 0s;"></div>
-	<div class="aura-ring absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[28rem] h-[28rem] opacity-20" style="animation-delay: 0.5s;"></div>
-	<div class="aura-ring absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[32rem] h-[32rem] opacity-10" style="animation-delay: 1s;"></div>
-
-	<!-- Particle Effects Container -->
-	<div class="absolute inset-0 pointer-events-none overflow-hidden">
+<div class="home-background-layer">
+	<div class="home-background-gradient epic-gradient"></div>
+	<div class="home-background-particles">
 		{#each particles as particle}
 			<div 
 				class="particle"
@@ -372,6 +380,13 @@
 			></div>
 		{/each}
 	</div>
+</div>
+
+<main class="min-h-[calc(100vh-5rem)] flex flex-col items-center justify-center w-full relative overflow-hidden z-10 epic-gradient">
+	<!-- Energy Aura Rings -->
+	<div class="aura-ring absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 opacity-30" style="animation-delay: 0s;"></div>
+	<div class="aura-ring absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[28rem] h-[28rem] opacity-20" style="animation-delay: 0.5s;"></div>
+	<div class="aura-ring absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[32rem] h-[32rem] opacity-10" style="animation-delay: 1s;"></div>
 
 	<!-- Main Content -->
 	<div class="flex flex-col items-center justify-center w-screen max-w-4xl mb-40 relative z-10 power-up-animation">

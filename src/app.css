@@ -259,3 +259,27 @@ a[role="button"] {
     text-size-adjust: 100%;
   }
 }
+
+/* Transparent navbar on desktop */
+@media (min-width: 768px) {
+  nav.navbar-transparent {
+    background: transparent !important;
+    background-color: transparent !important;
+    box-shadow: none !important;
+  }
+}
+
+@media (max-width: 767px) {
+  nav.navbar-transparent {
+    background-color: var(--theme-bg-primary) !important;
+  }
+}
+
+@keyframes gradientShift {
+  0%, 100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
