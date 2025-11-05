@@ -66,10 +66,14 @@
 	}
 </script>
 
-<nav class="relative z-50 px-4 py-4 md:px-8 md:bg-transparent" style="background-color: var(--theme-bg-primary);">
+<nav class="relative z-50 px-4 py-4 md:px-8 navbar-transparent">
 	<style>
+		.navbar-transparent {
+			background-color: var(--theme-bg-primary);
+		}
+		
 		@media (min-width: 768px) {
-			nav {
+			.navbar-transparent {
 				background-color: transparent !important;
 			}
 		}
