@@ -43,6 +43,8 @@ export default defineConfig({
 			workbox: {
 				globPatterns: ['**/*.{js,css,html,svg,png,ico,woff2}'],
 				globIgnores: ['**/node_modules/**/*', 'sw.js', 'workbox-*.js'],
+				navigateFallback: null, // Disable navigation fallback for SvelteKit (it handles routing client-side)
+				navigateFallbackDenylist: [/^\/_/, /^\/api/], // Don't cache SvelteKit internals or API routes
 				runtimeCaching: [
 					{
 						urlPattern: /^https:\/\/.*\.(?:png|jpg|jpeg|svg|gif|webp)$/,
