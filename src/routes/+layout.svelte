@@ -66,7 +66,14 @@
 	}
 </script>
 
-<nav class="relative z-50 px-4 py-4 md:px-8" style="background-color: var(--theme-bg-primary);">
+<nav class="relative z-50 px-4 py-4 md:px-8 md:bg-transparent" style="background-color: var(--theme-bg-primary);">
+	<style>
+		@media (min-width: 768px) {
+			nav {
+				background-color: transparent !important;
+			}
+		}
+	</style>
 	<div class="container mx-auto flex items-center justify-between gap-4">
 		<!-- Left: Logo and Brand -->
 		<a href="/" class="flex items-center gap-3 flex-shrink-0">
