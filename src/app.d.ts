@@ -9,6 +9,11 @@ declare global {
 		// interface PageState {}
 		// interface Platform {}
 	}
+
+	interface BeforeInstallPromptEvent extends Event {
+		prompt(): Promise<void>;
+		readonly userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
+	}
 }
 
 export {};

@@ -7,6 +7,7 @@
 	import { auth, refreshAuth } from '$lib/stores/auth';
 	import { theme } from '$lib/stores/theme';
 	import ThemeToggle from '$lib/components/ThemeToggle.svelte';
+	import InstallPrompt from '$lib/components/InstallPrompt.svelte';
 	import '../app.css';
 	import { registerSW } from 'virtual:pwa-register';
 	export const slots = ['content'];
@@ -166,5 +167,8 @@
 		</div>
 	</div>
 {/if}
+
+<!-- PWA Install Prompt -->
+<InstallPrompt />
 
 {@render children()}
