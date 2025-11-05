@@ -277,6 +277,21 @@
 		}
 	}
 
+	@keyframes energyPulseDark {
+		0%, 100% {
+			box-shadow: 0 0 20px rgba(14, 165, 233, 0.6),
+			            0 0 40px rgba(59, 130, 246, 0.4),
+			            0 0 60px rgba(37, 99, 235, 0.3),
+			            inset 0 0 20px rgba(14, 165, 233, 0.2);
+		}
+		50% {
+			box-shadow: 0 0 30px rgba(14, 165, 233, 0.8),
+			            0 0 60px rgba(59, 130, 246, 0.6),
+			            0 0 90px rgba(37, 99, 235, 0.4),
+			            inset 0 0 30px rgba(14, 165, 233, 0.3);
+		}
+	}
+
 	@keyframes glowText {
 		0%, 100% {
 			text-shadow: 0 0 10px rgba(236, 72, 153, 0.9),
@@ -288,6 +303,21 @@
 			text-shadow: 0 0 20px rgba(236, 72, 153, 1),
 			             0 0 40px rgba(236, 72, 153, 0.9),
 			             0 0 60px rgba(168, 85, 247, 0.7),
+			             0 0 80px rgba(30, 58, 138, 0.5);
+		}
+	}
+
+	@keyframes glowTextDark {
+		0%, 100% {
+			text-shadow: 0 0 10px rgba(14, 165, 233, 0.9),
+			             0 0 20px rgba(59, 130, 246, 0.7),
+			             0 0 30px rgba(37, 99, 235, 0.5),
+			             0 0 40px rgba(30, 58, 138, 0.4);
+		}
+		50% {
+			text-shadow: 0 0 20px rgba(14, 165, 233, 1),
+			             0 0 40px rgba(59, 130, 246, 0.9),
+			             0 0 60px rgba(37, 99, 235, 0.7),
 			             0 0 80px rgba(30, 58, 138, 0.5);
 		}
 	}
@@ -335,6 +365,20 @@
 		}
 	}
 
+	@keyframes premiumGlowDark {
+		0%, 100% {
+			box-shadow: 0 0 100px rgba(14, 165, 233, 0.4),
+			            0 0 200px rgba(59, 130, 246, 0.3),
+			            0 0 300px rgba(37, 99, 235, 0.2);
+		}
+		50% {
+			box-shadow: 0 0 150px rgba(14, 165, 233, 0.6),
+			            0 0 300px rgba(59, 130, 246, 0.4),
+			            0 0 450px rgba(37, 99, 235, 0.3);
+		}
+	}
+
+
 	@keyframes auraGlow {
 		0%, 100% {
 			opacity: 0.3;
@@ -359,6 +403,19 @@
 		}
 	}
 
+	@keyframes searchGlowDark {
+		0%, 100% {
+			border-color: rgba(14, 165, 233, 0.6);
+			box-shadow: 0 0 10px rgba(14, 165, 233, 0.4),
+			            inset 0 0 10px rgba(59, 130, 246, 0.2);
+		}
+		50% {
+			border-color: rgba(14, 165, 233, 0.9);
+			box-shadow: 0 0 20px rgba(14, 165, 233, 0.6),
+			            inset 0 0 15px rgba(59, 130, 246, 0.3);
+		}
+	}
+
 	@keyframes buttonPower {
 		0% {
 			box-shadow: 0 0 10px rgba(236, 72, 153, 0.6),
@@ -372,6 +429,22 @@
 		100% {
 			box-shadow: 0 0 10px rgba(236, 72, 153, 0.6),
 			           0 0 20px rgba(168, 85, 247, 0.4);
+		}
+	}
+
+	@keyframes buttonPowerDark {
+		0% {
+			box-shadow: 0 0 10px rgba(14, 165, 233, 0.6),
+			           0 0 20px rgba(59, 130, 246, 0.4);
+		}
+		50% {
+			box-shadow: 0 0 20px rgba(14, 165, 233, 0.9),
+			           0 0 40px rgba(59, 130, 246, 0.6),
+			           0 0 60px rgba(37, 99, 235, 0.4);
+		}
+		100% {
+			box-shadow: 0 0 10px rgba(14, 165, 233, 0.6),
+			           0 0 20px rgba(59, 130, 246, 0.4);
 		}
 	}
 
@@ -401,7 +474,25 @@
 		animation: glowText 3s ease-in-out infinite;
 	}
 
-	/* Neon Energy Background - Pure CSS */
+	/* Dark mode: use blue/cyan colors */
+	:global([data-theme="dark"]) .glow-text {
+		animation: glowTextDark 3s ease-in-out infinite !important;
+	}
+
+	:global([data-theme="dark"]) .energy-pulse {
+		animation: energyPulseDark 2s ease-in-out infinite !important;
+	}
+
+	:global([data-theme="dark"]) .search-glow {
+		animation: searchGlowDark 2s ease-in-out infinite !important;
+		border-color: rgba(14, 165, 233, 0.6) !important;
+	}
+
+	:global([data-theme="dark"]) .button-power {
+		animation: buttonPowerDark 2s ease-in-out infinite !important;
+	}
+
+	/* Neon Energy Background - Pure CSS (Midnight Theme) */
 	.super-saiyan-background {
 		position: fixed;
 		inset: 0;
@@ -417,6 +508,17 @@
 		);
 		background-size: 200% 200%;
 		animation: superSaiyanAura 8s ease-in-out infinite;
+	}
+
+	/* Dark mode: blue/cyan background */
+	:global([data-theme="dark"]) .super-saiyan-background {
+		background: radial-gradient(
+			ellipse at center,
+			rgba(14, 165, 233, 0.12) 0%,
+			rgba(59, 130, 246, 0.08) 40%,
+			rgba(30, 58, 138, 0.05) 70%,
+			transparent 100%
+		) !important;
 	}
 
 	.super-saiyan-orb {
@@ -437,6 +539,16 @@
 		animation: energyWave 10s ease-in-out infinite;
 		filter: blur(40px);
 		will-change: transform, opacity;
+	}
+
+	:global([data-theme="dark"]) .super-saiyan-orb {
+		background: radial-gradient(
+			circle,
+			rgba(14, 165, 233, 0.5) 0%,
+			rgba(14, 165, 233, 0.35) 30%,
+			rgba(59, 130, 246, 0.25) 60%,
+			transparent 100%
+		) !important;
 	}
 
 	.super-saiyan-orb-2 {
@@ -460,6 +572,16 @@
 		will-change: transform, opacity;
 	}
 
+	:global([data-theme="dark"]) .super-saiyan-orb-2 {
+		background: radial-gradient(
+			circle,
+			rgba(59, 130, 246, 0.4) 0%,
+			rgba(59, 130, 246, 0.25) 40%,
+			rgba(37, 99, 235, 0.15) 70%,
+			transparent 100%
+		) !important;
+	}
+
 	.super-saiyan-glow {
 		position: absolute;
 		top: 50%;
@@ -479,6 +601,16 @@
 		will-change: transform, opacity;
 	}
 
+	:global([data-theme="dark"]) .super-saiyan-glow {
+		background: radial-gradient(
+			circle,
+			rgba(14, 165, 233, 0.25) 0%,
+			rgba(59, 130, 246, 0.2) 50%,
+			rgba(37, 99, 235, 0.1) 100%
+		) !important;
+		animation: premiumGlowDark 6s ease-in-out infinite !important;
+	}
+
 	.aura-ring {
 		position: absolute;
 		border-radius: 50%;
@@ -487,6 +619,12 @@
 		animation: auraGlow 3s ease-in-out infinite;
 		box-shadow: 0 0 20px rgba(236, 72, 153, 0.3),
 		            0 0 40px rgba(168, 85, 247, 0.2);
+	}
+
+	:global([data-theme="dark"]) .aura-ring {
+		border-color: rgba(14, 165, 233, 0.4) !important;
+		box-shadow: 0 0 20px rgba(14, 165, 233, 0.3),
+		            0 0 40px rgba(59, 130, 246, 0.2) !important;
 	}
 
 	.search-glow {
@@ -503,6 +641,92 @@
 	.button-power:hover {
 		background: linear-gradient(135deg, #f472b6, #c084fc, #2563eb) !important;
 		border-color: rgba(236, 72, 153, 0.8) !important;
+	}
+
+	:global([data-theme="dark"]) .button-power {
+		animation: buttonPowerDark 2s ease-in-out infinite !important;
+		background: linear-gradient(135deg, #0ea5e9, #3b82f6, #2563eb) !important;
+		border-color: rgba(14, 165, 233, 0.6) !important;
+	}
+
+	:global([data-theme="dark"]) .button-power:hover {
+		background: linear-gradient(135deg, #38bdf8, #60a5fa, #3b82f6) !important;
+		border-color: rgba(14, 165, 233, 0.8) !important;
+	}
+
+	.welcome-username {
+		color: #ec4899;
+	}
+
+	:global([data-theme="dark"]) .welcome-username {
+		color: #0ea5e9 !important;
+	}
+
+	.welcome-glow {
+		background: linear-gradient(to right, rgba(236, 72, 153, 0.6), rgba(168, 85, 247, 0.6), rgba(30, 58, 138, 0.5));
+	}
+
+	:global([data-theme="dark"]) .welcome-glow {
+		background: linear-gradient(to right, rgba(14, 165, 233, 0.6), rgba(59, 130, 246, 0.6), rgba(37, 99, 235, 0.5)) !important;
+	}
+
+	.search-input-border {
+		border-color: rgba(236, 72, 153, 0.6);
+	}
+
+	:global([data-theme="dark"]) .search-input-border {
+		border-color: rgba(14, 165, 233, 0.6) !important;
+	}
+
+	/* Override searchGlow animation border colors in dark mode */
+	:global([data-theme="dark"]) .search-glow {
+		border-color: rgba(14, 165, 233, 0.6) !important;
+	}
+
+	.power-level-text {
+		color: #ec4899;
+		text-shadow: 0 0 10px rgba(236, 72, 153, 0.8);
+	}
+
+	:global([data-theme="dark"]) .power-level-text {
+		color: #0ea5e9 !important;
+		text-shadow: 0 0 10px rgba(14, 165, 233, 0.8) !important;
+	}
+
+	.power-level-border {
+		border: 1px solid rgba(236, 72, 153, 0.4);
+	}
+
+	:global([data-theme="dark"]) .power-level-border {
+		border-color: rgba(14, 165, 233, 0.4) !important;
+	}
+
+	.power-level-bar {
+		background: linear-gradient(90deg, #ec4899, #a855f7, #1e3a8a);
+		animation: energyPulse 2s ease-in-out infinite;
+	}
+
+	:global([data-theme="dark"]) .power-level-bar {
+		background: linear-gradient(90deg, #0ea5e9, #3b82f6, #2563eb) !important;
+		animation: energyPulseDark 2s ease-in-out infinite !important;
+	}
+
+	:global([data-theme="dark"]) .baka-underline {
+		background: linear-gradient(to right, transparent, #0ea5e9, transparent) !important;
+		box-shadow: 0 0 10px rgba(14, 165, 233, 0.6) !important;
+	}
+
+	/* Ensure all purple/pink colors are replaced in dark mode */
+	[data-theme="dark"] * {
+		/* Remove any purple/pink from gradients that might leak through */
+	}
+
+	/* More specific overrides for dark mode */
+	[data-theme="dark"] .super-saiyan-background,
+	[data-theme="dark"] .super-saiyan-orb,
+	[data-theme="dark"] .super-saiyan-orb-2,
+	[data-theme="dark"] .super-saiyan-glow {
+		/* Force blue colors only */
 	}
 
 	.baka-slide {
@@ -576,16 +800,16 @@
 			<!-- <div class="absolute -top-2 -right-2 text-yellow-400 text-2xl md:text-4xl font-bold opacity-75 energy-pulse">
 				⚡
 			</div> -->
-			<div class="absolute -bottom-1 left-1/2 -translate-x-1/2 w-full h-1 bg-gradient-to-r from-transparent via-pink-500 to-transparent opacity-60" style="box-shadow: 0 0 10px rgba(236, 72, 153, 0.6);"></div>
+			<div class="absolute -bottom-1 left-1/2 -translate-x-1/2 w-full h-1 bg-gradient-to-r from-transparent via-pink-500 to-transparent opacity-60 baka-underline" style="box-shadow: 0 0 10px rgba(236, 72, 153, 0.6);"></div>
 		</div>
 
 		<!-- Welcome Text with Neon Energy -->
 		<h1 class="mb-12 text-5xl md:text-7xl font-black text-white glow-text relative text-center">
 			<span class="relative z-10">Welcome, </span>
-			<span class="relative z-10" style="color: #ec4899;">
+			<span class="relative z-10 welcome-username">
 				{username}
 			</span>
-			<div class="absolute inset-0 blur-xl bg-gradient-to-r from-pink-500/60 via-purple-500/60 to-blue-900/50 opacity-60"></div>
+			<div class="absolute inset-0 blur-xl welcome-glow opacity-60"></div>
 		</h1>
 
 		<!-- EPIC SEARCH BAR -->
@@ -595,8 +819,8 @@
 				<input
 					type="text"
 					placeholder="Search for torrents..."
-					class="flex-1 rounded-l-xl md:rounded-l-2xl bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 text-white px-6 py-4 md:py-5 focus:outline-none text-lg md:text-xl font-semibold search-glow border-2 backdrop-blur-sm"
-					style="border-color: rgba(236, 72, 153, 0.6); transition: all 0.3s ease;"
+					class="flex-1 rounded-l-xl md:rounded-l-2xl bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 text-white px-6 py-4 md:py-5 focus:outline-none text-lg md:text-xl font-semibold search-glow border-2 backdrop-blur-sm search-input-border"
+					style="transition: all 0.3s ease;"
 					required
 				/>
 				
@@ -615,10 +839,10 @@
 
 		<!-- Power Level Indicator -->
 		<div class="mt-8 text-center">
-			<div class="text-sm md:text-base font-bold mb-2" style="color: #ec4899; text-shadow: 0 0 10px rgba(236, 72, 153, 0.8);">{randomPowerLevel}</div>
-			<div class="w-64 h-2 bg-gray-800 rounded-full overflow-hidden" style="border: 1px solid rgba(236, 72, 153, 0.4);">
-				<div class="h-full rounded-full relative overflow-hidden" 
-				     style="width: 100%; background: linear-gradient(90deg, #ec4899, #a855f7, #1e3a8a); animation: energyPulse 2s ease-in-out infinite;">
+			<div class="text-sm md:text-base font-bold mb-2 power-level-text">{randomPowerLevel}</div>
+			<div class="w-64 h-2 bg-gray-800 rounded-full overflow-hidden power-level-border">
+				<div class="h-full rounded-full relative overflow-hidden power-level-bar" 
+				     style="width: 100%;">
 					<div class="absolute inset-0 bg-gradient-to-r from-transparent via-white/50 to-transparent animate-[shimmer_2s_infinite]"></div>
 				</div>
 			</div>
