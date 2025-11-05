@@ -1,6 +1,6 @@
 <!-- EPIC ANIME HOME PAGE - THE MOMENT OF TRANSFORMATION -->
 <script lang="ts">
-	import { onMount, onDestroy } from 'svelte';
+	import { onMount, onDestroy, tick } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { get } from 'svelte/store';
 	import { auth, refreshAuth } from '$lib/stores/auth';
@@ -128,6 +128,8 @@
 
 	let animationFrame: number;
 	let particleIdCounter = 0;
+	let lastUpdateTime = 0;
+	const UPDATE_INTERVAL = 16; // ~60fps but throttled
 
 	function createParticle(type: 'spark' | 'energy' | 'burst', centerX?: number, centerY?: number) {
 		const cx = centerX ?? Math.random() * window.innerWidth;
@@ -162,14 +164,28 @@
 		}
 	}
 
-	function animateParticles() {
-		// Update existing particles
+	async function animateParticles() {
+		const now = performance.now();
+		const deltaTime = now - lastUpdateTime;
+		
+		// Throttle updates to reduce flashing
+		if (deltaTime < UPDATE_INTERVAL) {
+			animationFrame = requestAnimationFrame(animateParticles);
+			return;
+		}
+		
+		lastUpdateTime = now;
+		
+		// Update existing particles - mutate in place for better performance
 		const updatedParticles = particles.map(p => {
 			const newLife = p.life + 1;
+			
 			if (newLife >= p.maxLife) {
 				// Replace with new particle
 				return createParticle(p.type);
 			}
+			
+			// Update particle
 			return {
 				...p,
 				x: p.x + p.vx,
@@ -181,12 +197,13 @@
 		});
 
 		// Add occasional new burst particles
-		if (Math.random() < 0.1) {
+		if (Math.random() < 0.05) {
 			updatedParticles.push(createParticle('burst', window.innerWidth / 2, window.innerHeight / 2));
 		}
 
-		// Trigger Svelte reactivity
+		// Update array - using tick to batch DOM updates
 		particles = updatedParticles;
+		await tick();
 
 		animationFrame = requestAnimationFrame(animateParticles);
 	}
@@ -583,7 +600,7 @@
 <div class="home-background-layer">
 	<div class="home-background-gradient epic-gradient"></div>
 			<div class="home-background-particles">
-		{#each particles as particle}
+		{#each particles as particle (particle.id)}
 			<div 
 				class="particle {particle.type}"
 				style="
