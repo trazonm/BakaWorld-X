@@ -7,6 +7,7 @@
 	import { auth, refreshAuth } from '$lib/stores/auth';
 	import { theme } from '$lib/stores/theme';
 	import ThemeToggle from '$lib/components/ThemeToggle.svelte';
+	import AudioMuteButton from '$lib/components/AudioMuteButton.svelte';
 	import InstallPrompt from '$lib/components/InstallPrompt.svelte';
 	import '../app.css';
 	import { registerSW } from 'virtual:pwa-register';
@@ -83,10 +84,13 @@
 			{/each}
 		</div>
 		
-		<!-- Right: Theme Toggle, Logout, Mobile Menu -->
+		<!-- Right: Theme Toggle, Audio Mute, Logout, Mobile Menu -->
 		<div class="flex items-center gap-3 ml-auto">
 			<!-- Theme Toggle -->
 			<ThemeToggle />
+			
+			<!-- Audio Mute Button (only visible in midnight mode) -->
+			<AudioMuteButton />
 			
 			{#if $auth.isLoggedIn}
 				<button

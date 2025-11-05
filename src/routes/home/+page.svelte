@@ -5,6 +5,7 @@
 	import { get } from 'svelte/store';
 	import { auth, refreshAuth } from '$lib/stores/auth';
 	import { showResultsStore } from '$lib/stores/ui';
+	import { theme, audioMuted } from '$lib/stores/theme';
 	import { useTorrentManager } from '$lib/composables/useTorrentManager';
 	import SearchModal from '$lib/components/SearchModal.svelte';
 	import type { SearchResult } from '$lib/types';
@@ -19,6 +20,18 @@
 	let sortDirection: 'asc' | 'desc' = 'desc';
 
 	const torrentManager = useTorrentManager();
+
+	// Music visualizer state
+	let analyser: AnalyserNode | null = null;
+	let dataArray: Uint8Array | null = null;
+	let animationFrameId: number | null = null;
+	let ring1Scale = 1;
+	let ring2Scale = 1;
+	let ring3Scale = 1;
+	let ring1Opacity = 0.3;
+	let ring2Opacity = 0.2;
+	let ring3Opacity = 0.1;
+	let visualizerSetupAttempted = false;
 
 	// Random edgy Gen Z/Gen Alpha power level messages (Minecraft-style)
 	const powerLevelMessages = [
@@ -133,8 +146,243 @@
 		(r) => !modalSearch || r.Title?.toLowerCase().includes(modalSearch.trim().toLowerCase())
 	);
 
+	// Setup audio visualizer
+	function setupAudioVisualizer() {
+		if (typeof window === 'undefined') return;
+		if (analyser || visualizerSetupAttempted) return; // Already set up or attempted
+		
+		const audioElement = theme.getAudio();
+		if (!audioElement) return;
+		
+		// Get or create AudioContext (reuse from store)
+		let audioContext = theme.getAudioContext();
+		if (!audioContext) {
+			audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+			theme.setAudioContext(audioContext);
+		}
+		
+		// Check if audio is actually ready to play
+		if (audioElement.readyState < 2) {
+			// Wait for audio to be ready
+			audioElement.addEventListener('canplay', () => {
+				setupAudioVisualizer();
+			}, { once: true });
+			return;
+		}
+
+		try {
+			visualizerSetupAttempted = true;
+			
+			// Create AnalyserNode
+			analyser = audioContext.createAnalyser();
+			analyser.fftSize = 256;
+			analyser.smoothingTimeConstant = 0.8;
+			
+			const bufferLength = analyser.frequencyBinCount;
+			dataArray = new Uint8Array(bufferLength);
+			
+			// Get or create audio source
+			// Note: createMediaElementSource can only be called once per audio element
+			// So we store it in the theme store to reuse it
+			let audioSource = theme.getAudioSource();
+			
+			if (!audioSource) {
+				// Create new source if it doesn't exist
+				try {
+					audioSource = audioContext.createMediaElementSource(audioElement);
+					theme.setAudioSource(audioSource);
+				} catch (sourceError: any) {
+					// If source already exists, we can't create another one
+					console.warn('Audio source already exists, cannot create visualizer:', sourceError);
+					cleanupVisualizer();
+					visualizerSetupAttempted = false;
+					return;
+				}
+			}
+			
+			// Connect the source to analyser (reuse existing source if available)
+			// Disconnect from any previous connections first
+			try {
+				audioSource.disconnect();
+			} catch (e) {
+				// Ignore if not connected
+			}
+			
+			audioSource.connect(analyser);
+			analyser.connect(audioContext.destination);
+			
+			// Resume AudioContext if suspended (required by some browsers)
+			if (audioContext.state === 'suspended') {
+				audioContext.resume().catch(() => {
+					// Context might need user interaction to resume
+					console.log('AudioContext suspended, will resume on user interaction');
+				});
+			}
+			
+			// Start visualization loop
+			startVisualization();
+		} catch (error) {
+			console.warn('Could not set up audio visualizer:', error);
+			// Cleanup on error
+			cleanupVisualizer();
+			visualizerSetupAttempted = false;
+		}
+	}
+
+	// Visualization animation loop
+	function startVisualization() {
+		if (!analyser || !dataArray) return;
+		
+		function animate() {
+			if (!analyser || !dataArray) return;
+			
+			// Check if audio is playing and unmuted
+			const audioElement = theme.getAudio();
+			const isPlaying = audioElement && !audioElement.paused && !audioElement.muted;
+			const isMidnight = $theme === 'midnight';
+			const isMuted = $audioMuted;
+			
+			if (isPlaying && isMidnight && !isMuted) {
+				// Get frequency data
+				analyser.getByteFrequencyData(dataArray);
+				
+				// Calculate average and peak values from different frequency ranges
+				// Low frequencies (bass) - first 20% of data
+				const bassStart = 0;
+				const bassEnd = Math.floor(dataArray.length * 0.2);
+				const bassAvg = dataArray.slice(bassStart, bassEnd).reduce((a, b) => a + b, 0) / (bassEnd - bassStart);
+				
+				// Mid frequencies - middle 40%
+				const midStart = Math.floor(dataArray.length * 0.3);
+				const midEnd = Math.floor(dataArray.length * 0.7);
+				const midAvg = dataArray.slice(midStart, midEnd).reduce((a, b) => a + b, 0) / (midEnd - midStart);
+				
+				// High frequencies (treble) - last 30%
+				const trebleStart = Math.floor(dataArray.length * 0.7);
+				const trebleEnd = dataArray.length;
+				const trebleAvg = dataArray.slice(trebleStart, trebleEnd).reduce((a, b) => a + b, 0) / (trebleEnd - trebleStart);
+				
+				// Normalize values (0-255 range) to 0-1, then scale
+				const bassNormalized = (bassAvg / 255) * 0.5 + 1; // 1.0 to 1.5
+				const midNormalized = (midAvg / 255) * 0.4 + 1; // 1.0 to 1.4
+				const trebleNormalized = (trebleAvg / 255) * 0.3 + 1; // 1.0 to 1.3
+				
+				// Update ring scales based on frequency bands
+				ring1Scale = bassNormalized;
+				ring2Scale = midNormalized;
+				ring3Scale = trebleNormalized;
+				
+				// Update opacity based on intensity
+				ring1Opacity = Math.min(0.6, 0.3 + (bassAvg / 255) * 0.3);
+				ring2Opacity = Math.min(0.5, 0.2 + (midAvg / 255) * 0.3);
+				ring3Opacity = Math.min(0.4, 0.1 + (trebleAvg / 255) * 0.3);
+			} else {
+				// Reset to default when not playing
+				ring1Scale = 1;
+				ring2Scale = 1;
+				ring3Scale = 1;
+				ring1Opacity = 0.3;
+				ring2Opacity = 0.2;
+				ring3Opacity = 0.1;
+			}
+			
+			animationFrameId = requestAnimationFrame(animate);
+		}
+		
+		animate();
+	}
+
+	// Cleanup visualizer (but keep audio source and context in store)
+	function cleanupVisualizer() {
+		if (animationFrameId !== null) {
+			cancelAnimationFrame(animationFrameId);
+			animationFrameId = null;
+		}
+		
+		// Disconnect analyser but keep audio source connected to destination
+		const audioSource = theme.getAudioSource();
+		const audioContext = theme.getAudioContext();
+		if (audioSource && analyser && audioContext) {
+			try {
+				// Disconnect analyser from destination
+				analyser.disconnect();
+				// Reconnect source directly to destination to keep audio playing
+				audioSource.disconnect();
+				audioSource.connect(audioContext.destination);
+			} catch (e) {
+				// Ignore disconnect errors
+			}
+		}
+		
+		analyser = null;
+		dataArray = null;
+		visualizerSetupAttempted = false;
+		
+		// Don't close audioContext - we need it to keep the source connected
+		// The context will be reused when visualizer is set up again
+	}
+
 	onMount(() => {
 		randomPowerLevel = getRandomPowerLevel();
+		
+		// Setup audio visualizer when audio is available
+		const checkAndSetupVisualizer = () => {
+			const audioElement = theme.getAudio();
+			if (audioElement && $theme === 'midnight' && !$audioMuted) {
+				// Only setup if not already set up
+				if (!audioContext && !visualizerSetupAttempted) {
+					// Check if audio is playing or ready
+					if (!audioElement.paused || audioElement.readyState >= 2) {
+						// Wait a bit for audio to be ready
+						setTimeout(() => {
+							setupAudioVisualizer();
+						}, 500);
+					} else {
+						// Wait for audio to start playing
+						const playHandler = () => {
+							setTimeout(() => {
+								setupAudioVisualizer();
+							}, 500);
+							audioElement.removeEventListener('play', playHandler);
+						};
+						audioElement.addEventListener('play', playHandler, { once: true });
+					}
+				}
+			} else if ($theme !== 'midnight' || $audioMuted) {
+				// Cleanup if conditions not met
+				cleanupVisualizer();
+			}
+		};
+		
+		// Also check on theme/mute changes
+		const unsubscribeTheme = theme.subscribe(() => {
+			if ($theme !== 'midnight') {
+				cleanupVisualizer();
+			} else {
+				// Wait a bit after theme change to ensure audio is ready
+				setTimeout(() => {
+					checkAndSetupVisualizer();
+				}, 500);
+			}
+		});
+		
+		const unsubscribeMuted = audioMuted.subscribe(() => {
+			if ($audioMuted) {
+				cleanupVisualizer();
+			} else {
+				setTimeout(() => {
+					checkAndSetupVisualizer();
+				}, 300);
+			}
+		});
+		
+		// Check periodically for audio element (when switching themes)
+		const visualizerCheckInterval = setInterval(() => {
+			if ($theme === 'midnight' && !$audioMuted && !analyser && !visualizerSetupAttempted) {
+				checkAndSetupVisualizer();
+			}
+		}, 1500);
+		
 		const init = async () => {
 			await refreshAuth();
 			const { isLoggedIn, username: uname } = get(auth);
@@ -171,10 +419,21 @@
 		};
 		
 		init();
+		
+		// Initial check
+		checkAndSetupVisualizer();
+		
+		return () => {
+			clearInterval(visualizerCheckInterval);
+			unsubscribeTheme();
+			unsubscribeMuted();
+			cleanupVisualizer();
+		};
 	});
 
 	onDestroy(() => {
 		torrentManager.stopAllProgressPolling();
+		cleanupVisualizer();
 	});
 
 	async function handleSearch(e: Event) {
@@ -619,6 +878,7 @@
 		animation: auraGlow 3s ease-in-out infinite;
 		box-shadow: 0 0 20px rgba(236, 72, 153, 0.3),
 		            0 0 40px rgba(168, 85, 247, 0.2);
+		transition: transform 0.1s ease-out, opacity 0.1s ease-out;
 	}
 
 	:global([data-theme="dark"]) .aura-ring {
@@ -776,10 +1036,19 @@
 </div>
 
 <main class="min-h-[calc(100vh-5rem)] flex flex-col items-center justify-center w-full relative overflow-hidden z-10 epic-gradient">
-	<!-- Energy Aura Rings -->
-	<div class="aura-ring absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 opacity-30" style="animation-delay: 0s;"></div>
-	<div class="aura-ring absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[28rem] h-[28rem] opacity-20" style="animation-delay: 0.5s;"></div>
-	<div class="aura-ring absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[32rem] h-[32rem] opacity-10" style="animation-delay: 1s;"></div>
+	<!-- Energy Aura Rings with Music Visualizer -->
+	<div 
+		class="aura-ring absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96" 
+		style="animation-delay: 0s; transform: scale({ring1Scale}); opacity: {ring1Opacity};"
+	></div>
+	<div 
+		class="aura-ring absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[28rem] h-[28rem]" 
+		style="animation-delay: 0.5s; transform: scale({ring2Scale}); opacity: {ring2Opacity};"
+	></div>
+	<div 
+		class="aura-ring absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[32rem] h-[32rem]" 
+		style="animation-delay: 1s; transform: scale({ring3Scale}); opacity: {ring3Opacity};"
+	></div>
 
 	<!-- Main Content -->
 	<div class="flex flex-col items-center justify-center w-screen max-w-4xl mb-40 relative z-10 power-up-animation">
