@@ -85,18 +85,36 @@
 			e.preventDefault();
 			// Store the event so it can be triggered later
 			deferredPrompt = e as BeforeInstallPromptEvent;
-			// Show our custom banner
+			// Show our custom banner immediately when event fires
 			showBanner = true;
 		};
 
 		window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
 
-		// Also show banner for iOS (since beforeinstallprompt doesn't fire on iOS)
+		// For iOS, always show after delay (beforeinstallprompt doesn't fire on iOS)
 		if (isIOS) {
-			// Wait a bit before showing iOS instructions
 			setTimeout(() => {
-				showBanner = true;
+				if (!isInstalled && !hasUserDismissed()) {
+					showBanner = true;
+				}
 			}, 3000);
+		} else {
+			// For Android/Chrome, wait a bit and check if event fired
+			// If not, show banner anyway (browser might show install option in menu)
+			setTimeout(() => {
+				if (!isInstalled && !hasUserDismissed() && !showBanner) {
+					// Check if service worker is registered (indicates PWA capability)
+					if ('serviceWorker' in navigator) {
+						navigator.serviceWorker.getRegistration().then((registration) => {
+							if (registration) {
+								// Service worker is registered, show banner even if beforeinstallprompt didn't fire
+								// This handles cases where the browser hasn't triggered the event yet
+								showBanner = true;
+							}
+						});
+					}
+				}
+			}, 5000); // Wait 5 seconds for service worker to register and event to potentially fire
 		}
 
 		// Listen for app installed event
