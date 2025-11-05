@@ -1,51 +1,68 @@
 # 🎌 BakaWorld X
 
-**A modern anime streaming and torrent management platform built with SvelteKit**
+**A modern anime, manga, and comics platform with integrated torrent management**
 
-BakaWorld X is a full-stack web application that provides a seamless anime streaming experience with integrated torrent management, Real-Debrid integration, and a clean, modern UI. Built with performance and user experience in mind.
+BakaWorld X is a full-stack web application built with SvelteKit that provides streaming, reading, and torrent management capabilities. Features Real-Debrid integration, Jackett torrent search, and a modern anime-inspired UI with dual theme support.
 
 ## ✨ Features
 
 ### 🎥 **Anime Streaming**
-- **High-quality video playback** with multiple server options (HD-1, HD-2, HD-3)
-- **HLS streaming support** with adaptive bitrate
-- **Modern video player** powered by Plyr with custom controls
-- **Episode navigation** with previous/next functionality
-- **Server switching** for optimal streaming experience
-- **Subbed and dubbed** content support
+- **Embedded video player** with reliable streaming
+- **Language options** - Switch between subbed and dubbed versions
+- **Episode navigation** with previous/next episode controls
+- **Full episode listings** with metadata (sub/dub/filler indicators)
+- **Responsive player** that works on all devices
+- **Anime details** with genres, synopsis, and related series
+- **Direct streaming** without ads or interruptions
 
-### 📱 **User Interface**
-- **Responsive design** that works on all devices
-- **Dark theme** optimized for media consumption
-- **Modern UI components** using Flowbite Svelte
-- **Keyboard shortcuts** for enhanced user experience
-- **Loading states** and error handling with helpful messages
-
-### 🔍 **Search & Discovery**
-- **Anime search** with real-time results
-- **Advanced filtering** by category and server
-- **Anime details** with episode listings
-- **Smart navigation** between episodes
+### 📚 **Manga & Comics Reading**
+- **Chapter-based reading** with smooth page navigation
+- **Multiple sources** for manga and comics
+- **Progress tracking** and bookmarking
+- **Previous/next chapter navigation**
+- **Responsive reader** optimized for all devices
 
 ### 🌊 **Torrent Management**
-- **Torrent search** integration via Jackett
-- **Real-Debrid integration** for premium streaming
-- **Download management** with progress tracking
-- **Magnet link handling** and torrent info display
-- **Batch operations** for managing multiple downloads
+- **Integrated Jackett search** with multiple indexer support
+- **Real-Debrid integration** for instant streaming
+- **Live download progress** with WebSocket updates
+- **Torrent queueing** and batch operations
+- **Automatic status tracking** and history
+- **Smart duplicate detection** and management
+
+### 📱 **User Interface**
+- **Dual theme system**: 
+  - 🌙 **Dark Mode** - Blue/cyan color scheme for comfortable viewing
+  - 🌑 **Midnight Mode** - Neon pink/purple/navy for an anime-inspired aesthetic
+- **Responsive design** that works seamlessly on all devices
+- **Modern UI components** using Tailwind CSS
+- **PWA support** with offline capabilities
+- **Keyboard shortcuts** for power users
+- **Animated homepage** with dynamic effects
+
+### 🔍 **Search & Discovery**
+- **Universal search** across anime, manga, and comics
+- **Torrent search** with filtering by seeders and size
+- **Real-time results** with instant feedback
+- **Advanced sorting** by title, size, and seeders
+- **Detailed metadata** display for all content
 
 ### 🔐 **Authentication & Security**
 - **JWT-based authentication** with secure session management
 - **User registration and login** system
 - **Password hashing** with bcrypt
 - **Protected routes** and API endpoints
+- **Secure API proxy** for external services
 
 ### 🛠️ **Technical Features**
-- **Server-side rendering** for optimal SEO and performance
-- **API proxy** for secure external service integration
-- **PostgreSQL database** integration
-- **TypeScript** for type safety
-- **Modern build system** with Vite
+- **Server-side rendering (SSR)** for optimal performance
+- **Progressive Web App (PWA)** with offline support and installability
+- **Real-time updates** via WebSocket connections
+- **PostgreSQL database** with optimized queries
+- **TypeScript** for type safety throughout
+- **Modern build system** with Vite and SvelteKit
+- **Docker support** for easy deployment
+- **Responsive caching** for improved performance
 
 ## 🚀 Quick Start
 
@@ -53,7 +70,8 @@ BakaWorld X is a full-stack web application that provides a seamless anime strea
 
 **Prerequisites:**
 - Docker and Docker Compose installed
-- Real-Debrid account (for premium features)
+- Real-Debrid account (for torrent features)
+- Jackett server (for torrent search)
 
 **Installation:**
 
@@ -78,17 +96,21 @@ BakaWorld X is a full-stack web application that provides a seamless anime strea
    DB_USER=bakaworld
    DB_PASSWORD=your_secure_password
 
-   # JWT Secret (change this to a random secure string)
+   # JWT Secret (generate a strong random string)
    JWT_SECRET=your_super_secret_jwt_key_change_this
 
-   # Real-Debrid API
+   # Real-Debrid API (get from https://real-debrid.com/apitoken)
    REAL_DEBRID_AUTH=your_realdebrid_api_key
 
-   # Jackett API (optional, for torrent search)
+   # Jackett API (required for torrent search)
    JACKETT_API_KEY=your_jackett_api_key
+   JACKETT_URL=http://your-jackett-server:9117
 
    # Application Port
    PORT=3000
+   
+   # Public URL (for PWA)
+   PUBLIC_ORIGIN=http://localhost:3000
    ```
 
 3. **Start with Docker Compose**
@@ -98,6 +120,9 @@ BakaWorld X is a full-stack web application that provides a seamless anime strea
 
 4. **Access the application**
    Navigate to `http://localhost:3000`
+   
+5. **Create an account**
+   Register a new user on the login page
 
 **Docker Commands:**
 - View logs: `docker-compose logs -f app`
@@ -110,9 +135,9 @@ BakaWorld X is a full-stack web application that provides a seamless anime strea
 **Prerequisites:**
 - **Node.js** (v20 or higher)
 - **pnpm** (recommended) or npm
-- **PostgreSQL** database (running locally or remote)
-- **Real-Debrid account** (for premium features)
-- **Jackett server** (for torrent search)
+- **PostgreSQL** database (v14 or higher)
+- **Real-Debrid account** (get from https://real-debrid.com)
+- **Jackett server** (for torrent search - https://github.com/Jackett/Jackett)
 
 **Installation:**
 
@@ -127,7 +152,15 @@ BakaWorld X is a full-stack web application that provides a seamless anime strea
    pnpm install
    ```
 
-3. **Set up environment variables**
+3. **Set up PostgreSQL database**
+   ```bash
+   # Create database
+   createdb bakaworld
+   
+   # The app will create tables automatically on first run
+   ```
+
+4. **Set up environment variables**
    Create a `.env` file in the root directory:
    ```env
    # Database
@@ -137,7 +170,7 @@ BakaWorld X is a full-stack web application that provides a seamless anime strea
    DB_USER=your_username
    DB_PASSWORD=your_password
 
-   # JWT Secret
+   # JWT Secret (generate a strong random string)
    JWT_SECRET=your_super_secret_jwt_key
 
    # Real-Debrid API
@@ -145,13 +178,10 @@ BakaWorld X is a full-stack web application that provides a seamless anime strea
 
    # Jackett API
    JACKETT_API_KEY=your_jackett_api_key
-   ```
-
-4. **Set up the database**
-   ```bash
-   # Create PostgreSQL database
-   createdb bakaworld
-   # Or use your preferred database setup method
+   JACKETT_URL=http://localhost:9117
+   
+   # Public URL
+   PUBLIC_ORIGIN=http://localhost:5173
    ```
 
 5. **Start the development server**
@@ -161,6 +191,9 @@ BakaWorld X is a full-stack web application that provides a seamless anime strea
 
 6. **Open your browser**
    Navigate to `http://localhost:5173`
+   
+7. **Register an account**
+   Create a new user account to get started
 
 ## 📦 Scripts
 
@@ -179,93 +212,132 @@ BakaWorld X is a full-stack web application that provides a seamless anime strea
 ```
 src/
 ├── lib/                     # Reusable library code
-│   ├── components/         # UI Components
-│   ├── composables/        # Reusable logic hooks
+│   ├── components/         # UI Components (modals, forms, players, etc.)
+│   ├── composables/        # Reusable logic hooks (torrent manager, etc.)
 │   ├── config/            # App configuration
-│   ├── server/            # Server-side utilities
-│   ├── services/          # API service layer
-│   ├── stores/            # Svelte stores for state
-│   ├── types/             # TypeScript definitions
-│   └── utils/             # Utility functions
-├── routes/                 # SvelteKit routes
+│   ├── constants/         # Application constants
+│   ├── server/            # Server-side utilities (database, auth)
+│   ├── services/          # External API services (Real-Debrid, Jackett)
+│   ├── stores/            # Svelte stores (auth, theme, UI state)
+│   ├── types/             # TypeScript type definitions
+│   ├── utils/             # Utility functions
+│   └── validators/        # Input validation schemas
+├── routes/                 # SvelteKit routes (file-based routing)
 │   ├── api/               # API endpoints
-│   │   ├── auth/         # Authentication
-│   │   ├── anime/        # Anime streaming
+│   │   ├── auth/         # Authentication (login, register, logout)
+│   │   ├── anime/        # Anime streaming endpoints
+│   │   ├── manga/        # Manga reading endpoints
+│   │   ├── comics/       # Comics reading endpoints
 │   │   ├── downloads/    # Download management
-│   │   ├── proxy/        # Media proxy
+│   │   ├── proxy/        # Media proxy services
 │   │   ├── search/       # Search functionality
-│   │   └── torrents/     # Torrent operations
-│   ├── anime/            # Anime pages
-│   ├── downloads/        # Downloads page
-│   └── home/             # Home page
-└── static/               # Static assets
+│   │   └── torrents/     # Torrent operations (add, status, poll)
+│   ├── anime/            # Anime browsing and watching pages
+│   ├── manga/            # Manga browsing and reading pages
+│   ├── comics/           # Comics browsing and reading pages
+│   ├── downloads/        # Downloads management page
+│   ├── home/             # Animated homepage with torrent search
+│   └── +layout.svelte    # Root layout with navigation
+└── static/               # Static assets (icons, manifests, images)
 ```
 
 ## 🛠️ Tech Stack
 
 ### **Frontend**
-- **SvelteKit** - Full-stack framework
-- **TypeScript** - Type safety
+- **SvelteKit 2** - Full-stack framework with SSR
+- **TypeScript** - Type safety throughout
 - **Tailwind CSS** - Utility-first styling
-- **Flowbite Svelte** - UI component library
+- **Svelte 5** - Latest reactive framework
 - **Plyr** - Modern video player
-- **HLS.js** - HTTP Live Streaming
+- **HLS.js** - HTTP Live Streaming support
 
 ### **Backend**
 - **SvelteKit API Routes** - Server-side logic
-- **PostgreSQL** - Primary database
-- **JWT** - Authentication tokens
-- **bcrypt** - Password hashing
+- **PostgreSQL** - Primary database with `pg` driver
+- **JWT** - Secure authentication tokens
+- **bcrypt** - Password hashing and security
+- **Node.js** - Runtime environment
 
 ### **External Integrations**
-- **Real-Debrid API** - Premium link generation
-- **Jackett** - Torrent indexer aggregation
-- **Anime APIs** - Content metadata
+- **Real-Debrid API** - Premium link generation and torrent caching
+- **Jackett** - Multi-indexer torrent search aggregation
+- **Multiple Content APIs** - Anime, manga, and comics metadata
 
-### **Development Tools**
-- **Vite** - Build tool and dev server
+### **Development & Deployment**
+- **Vite** - Lightning-fast build tool and dev server
+- **Docker** - Containerization with Docker Compose
+- **pnpm** - Fast, efficient package manager
 - **ESLint** - Code linting
 - **Prettier** - Code formatting
-- **svelte-check** - TypeScript checking
+- **svelte-check** - TypeScript and Svelte validation
 
 ## 🎮 Usage
 
 ### **Watching Anime**
-1. Browse or search for anime
-2. Select an episode from the list
-3. Choose your preferred server (HD-2 recommended)
-4. Select subbed or dubbed version
-5. Enjoy streaming with keyboard controls:
-   - `Space` - Play/Pause
-   - `F` - Fullscreen
-   - `←/→` - Seek ±10s
-   - `↑/↓` - Volume ±5%
+1. Click **Anime** in the navigation
+2. Search for your favorite anime series
+3. Click on an anime to view details and episode list
+4. Select an episode to start watching
+5. Toggle between **Subbed** and **Dubbed** using the language selector
+6. Navigate episodes using Previous/Next buttons
+7. Use the embedded player controls:
+   - Click/tap to play/pause
+   - Fullscreen button for immersive viewing
+   - Volume and playback controls
+   - Episode info and navigation at the bottom
 
-### **Managing Downloads**
-1. Navigate to the Downloads page
-2. Search for torrents using the integrated search
-3. Add torrents to Real-Debrid
-4. Monitor download progress
-5. Access completed downloads
+### **Reading Manga/Comics**
+1. Navigate to **Manga** or **Comics**
+2. Search for your favorite series
+3. Select a chapter to read
+4. Use navigation controls or keyboard:
+   - `←/→` - Previous/Next page
+   - `Esc` - Back to chapter list
 
-### **Server Options**
-- **HD-1** - Standard quality server
-- **HD-2** - Recommended high-quality server
-- **HD-3** - Alternative server option
+### **Managing Torrents & Downloads**
+1. Go to the **Home** page for torrent search
+2. Search for content using the integrated Jackett search
+3. Click "Add to Queue" to send torrents to Real-Debrid
+4. Navigate to **Downloads** to monitor progress
+5. Live updates show download status in real-time
+6. Completed downloads are automatically tracked
+
+### **Customizing Your Experience**
+- **Theme Toggle**: Click the sun/moon icon to switch between:
+  - 🌙 **Dark Mode** - Blue/cyan color scheme
+  - 🌑 **Midnight Mode** - Neon pink/purple/navy anime aesthetic
+- **PWA Installation**: Install as an app for offline access
+- **Keyboard Shortcuts**: Use shortcuts throughout the app for efficiency
 
 ## 🔧 Configuration
 
 ### **Environment Variables**
-All sensitive configuration is handled through environment variables. See the installation section for required variables.
+All sensitive configuration is handled through environment variables:
+
+| Variable | Description | Required |
+|----------|-------------|----------|
+| `DB_HOST` | PostgreSQL host | Yes |
+| `DB_PORT` | PostgreSQL port (default: 5432) | Yes |
+| `DB_NAME` | Database name | Yes |
+| `DB_USER` | Database user | Yes |
+| `DB_PASSWORD` | Database password | Yes |
+| `JWT_SECRET` | Secret key for JWT tokens | Yes |
+| `REAL_DEBRID_AUTH` | Real-Debrid API key | Yes |
+| `JACKETT_API_KEY` | Jackett API key | Yes |
+| `JACKETT_URL` | Jackett server URL | Yes |
+| `PUBLIC_ORIGIN` | Public URL of the app | No |
+| `PORT` | Server port (default: 3000) | No |
 
 ### **API Endpoints**
-The application provides several API endpoints for different functionalities:
-- `/api/auth/*` - Authentication endpoints
+The application provides RESTful API endpoints:
+- `/api/auth/*` - User authentication (login, register, logout, verify)
 - `/api/anime/*` - Anime streaming and metadata
-- `/api/downloads/*` - Download management
-- `/api/torrents/*` - Torrent operations
-- `/api/proxy/*` - Media proxy services
-- `/api/search/*` - Search functionality
+- `/api/manga/*` - Manga reading and chapter data
+- `/api/comics/*` - Comics reading and issue data
+- `/api/downloads/*` - Download status and history
+- `/api/torrents/*` - Torrent operations (add, status, poll progress)
+- `/api/proxy/*` - Media proxy for streaming
+- `/api/search/*` - Universal search across content types
 
 ## 🤝 Contributing
 
@@ -290,24 +362,64 @@ This project is licensed under the MIT License. See the `LICENSE` file for detai
 
 ## ⚠️ Disclaimer
 
-This application is for educational purposes only. Users are responsible for ensuring they comply with all applicable laws and regulations regarding content streaming and downloading in their jurisdiction.
+This application is provided for educational and personal use only. Users are responsible for:
+- Ensuring compliance with all applicable laws and regulations in their jurisdiction
+- Respecting copyright and intellectual property rights
+- Using content services (Real-Debrid, Jackett) in accordance with their terms of service
+- Understanding that the developers are not responsible for how this software is used
 
-## 🆘 Support
+**Note**: This project does not host, store, or distribute any copyrighted content. It merely provides interfaces to existing services and APIs.
 
-If you encounter any issues or have questions:
+## 🆘 Support & Troubleshooting
 
-1. Check the existing issues on GitHub
-2. Create a new issue with detailed information
-3. Join our community discussions
+### **Common Issues**
+
+**Can't login/register?**
+- Ensure PostgreSQL is running and accessible
+- Check database credentials in `.env`
+- Verify JWT_SECRET is set
+
+**Torrent search not working?**
+- Confirm Jackett is running and accessible
+- Verify JACKETT_API_KEY and JACKETT_URL in `.env`
+- Check Jackett has indexers configured
+
+**Downloads not starting?**
+- Verify Real-Debrid API key is valid
+- Check Real-Debrid account status and limits
+- Ensure magnet links are valid
+
+**Video won't play?**
+- Try switching servers (HD-1, HD-2, HD-3)
+- Check browser console for errors
+- Verify HLS.js is loaded correctly
+
+### **Getting Help**
+
+If you encounter issues:
+1. Check the [GitHub Issues](https://github.com/trazonm/BakaWorld-X/issues) page
+2. Search for similar problems and solutions
+3. Create a new issue with:
+   - Detailed description of the problem
+   - Steps to reproduce
+   - Error messages or logs
+   - Environment details (OS, browser, etc.)
 
 ## 🎯 Roadmap
 
+- [x] **PWA support** with offline capabilities
+- [x] **Dual theme system** (Dark Mode & Midnight Mode)
+- [x] **Manga & Comics** reading support
+- [x] **Real-time download tracking** via WebSocket
+- [ ] **User preferences** and customization
+- [ ] **Watchlist & reading list** management
+- [ ] **Advanced filtering** and sorting options
+- [ ] **Multi-language subtitle** support
+- [ ] **Recommendation engine** based on viewing history
+- [ ] **Social features** (reviews, ratings, comments)
 - [ ] **Mobile app** development
-- [ ] **Offline viewing** support
-- [ ] **Social features** (watchlists, reviews)
-- [ ] **Multi-language** subtitle support
-- [ ] **Advanced search** filters
-- [ ] **Recommendation engine**
+- [ ] **Batch download** operations
+- [ ] **Auto-download** for series tracking
 - [ ] **Performance optimizations**
 
 ---
