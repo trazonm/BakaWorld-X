@@ -20,21 +20,175 @@
 
 	const torrentManager = useTorrentManager();
 
-	// Generate particle data for epic effects
+	// Random edgy Gen Z/Gen Alpha power level messages (Minecraft-style)
+	const powerLevelMessages = [
+		'POWER LEVEL: OVER 9000',
+		'TOUCH GRASS: NEVER',
+		'TOUCHING GRASS: SKILL ISSUE',
+		'GYATT LEVEL: MAXIMUM',
+		'RIZZ: INFINITE',
+		'POWER: UNMEASURABLE',
+		'ENERGY: NO BITCHES',
+		'KI: OFF THE CHARTS',
+		'POWER: UNSTOPPABLE',
+		'STRENGTH: LEGENDARY',
+		'SIGMA: ACTIVATED',
+		'POWER: DIVINE',
+		'ENERGY: CELESTIAL',
+		'KI: ULTIMATE',
+		'POWER LEVEL: GODLY',
+		'STRENGTH: IMMORTAL',
+		'KI: ETERNAL',
+		'POWER: ABSOLUTE',
+		'ENERGY: BOUNDLESS',
+		'KI LEVEL: INFINITE',
+		'POWER: UNBREAKABLE',
+		'STRENGTH: UNPARALLELED',
+		'KI: SUPREME',
+		'POWER LEVEL: TRANSCENDENT',
+		'ENERGY: UNFATHOMABLE',
+		'KI: UNLIMITED',
+		'POWER: OMNIPOTENT',
+		'STRENGTH: LEGENDARY WARRIOR',
+		'KI: SUPER SAIYAN GOD',
+		'POWER LEVEL: ZENO LEVEL',
+		'ENERGY: MULTIVERSAL',
+		'KI: ULTRA INSTINCT',
+		'POWER: MASTERED UI',
+		'STRENGTH: BEYOND GODS',
+		'RIZZ: UNLIMITED',
+		'GYATT: OVERFLOWING',
+		'TOUCH GRASS: DENIED',
+		'SIGMA: GRINDSET',
+		'POWER: NO LIFE',
+		'ENERGY: CHRONICALLY ONLINE',
+		'KI: TERMINALLY ONLINE',
+		'POWER LEVEL: NO GRASS',
+		'STRENGTH: BASED',
+		'KI: CRINGE COMPILATION',
+		'POWER: SKIBIDI',
+		'ENERGY: FANUM TAX',
+		'KI: OHIO FINAL BOSS',
+		'POWER LEVEL: SIGMA MALE',
+		'STRENGTH: ALPHA GIGACHAD',
+		'KI: BETA CUCK',
+		'POWER: NO MAIDENS',
+		'ENERGY: VIRGIN ENERGY',
+		'KI: CHAD VIBES',
+		'POWER LEVEL: MENTALLY ILL',
+		'STRENGTH: UNMEDICATED',
+		'KI: AUTISTIC STRENGTH',
+		'POWER: ADHD MODE',
+		'ENERGY: BIPOLAR',
+		'KI: SCHIZOPHRENIC',
+		'POWER LEVEL: INSANE',
+		'STRENGTH: PSYCHOTIC',
+		'KI: MANIC EPISODE',
+		'POWER: UNHINGED',
+		'ENERGY: FERAL',
+		'KI: DERANGED',
+		'POWER LEVEL: MENTALLY UNSTABLE',
+		'STRENGTH: UNHINGED',
+		'KI: CRACKED',
+		'POWER: GOATED',
+		'ENERGY: NO CAP',
+		'KI: FR FR',
+		'POWER LEVEL: ON GOD',
+		'STRENGTH: DEADASS',
+		'KI: LOWKEY',
+		'POWER: HIGHKEY',
+		'ENERGY: SUS',
+		'KI: AMOGUS',
+		'POWER LEVEL: IMPOSTER',
+		'STRENGTH: VENTED',
+		'KI: EJECTED',
+		'POWER: EMERGENCY MEETING',
+		'ENERGY: AMONG US',
+		'KI: SUSSY BAKA'
+	];
+
+	let randomPowerLevel = '';
+
+	function getRandomPowerLevel() {
+		return powerLevelMessages[Math.floor(Math.random() * powerLevelMessages.length)];
+	}
+
+	// Super Saiyan Golden Energy System - COMPLETE REBUILD
 	let particles: Array<{
-		left: number;
+		id: number;
 		x: number;
-		delay: number;
-		duration: number;
+		y: number;
+		vx: number;
+		vy: number;
+		size: number;
+		life: number;
+		maxLife: number;
+		type: 'spark' | 'energy' | 'burst';
 	}> = [];
 
+	let animationFrame: number;
+	let particleIdCounter = 0;
+
+	function createParticle(type: 'spark' | 'energy' | 'burst', centerX?: number, centerY?: number) {
+		const cx = centerX ?? Math.random() * window.innerWidth;
+		const cy = centerY ?? Math.random() * window.innerHeight;
+		const angle = Math.random() * Math.PI * 2;
+		const speed = type === 'spark' ? 0.3 + Math.random() * 1 : type === 'energy' ? 0.5 + Math.random() * 1.5 : 1 + Math.random() * 2;
+		
+		return {
+			id: particleIdCounter++,
+			x: cx + (Math.random() - 0.5) * (type === 'burst' ? 300 : 200),
+			y: cy + (Math.random() - 0.5) * (type === 'burst' ? 300 : 200),
+			vx: Math.cos(angle) * speed,
+			vy: Math.sin(angle) * speed,
+			size: type === 'spark' ? 5 + Math.random() * 8 : type === 'energy' ? 10 + Math.random() * 15 : 20 + Math.random() * 25,
+			life: 0,
+			maxLife: type === 'spark' ? 200 + Math.random() * 200 : type === 'energy' ? 300 + Math.random() * 200 : 400 + Math.random() * 300,
+			type
+		};
+	}
+
 	function generateParticles() {
-		particles = Array.from({ length: 20 }, () => ({
-			left: Math.random() * 100,
-			x: Math.random() * 200 - 100,
-			delay: Math.random() * 8,
-			duration: 8 + Math.random() * 4
-		}));
+		particles = [];
+		// Create initial burst of particles spread across screen
+		for (let i = 0; i < 200; i++) {
+			particles.push(createParticle('spark'));
+		}
+		for (let i = 0; i < 80; i++) {
+			particles.push(createParticle('energy'));
+		}
+		for (let i = 0; i < 30; i++) {
+			particles.push(createParticle('burst'));
+		}
+	}
+
+	function animateParticles() {
+		// Update existing particles
+		const updatedParticles = particles.map(p => {
+			const newLife = p.life + 1;
+			if (newLife >= p.maxLife) {
+				// Replace with new particle
+				return createParticle(p.type);
+			}
+			return {
+				...p,
+				x: p.x + p.vx,
+				y: p.y + p.vy,
+				life: newLife,
+				vx: p.vx * 0.99, // Slight slowdown
+				vy: p.vy * 0.99
+			};
+		});
+
+		// Add occasional new burst particles
+		if (Math.random() < 0.1) {
+			updatedParticles.push(createParticle('burst', window.innerWidth / 2, window.innerHeight / 2));
+		}
+
+		// Trigger Svelte reactivity
+		particles = updatedParticles;
+
+		animationFrame = requestAnimationFrame(animateParticles);
 	}
 
 	// Sort and filter results for display
@@ -56,7 +210,9 @@
 	);
 
 	onMount(() => {
+		randomPowerLevel = getRandomPowerLevel();
 		generateParticles();
+		animateParticles();
 		const init = async () => {
 			await refreshAuth();
 			const { isLoggedIn, username: uname } = get(auth);
@@ -96,6 +252,9 @@
 	});
 
 	onDestroy(() => {
+		if (animationFrame) {
+			cancelAnimationFrame(animationFrame);
+		}
 		torrentManager.stopAllProgressPolling();
 	});
 
@@ -214,14 +373,16 @@
 		}
 	}
 
-	@keyframes particleFloat {
-		0% {
-			transform: translateY(0) translateX(0) rotate(0deg);
+	@keyframes superSaiyanPulse {
+		0%, 100% {
 			opacity: 1;
+			transform: scale(1);
+			filter: brightness(1);
 		}
-		100% {
-			transform: translateY(-100vh) translateX(var(--x)) rotate(360deg);
-			opacity: 0;
+		50% {
+			opacity: 1;
+			transform: scale(1.2);
+			filter: brightness(1.5);
 		}
 	}
 
@@ -291,14 +452,69 @@
 		animation: glowText 3s ease-in-out infinite;
 	}
 
+	/* Super Saiyan Golden Energy Particles */
 	.particle {
-		position: absolute;
-		width: 4px;
-		height: 4px;
-		background: radial-gradient(circle, rgba(255, 215, 0, 1), rgba(255, 165, 0, 0.5));
+		position: fixed;
 		border-radius: 50%;
 		pointer-events: none;
-		animation: particleFloat 8s linear infinite;
+		animation: superSaiyanPulse 1.5s ease-in-out infinite;
+		will-change: transform, opacity;
+		z-index: 2;
+		transform: translate(-50%, -50%);
+	}
+
+	.particle.spark {
+		background: radial-gradient(circle, 
+			rgba(255, 255, 255, 1) 0%,
+			rgba(255, 255, 0, 1) 25%,
+			rgba(255, 215, 0, 0.9) 50%,
+			rgba(255, 165, 0, 0.7) 75%,
+			transparent 100%
+		);
+		box-shadow: 
+			0 0 10px rgba(255, 255, 0, 1),
+			0 0 20px rgba(255, 215, 0, 0.9),
+			0 0 30px rgba(255, 165, 0, 0.7),
+			0 0 40px rgba(255, 140, 0, 0.5);
+		filter: brightness(1.5) drop-shadow(0 0 5px rgba(255, 215, 0, 1));
+	}
+
+	.particle.energy {
+		background: radial-gradient(circle, 
+			rgba(255, 255, 255, 1) 0%,
+			rgba(255, 255, 0, 1) 20%,
+			rgba(255, 215, 0, 1) 40%,
+			rgba(255, 165, 0, 0.9) 60%,
+			rgba(255, 140, 0, 0.7) 80%,
+			transparent 100%
+		);
+		box-shadow: 
+			0 0 15px rgba(255, 255, 0, 1),
+			0 0 30px rgba(255, 215, 0, 1),
+			0 0 45px rgba(255, 165, 0, 0.9),
+			0 0 60px rgba(255, 140, 0, 0.7),
+			0 0 75px rgba(255, 120, 0, 0.5);
+		filter: brightness(1.8) drop-shadow(0 0 8px rgba(255, 215, 0, 1));
+	}
+
+	.particle.burst {
+		background: radial-gradient(circle, 
+			rgba(255, 255, 255, 1) 0%,
+			rgba(255, 255, 0, 1) 15%,
+			rgba(255, 215, 0, 1) 30%,
+			rgba(255, 165, 0, 1) 50%,
+			rgba(255, 140, 0, 0.9) 70%,
+			rgba(255, 120, 0, 0.7) 85%,
+			transparent 100%
+		);
+		box-shadow: 
+			0 0 20px rgba(255, 255, 0, 1),
+			0 0 40px rgba(255, 215, 0, 1),
+			0 0 60px rgba(255, 165, 0, 1),
+			0 0 80px rgba(255, 140, 0, 0.9),
+			0 0 100px rgba(255, 120, 0, 0.7),
+			0 0 120px rgba(255, 100, 0, 0.5);
+		filter: brightness(2) drop-shadow(0 0 12px rgba(255, 215, 0, 1));
 	}
 
 	.aura-ring {
@@ -322,12 +538,7 @@
 	}
 
 	.epic-gradient {
-		background: linear-gradient(135deg, 
-			rgba(255, 215, 0, 0.1) 0%,
-			rgba(255, 140, 0, 0.1) 25%,
-			rgba(59, 130, 246, 0.1) 50%,
-			rgba(139, 69, 19, 0.1) 75%,
-			rgba(255, 215, 0, 0.1) 100%);
+		background: var(--theme-bg-primary);
 		background-size: 200% 200%;
 		animation: gradientShift 10s ease infinite;
 	}
@@ -344,9 +555,9 @@
 	.home-background-layer {
 		position: fixed;
 		inset: 0;
-		z-index: 0;
+		z-index: -1;
 		pointer-events: none;
-		overflow: hidden;
+		overflow: visible;
 	}
 
 	.home-background-gradient {
@@ -357,25 +568,30 @@
 	}
 
 	.home-background-particles {
-		position: absolute;
-		inset: 0;
-		z-index: 1;
+		position: fixed;
+		top: 0;
+		left: 0;
+		width: 100vw;
+		height: 100vh;
+		z-index: 2;
+		overflow: hidden;
+		pointer-events: none;
 	}
 
 </style>
 
 <div class="home-background-layer">
 	<div class="home-background-gradient epic-gradient"></div>
-	<div class="home-background-particles">
+			<div class="home-background-particles">
 		{#each particles as particle}
 			<div 
-				class="particle"
+				class="particle {particle.type}"
 				style="
-					left: {particle.left}%;
-					bottom: -10px;
-					--x: {particle.x}px;
-					animation-delay: {particle.delay}s;
-					animation-duration: {particle.duration}s;
+					left: {particle.x}px;
+					top: {particle.y}px;
+					width: {particle.size}px;
+					height: {particle.size}px;
+					opacity: {Math.max(0.3, 1 - (particle.life / particle.maxLife) * 0.7)};
 				"
 			></div>
 		{/each}
@@ -446,7 +662,7 @@
 
 		<!-- Power Level Indicator -->
 		<div class="mt-8 text-center">
-			<div class="text-yellow-400/80 text-sm md:text-base font-bold mb-2">POWER LEVEL: OVER 9000</div>
+			<div class="text-yellow-400/80 text-sm md:text-base font-bold mb-2">{randomPowerLevel}</div>
 			<div class="w-64 h-2 bg-gray-800 rounded-full overflow-hidden border border-yellow-500/30">
 				<div class="h-full bg-gradient-to-r from-yellow-400 via-orange-500 to-yellow-400 rounded-full relative overflow-hidden" 
 				     style="width: 100%; animation: energyPulse 2s ease-in-out infinite;">
@@ -467,3 +683,4 @@
 		onAddToQueue={handleAddToQueue}
 	/>
 </main>
+
