@@ -264,31 +264,31 @@
 
 	@keyframes energyPulse {
 		0%, 100% {
-			box-shadow: 0 0 20px rgba(255, 215, 0, 0.4),
-			            0 0 40px rgba(255, 215, 0, 0.3),
-			            0 0 60px rgba(255, 165, 0, 0.2),
-			            inset 0 0 20px rgba(255, 215, 0, 0.1);
+			box-shadow: 0 0 20px rgba(236, 72, 153, 0.6),
+			            0 0 40px rgba(168, 85, 247, 0.4),
+			            0 0 60px rgba(30, 58, 138, 0.3),
+			            inset 0 0 20px rgba(236, 72, 153, 0.2);
 		}
 		50% {
-			box-shadow: 0 0 30px rgba(255, 215, 0, 0.6),
-			            0 0 60px rgba(255, 215, 0, 0.4),
-			            0 0 90px rgba(255, 165, 0, 0.3),
-			            inset 0 0 30px rgba(255, 215, 0, 0.2);
+			box-shadow: 0 0 30px rgba(236, 72, 153, 0.8),
+			            0 0 60px rgba(168, 85, 247, 0.6),
+			            0 0 90px rgba(30, 58, 138, 0.4),
+			            inset 0 0 30px rgba(236, 72, 153, 0.3);
 		}
 	}
 
 	@keyframes glowText {
 		0%, 100% {
-			text-shadow: 0 0 10px rgba(255, 215, 0, 0.8),
-			             0 0 20px rgba(255, 215, 0, 0.6),
-			             0 0 30px rgba(255, 165, 0, 0.4),
-			             0 0 40px rgba(255, 140, 0, 0.3);
+			text-shadow: 0 0 10px rgba(236, 72, 153, 0.9),
+			             0 0 20px rgba(236, 72, 153, 0.7),
+			             0 0 30px rgba(168, 85, 247, 0.5),
+			             0 0 40px rgba(30, 58, 138, 0.4);
 		}
 		50% {
-			text-shadow: 0 0 20px rgba(255, 215, 0, 1),
-			             0 0 40px rgba(255, 215, 0, 0.8),
-			             0 0 60px rgba(255, 165, 0, 0.6),
-			             0 0 80px rgba(255, 140, 0, 0.4);
+			text-shadow: 0 0 20px rgba(236, 72, 153, 1),
+			             0 0 40px rgba(236, 72, 153, 0.9),
+			             0 0 60px rgba(168, 85, 247, 0.7),
+			             0 0 80px rgba(30, 58, 138, 0.5);
 		}
 	}
 
@@ -322,16 +322,16 @@
 		}
 	}
 
-	@keyframes goldenGlow {
+	@keyframes premiumGlow {
 		0%, 100% {
-			box-shadow: 0 0 100px rgba(255, 215, 0, 0.3),
-			            0 0 200px rgba(255, 165, 0, 0.2),
-			            0 0 300px rgba(255, 140, 0, 0.1);
+			box-shadow: 0 0 100px rgba(236, 72, 153, 0.4),
+			            0 0 200px rgba(168, 85, 247, 0.3),
+			            0 0 300px rgba(30, 58, 138, 0.2);
 		}
 		50% {
-			box-shadow: 0 0 150px rgba(255, 215, 0, 0.5),
-			            0 0 300px rgba(255, 165, 0, 0.3),
-			            0 0 450px rgba(255, 140, 0, 0.2);
+			box-shadow: 0 0 150px rgba(236, 72, 153, 0.6),
+			            0 0 300px rgba(168, 85, 247, 0.4),
+			            0 0 450px rgba(30, 58, 138, 0.3);
 		}
 	}
 
@@ -348,30 +348,30 @@
 
 	@keyframes searchGlow {
 		0%, 100% {
-			border-color: rgba(255, 215, 0, 0.5);
-			box-shadow: 0 0 10px rgba(255, 215, 0, 0.3),
-			            inset 0 0 10px rgba(255, 215, 0, 0.1);
+			border-color: rgba(236, 72, 153, 0.6);
+			box-shadow: 0 0 10px rgba(236, 72, 153, 0.4),
+			            inset 0 0 10px rgba(168, 85, 247, 0.2);
 		}
 		50% {
-			border-color: rgba(255, 215, 0, 0.8);
-			box-shadow: 0 0 20px rgba(255, 215, 0, 0.5),
-			            inset 0 0 15px rgba(255, 215, 0, 0.2);
+			border-color: rgba(236, 72, 153, 0.9);
+			box-shadow: 0 0 20px rgba(236, 72, 153, 0.6),
+			            inset 0 0 15px rgba(168, 85, 247, 0.3);
 		}
 	}
 
 	@keyframes buttonPower {
 		0% {
-			box-shadow: 0 0 10px rgba(59, 130, 246, 0.5),
-			           0 0 20px rgba(59, 130, 246, 0.3);
+			box-shadow: 0 0 10px rgba(236, 72, 153, 0.6),
+			           0 0 20px rgba(168, 85, 247, 0.4);
 		}
 		50% {
-			box-shadow: 0 0 20px rgba(59, 130, 246, 0.8),
-			           0 0 40px rgba(59, 130, 246, 0.5),
-			           0 0 60px rgba(59, 130, 246, 0.3);
+			box-shadow: 0 0 20px rgba(236, 72, 153, 0.9),
+			           0 0 40px rgba(168, 85, 247, 0.6),
+			           0 0 60px rgba(30, 58, 138, 0.4);
 		}
 		100% {
-			box-shadow: 0 0 10px rgba(59, 130, 246, 0.5),
-			           0 0 20px rgba(59, 130, 246, 0.3);
+			box-shadow: 0 0 10px rgba(236, 72, 153, 0.6),
+			           0 0 20px rgba(168, 85, 247, 0.4);
 		}
 	}
 
@@ -401,7 +401,7 @@
 		animation: glowText 3s ease-in-out infinite;
 	}
 
-	/* Super Saiyan Golden Energy Background - Pure CSS */
+	/* Neon Energy Background - Pure CSS */
 	.super-saiyan-background {
 		position: fixed;
 		inset: 0;
@@ -410,9 +410,10 @@
 		overflow: hidden;
 		background: radial-gradient(
 			ellipse at center,
-			rgba(255, 215, 0, 0.1) 0%,
-			rgba(255, 165, 0, 0.05) 40%,
-			transparent 70%
+			rgba(236, 72, 153, 0.12) 0%,
+			rgba(168, 85, 247, 0.08) 40%,
+			rgba(30, 58, 138, 0.05) 70%,
+			transparent 100%
 		);
 		background-size: 200% 200%;
 		animation: superSaiyanAura 8s ease-in-out infinite;
@@ -428,9 +429,9 @@
 		border-radius: 50%;
 		background: radial-gradient(
 			circle,
-			rgba(255, 255, 0, 0.4) 0%,
-			rgba(255, 215, 0, 0.3) 30%,
-			rgba(255, 165, 0, 0.2) 60%,
+			rgba(236, 72, 153, 0.5) 0%,
+			rgba(236, 72, 153, 0.35) 30%,
+			rgba(168, 85, 247, 0.25) 60%,
 			transparent 100%
 		);
 		animation: energyWave 10s ease-in-out infinite;
@@ -448,9 +449,9 @@
 		border-radius: 50%;
 		background: radial-gradient(
 			circle,
-			rgba(255, 215, 0, 0.3) 0%,
-			rgba(255, 165, 0, 0.2) 40%,
-			rgba(255, 140, 0, 0.1) 70%,
+			rgba(168, 85, 247, 0.4) 0%,
+			rgba(168, 85, 247, 0.25) 40%,
+			rgba(30, 58, 138, 0.15) 70%,
 			transparent 100%
 		);
 		animation: energyWave 15s ease-in-out infinite reverse;
@@ -469,11 +470,11 @@
 		border-radius: 50%;
 		background: radial-gradient(
 			circle,
-			rgba(255, 255, 0, 0.2) 0%,
-			rgba(255, 215, 0, 0.15) 50%,
-			transparent 100%
+			rgba(236, 72, 153, 0.25) 0%,
+			rgba(168, 85, 247, 0.2) 50%,
+			rgba(30, 58, 138, 0.1) 100%
 		);
-		animation: goldenGlow 6s ease-in-out infinite;
+		animation: premiumGlow 6s ease-in-out infinite;
 		filter: blur(80px);
 		will-change: transform, opacity;
 	}
@@ -481,9 +482,11 @@
 	.aura-ring {
 		position: absolute;
 		border-radius: 50%;
-		border: 2px solid rgba(255, 215, 0, 0.3);
+		border: 2px solid rgba(236, 72, 153, 0.4);
 		pointer-events: none;
 		animation: auraGlow 3s ease-in-out infinite;
+		box-shadow: 0 0 20px rgba(236, 72, 153, 0.3),
+		            0 0 40px rgba(168, 85, 247, 0.2);
 	}
 
 	.search-glow {
@@ -492,6 +495,14 @@
 
 	.button-power {
 		animation: buttonPower 2s ease-in-out infinite;
+		background: linear-gradient(135deg, #ec4899, #a855f7, #1e3a8a) !important;
+		border-color: rgba(236, 72, 153, 0.6) !important;
+		transition: all 0.3s ease;
+	}
+
+	.button-power:hover {
+		background: linear-gradient(135deg, #f472b6, #c084fc, #2563eb) !important;
+		border-color: rgba(236, 72, 153, 0.8) !important;
 	}
 
 	.baka-slide {
@@ -565,16 +576,16 @@
 			<!-- <div class="absolute -top-2 -right-2 text-yellow-400 text-2xl md:text-4xl font-bold opacity-75 energy-pulse">
 				⚡
 			</div> -->
-			<div class="absolute -bottom-1 left-1/2 -translate-x-1/2 w-full h-1 bg-gradient-to-r from-transparent via-yellow-400 to-transparent opacity-50"></div>
+			<div class="absolute -bottom-1 left-1/2 -translate-x-1/2 w-full h-1 bg-gradient-to-r from-transparent via-pink-500 to-transparent opacity-60" style="box-shadow: 0 0 10px rgba(236, 72, 153, 0.6);"></div>
 		</div>
 
-		<!-- Welcome Text with Super Saiyan Energy -->
+		<!-- Welcome Text with Neon Energy -->
 		<h1 class="mb-12 text-5xl md:text-7xl font-black text-white glow-text relative text-center">
 			<span class="relative z-10">Welcome, </span>
-			<span class="relative z-10 text-yellow-400">
+			<span class="relative z-10" style="color: #ec4899;">
 				{username}
 			</span>
-			<div class="absolute inset-0 blur-xl bg-gradient-to-r from-yellow-400/50 via-orange-500/50 to-yellow-400/50 opacity-50"></div>
+			<div class="absolute inset-0 blur-xl bg-gradient-to-r from-pink-500/60 via-purple-500/60 to-blue-900/50 opacity-60"></div>
 		</h1>
 
 		<!-- EPIC SEARCH BAR -->
@@ -584,18 +595,18 @@
 				<input
 					type="text"
 					placeholder="Search for torrents..."
-					class="flex-1 rounded-l-xl md:rounded-l-2xl bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 text-white px-6 py-4 md:py-5 focus:outline-none text-lg md:text-xl font-semibold search-glow border-2 border-yellow-500/50 backdrop-blur-sm"
-					style="transition: all 0.3s ease;"
+					class="flex-1 rounded-l-xl md:rounded-l-2xl bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 text-white px-6 py-4 md:py-5 focus:outline-none text-lg md:text-xl font-semibold search-glow border-2 backdrop-blur-sm"
+					style="border-color: rgba(236, 72, 153, 0.6); transition: all 0.3s ease;"
 					required
 				/>
 				
 				<!-- Power Button -->
 				<button
 					type="submit"
-					class="rounded-r-xl md:rounded-r-2xl bg-gradient-to-r from-blue-600 via-blue-500 to-blue-600 px-8 md:px-12 py-4 md:py-5 font-black text-white hover:from-blue-500 hover:via-blue-400 hover:to-blue-500 touch-manipulation min-h-[44px] text-lg md:text-xl button-power border-2 border-blue-400/50 relative overflow-hidden transition-all duration-300 transform hover:scale-105"
+					class="rounded-r-xl md:rounded-r-2xl px-8 md:px-12 py-4 md:py-5 font-black text-white touch-manipulation min-h-[44px] text-lg md:text-xl button-power border-2 relative overflow-hidden transition-all duration-300 transform hover:scale-105"
 				>
 					<span class="relative z-10 flex items-center gap-2">
-						SEARCH
+						Search
 					</span>
 					<div class="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent transform -skew-x-12 translate-x-[-200%] hover:translate-x-[200%] transition-transform duration-1000"></div>
 				</button>
@@ -604,10 +615,10 @@
 
 		<!-- Power Level Indicator -->
 		<div class="mt-8 text-center">
-			<div class="text-yellow-400/80 text-sm md:text-base font-bold mb-2">{randomPowerLevel}</div>
-			<div class="w-64 h-2 bg-gray-800 rounded-full overflow-hidden border border-yellow-500/30">
-				<div class="h-full bg-gradient-to-r from-yellow-400 via-orange-500 to-yellow-400 rounded-full relative overflow-hidden" 
-				     style="width: 100%; animation: energyPulse 2s ease-in-out infinite;">
+			<div class="text-sm md:text-base font-bold mb-2" style="color: #ec4899; text-shadow: 0 0 10px rgba(236, 72, 153, 0.8);">{randomPowerLevel}</div>
+			<div class="w-64 h-2 bg-gray-800 rounded-full overflow-hidden" style="border: 1px solid rgba(236, 72, 153, 0.4);">
+				<div class="h-full rounded-full relative overflow-hidden" 
+				     style="width: 100%; background: linear-gradient(90deg, #ec4899, #a855f7, #1e3a8a); animation: energyPulse 2s ease-in-out infinite;">
 					<div class="absolute inset-0 bg-gradient-to-r from-transparent via-white/50 to-transparent animate-[shimmer_2s_infinite]"></div>
 				</div>
 			</div>
