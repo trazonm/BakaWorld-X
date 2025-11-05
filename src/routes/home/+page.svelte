@@ -1,6 +1,6 @@
 <!-- EPIC ANIME HOME PAGE - THE MOMENT OF TRANSFORMATION -->
 <script lang="ts">
-	import { onMount, onDestroy, tick } from 'svelte';
+	import { onMount, onDestroy } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { get } from 'svelte/store';
 	import { auth, refreshAuth } from '$lib/stores/auth';
@@ -113,100 +113,7 @@
 		return powerLevelMessages[Math.floor(Math.random() * powerLevelMessages.length)];
 	}
 
-	// Super Saiyan Golden Energy System - COMPLETE REBUILD
-	let particles: Array<{
-		id: number;
-		x: number;
-		y: number;
-		vx: number;
-		vy: number;
-		size: number;
-		life: number;
-		maxLife: number;
-		type: 'spark' | 'energy' | 'burst';
-	}> = [];
-
-	let animationFrame: number;
-	let particleIdCounter = 0;
-	let lastUpdateTime = 0;
-	const UPDATE_INTERVAL = 16; // ~60fps but throttled
-
-	function createParticle(type: 'spark' | 'energy' | 'burst', centerX?: number, centerY?: number) {
-		const cx = centerX ?? Math.random() * window.innerWidth;
-		const cy = centerY ?? Math.random() * window.innerHeight;
-		const angle = Math.random() * Math.PI * 2;
-		const speed = type === 'spark' ? 0.3 + Math.random() * 1 : type === 'energy' ? 0.5 + Math.random() * 1.5 : 1 + Math.random() * 2;
-		
-		return {
-			id: particleIdCounter++,
-			x: cx + (Math.random() - 0.5) * (type === 'burst' ? 300 : 200),
-			y: cy + (Math.random() - 0.5) * (type === 'burst' ? 300 : 200),
-			vx: Math.cos(angle) * speed,
-			vy: Math.sin(angle) * speed,
-			size: type === 'spark' ? 5 + Math.random() * 8 : type === 'energy' ? 10 + Math.random() * 15 : 20 + Math.random() * 25,
-			life: 0,
-			maxLife: type === 'spark' ? 200 + Math.random() * 200 : type === 'energy' ? 300 + Math.random() * 200 : 400 + Math.random() * 300,
-			type
-		};
-	}
-
-	function generateParticles() {
-		particles = [];
-		// Create initial burst of particles spread across screen
-		for (let i = 0; i < 200; i++) {
-			particles.push(createParticle('spark'));
-		}
-		for (let i = 0; i < 80; i++) {
-			particles.push(createParticle('energy'));
-		}
-		for (let i = 0; i < 30; i++) {
-			particles.push(createParticle('burst'));
-		}
-	}
-
-	async function animateParticles() {
-		const now = performance.now();
-		const deltaTime = now - lastUpdateTime;
-		
-		// Throttle updates to reduce flashing
-		if (deltaTime < UPDATE_INTERVAL) {
-			animationFrame = requestAnimationFrame(animateParticles);
-			return;
-		}
-		
-		lastUpdateTime = now;
-		
-		// Update existing particles - mutate in place for better performance
-		const updatedParticles = particles.map(p => {
-			const newLife = p.life + 1;
-			
-			if (newLife >= p.maxLife) {
-				// Replace with new particle
-				return createParticle(p.type);
-			}
-			
-			// Update particle
-			return {
-				...p,
-				x: p.x + p.vx,
-				y: p.y + p.vy,
-				life: newLife,
-				vx: p.vx * 0.99, // Slight slowdown
-				vy: p.vy * 0.99
-			};
-		});
-
-		// Add occasional new burst particles
-		if (Math.random() < 0.05) {
-			updatedParticles.push(createParticle('burst', window.innerWidth / 2, window.innerHeight / 2));
-		}
-
-		// Update array - using tick to batch DOM updates
-		particles = updatedParticles;
-		await tick();
-
-		animationFrame = requestAnimationFrame(animateParticles);
-	}
+	// Removed particle system - using pure CSS animations instead
 
 	// Sort and filter results for display
 	$: sortedResults = [...searchResults].sort((a, b) => {
@@ -228,8 +135,6 @@
 
 	onMount(() => {
 		randomPowerLevel = getRandomPowerLevel();
-		generateParticles();
-		animateParticles();
 		const init = async () => {
 			await refreshAuth();
 			const { isLoggedIn, username: uname } = get(auth);
@@ -269,9 +174,6 @@
 	});
 
 	onDestroy(() => {
-		if (animationFrame) {
-			cancelAnimationFrame(animationFrame);
-		}
 		torrentManager.stopAllProgressPolling();
 	});
 
@@ -390,16 +292,46 @@
 		}
 	}
 
-	@keyframes superSaiyanPulse {
-		0%, 100% {
-			opacity: 1;
-			transform: scale(1);
-			filter: brightness(1);
+	@keyframes superSaiyanAura {
+		0% {
+			background-position: 0% 50%;
+			opacity: 0.3;
 		}
 		50% {
-			opacity: 1;
-			transform: scale(1.2);
-			filter: brightness(1.5);
+			background-position: 100% 50%;
+			opacity: 0.6;
+		}
+		100% {
+			background-position: 0% 50%;
+			opacity: 0.3;
+		}
+	}
+
+	@keyframes energyWave {
+		0% {
+			transform: scale(1) rotate(0deg);
+			opacity: 0.2;
+		}
+		50% {
+			transform: scale(1.1) rotate(180deg);
+			opacity: 0.4;
+		}
+		100% {
+			transform: scale(1) rotate(360deg);
+			opacity: 0.2;
+		}
+	}
+
+	@keyframes goldenGlow {
+		0%, 100% {
+			box-shadow: 0 0 100px rgba(255, 215, 0, 0.3),
+			            0 0 200px rgba(255, 165, 0, 0.2),
+			            0 0 300px rgba(255, 140, 0, 0.1);
+		}
+		50% {
+			box-shadow: 0 0 150px rgba(255, 215, 0, 0.5),
+			            0 0 300px rgba(255, 165, 0, 0.3),
+			            0 0 450px rgba(255, 140, 0, 0.2);
 		}
 	}
 
@@ -469,69 +401,81 @@
 		animation: glowText 3s ease-in-out infinite;
 	}
 
-	/* Super Saiyan Golden Energy Particles */
-	.particle {
+	/* Super Saiyan Golden Energy Background - Pure CSS */
+	.super-saiyan-background {
 		position: fixed;
-		border-radius: 50%;
+		inset: 0;
+		z-index: 1;
 		pointer-events: none;
-		animation: superSaiyanPulse 1.5s ease-in-out infinite;
+		overflow: hidden;
+		background: radial-gradient(
+			ellipse at center,
+			rgba(255, 215, 0, 0.1) 0%,
+			rgba(255, 165, 0, 0.05) 40%,
+			transparent 70%
+		);
+		background-size: 200% 200%;
+		animation: superSaiyanAura 8s ease-in-out infinite;
+	}
+
+	.super-saiyan-orb {
+		position: absolute;
+		top: 50%;
+		left: 50%;
+		width: 600px;
+		height: 600px;
+		margin: -300px 0 0 -300px;
+		border-radius: 50%;
+		background: radial-gradient(
+			circle,
+			rgba(255, 255, 0, 0.4) 0%,
+			rgba(255, 215, 0, 0.3) 30%,
+			rgba(255, 165, 0, 0.2) 60%,
+			transparent 100%
+		);
+		animation: energyWave 10s ease-in-out infinite;
+		filter: blur(40px);
 		will-change: transform, opacity;
-		z-index: 2;
-		transform: translate(-50%, -50%);
 	}
 
-	.particle.spark {
-		background: radial-gradient(circle, 
-			rgba(255, 255, 255, 1) 0%,
-			rgba(255, 255, 0, 1) 25%,
-			rgba(255, 215, 0, 0.9) 50%,
-			rgba(255, 165, 0, 0.7) 75%,
+	.super-saiyan-orb-2 {
+		position: absolute;
+		top: 50%;
+		left: 50%;
+		width: 800px;
+		height: 800px;
+		margin: -400px 0 0 -400px;
+		border-radius: 50%;
+		background: radial-gradient(
+			circle,
+			rgba(255, 215, 0, 0.3) 0%,
+			rgba(255, 165, 0, 0.2) 40%,
+			rgba(255, 140, 0, 0.1) 70%,
 			transparent 100%
 		);
-		box-shadow: 
-			0 0 10px rgba(255, 255, 0, 1),
-			0 0 20px rgba(255, 215, 0, 0.9),
-			0 0 30px rgba(255, 165, 0, 0.7),
-			0 0 40px rgba(255, 140, 0, 0.5);
-		filter: brightness(1.5) drop-shadow(0 0 5px rgba(255, 215, 0, 1));
+		animation: energyWave 15s ease-in-out infinite reverse;
+		filter: blur(60px);
+		animation-delay: -2s;
+		will-change: transform, opacity;
 	}
 
-	.particle.energy {
-		background: radial-gradient(circle, 
-			rgba(255, 255, 255, 1) 0%,
-			rgba(255, 255, 0, 1) 20%,
-			rgba(255, 215, 0, 1) 40%,
-			rgba(255, 165, 0, 0.9) 60%,
-			rgba(255, 140, 0, 0.7) 80%,
+	.super-saiyan-glow {
+		position: absolute;
+		top: 50%;
+		left: 50%;
+		width: 1000px;
+		height: 1000px;
+		margin: -500px 0 0 -500px;
+		border-radius: 50%;
+		background: radial-gradient(
+			circle,
+			rgba(255, 255, 0, 0.2) 0%,
+			rgba(255, 215, 0, 0.15) 50%,
 			transparent 100%
 		);
-		box-shadow: 
-			0 0 15px rgba(255, 255, 0, 1),
-			0 0 30px rgba(255, 215, 0, 1),
-			0 0 45px rgba(255, 165, 0, 0.9),
-			0 0 60px rgba(255, 140, 0, 0.7),
-			0 0 75px rgba(255, 120, 0, 0.5);
-		filter: brightness(1.8) drop-shadow(0 0 8px rgba(255, 215, 0, 1));
-	}
-
-	.particle.burst {
-		background: radial-gradient(circle, 
-			rgba(255, 255, 255, 1) 0%,
-			rgba(255, 255, 0, 1) 15%,
-			rgba(255, 215, 0, 1) 30%,
-			rgba(255, 165, 0, 1) 50%,
-			rgba(255, 140, 0, 0.9) 70%,
-			rgba(255, 120, 0, 0.7) 85%,
-			transparent 100%
-		);
-		box-shadow: 
-			0 0 20px rgba(255, 255, 0, 1),
-			0 0 40px rgba(255, 215, 0, 1),
-			0 0 60px rgba(255, 165, 0, 1),
-			0 0 80px rgba(255, 140, 0, 0.9),
-			0 0 100px rgba(255, 120, 0, 0.7),
-			0 0 120px rgba(255, 100, 0, 0.5);
-		filter: brightness(2) drop-shadow(0 0 12px rgba(255, 215, 0, 1));
+		animation: goldenGlow 6s ease-in-out infinite;
+		filter: blur(80px);
+		will-change: transform, opacity;
 	}
 
 	.aura-ring {
@@ -584,34 +528,15 @@
 		z-index: 0;
 	}
 
-	.home-background-particles {
-		position: fixed;
-		top: 0;
-		left: 0;
-		width: 100vw;
-		height: 100vh;
-		z-index: 2;
-		overflow: hidden;
-		pointer-events: none;
-	}
 
 </style>
 
 <div class="home-background-layer">
 	<div class="home-background-gradient epic-gradient"></div>
-			<div class="home-background-particles">
-		{#each particles as particle (particle.id)}
-			<div 
-				class="particle {particle.type}"
-				style="
-					left: {particle.x}px;
-					top: {particle.y}px;
-					width: {particle.size}px;
-					height: {particle.size}px;
-					opacity: {Math.max(0.3, 1 - (particle.life / particle.maxLife) * 0.7)};
-				"
-			></div>
-		{/each}
+	<div class="super-saiyan-background">
+		<div class="super-saiyan-glow"></div>
+		<div class="super-saiyan-orb"></div>
+		<div class="super-saiyan-orb-2"></div>
 	</div>
 </div>
 
