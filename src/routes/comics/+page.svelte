@@ -50,7 +50,7 @@
 	}
 </style>
 
-<div class="comics-search-container min-h-screen">
+<div class="comics-search-container">
 	<main class="container mx-auto px-4 py-8 max-w-7xl">
 		<!-- Header Section -->
 		<div class="text-center mb-8">
