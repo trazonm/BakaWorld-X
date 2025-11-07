@@ -45,8 +45,6 @@ export default defineConfig({
 				globIgnores: ['**/node_modules/**/*', 'sw.js', 'workbox-*.js'],
 				navigateFallback: null, // Disable navigation fallback for SvelteKit (it handles routing client-side)
 				navigateFallbackDenylist: [/^\/_/, /^\/api/], // Don't cache SvelteKit internals or API routes
-				// Add cache version to force invalidation of old caches
-				cacheId: 'bakaworld-v2',
 				runtimeCaching: [
 					{
 						// Cache external images, but exclude our proxy endpoint
