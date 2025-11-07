@@ -50,11 +50,51 @@
 		theme.init();
 		await refreshAuth();
 
+		// Aggressively clear old image caches on load to fix Opera GX caching issues
+		if ('caches' in window) {
+			try {
+				const cacheNames = await caches.keys();
+				for (const cacheName of cacheNames) {
+					// Clear any cache that might contain stale proxy images
+					// Only clear image-related caches, not all workbox caches
+					if (cacheName.includes('images-cache') || 
+					    cacheName.includes('proxy-images-cache') ||
+					    (cacheName.includes('workbox') && cacheName.includes('image'))) {
+						await caches.delete(cacheName);
+					}
+				}
+			} catch (e) {
+				console.warn('Failed to clear caches:', e);
+			}
+		}
+
 		if ('serviceWorker' in navigator) {
 			registerSW({
 				immediate: true,
 				onNeedRefresh() {},
-				onOfflineReady() {}
+				onOfflineReady() {},
+				onRegistered(registration) {
+					// Clear old image caches when service worker updates
+					if (registration) {
+						registration.addEventListener('updatefound', () => {
+							const newWorker = registration.installing;
+							if (newWorker) {
+								newWorker.addEventListener('statechange', () => {
+									if (newWorker.state === 'activated') {
+										// Clear old caches that might have stale images
+										caches.keys().then(cacheNames => {
+											cacheNames.forEach(cacheName => {
+												if (cacheName.includes('images-cache') || cacheName.includes('proxy-images-cache')) {
+													caches.delete(cacheName);
+												}
+											});
+										});
+									}
+								});
+							}
+						});
+					}
+				}
 			});
 		}
 	});
