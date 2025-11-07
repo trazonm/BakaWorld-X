@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { onMount, onDestroy } from 'svelte';
+	import { browser } from '$app/environment';
 	import type { PageData } from './$types';
 
 	export let data: PageData;
@@ -27,6 +28,10 @@
 	let selectedLanguage = 'sub';
 	let loading = false;
 	let error = '';
+
+	// Skip Filler toggle state
+	const SKIP_FILLER_STORAGE_KEY = 'bakaworld-skip-filler';
+	let skipFiller = false;
 
 	// Language options for MegaPlay
 	const languages = [
@@ -77,6 +82,12 @@
 			console.log('Blocked popup attempt to:', url);
 			return null; // Return null to block the popup
 		};
+
+		// Load skip filler preference from localStorage
+		if (browser) {
+			const stored = localStorage.getItem(SKIP_FILLER_STORAGE_KEY);
+			skipFiller = stored === 'true';
+		}
 	});
 	
 	onDestroy(() => {
@@ -92,17 +103,79 @@
 		goto(`/anime/${animeId}/watch/${episodeId}?language=${selectedLanguage}`);
 	}
 
+	function findNextNonFillerEpisode(currentIndex: number, direction: 'next' | 'prev'): any {
+		if (!anime?.episodes || currentIndex < 0) return null;
+		
+		const episodes = anime.episodes;
+		const step = direction === 'next' ? 1 : -1;
+		let index = currentIndex + step;
+		
+		while (index >= 0 && index < episodes.length) {
+			const ep = episodes[index];
+			if (!ep.isFiller) {
+				return ep;
+			}
+			index += step;
+		}
+		
+		return null;
+	}
+
 	function goToNextEpisode() {
+		if (skipFiller && anime?.episodes) {
+			const currentIndex = anime.episodes.findIndex((ep: any) => 
+				ep.id.replace(/\$/g, '-') === episodeId
+			);
+			const nextNonFiller = findNextNonFillerEpisode(currentIndex, 'next');
+			if (nextNonFiller) {
+				navigateToEpisode(nextNonFiller);
+				return;
+			}
+		}
 		navigateToEpisode(nextEpisode);
 	}
 
 	function goToPrevEpisode() {
+		if (skipFiller && anime?.episodes) {
+			const currentIndex = anime.episodes.findIndex((ep: any) => 
+				ep.id.replace(/\$/g, '-') === episodeId
+			);
+			const prevNonFiller = findNextNonFillerEpisode(currentIndex, 'prev');
+			if (prevNonFiller) {
+				navigateToEpisode(prevNonFiller);
+				return;
+			}
+		}
 		navigateToEpisode(prevEpisode);
+	}
+
+	function toggleSkipFiller() {
+		skipFiller = !skipFiller;
+		if (browser) {
+			localStorage.setItem(SKIP_FILLER_STORAGE_KEY, skipFiller.toString());
+		}
 	}
 
 	function changeLanguage(newLanguage: string) {
 		selectedLanguage = newLanguage;
 		goto(`/anime/${animeId}/watch/${episodeId}?language=${newLanguage}`);
+	}
+
+	// Computed values for button states when skip filler is enabled
+	let canGoNext = !!nextEpisode;
+	let canGoPrev = !!prevEpisode;
+	
+	$: {
+		if (skipFiller && anime?.episodes) {
+			const currentIndex = anime.episodes.findIndex((ep: any) => 
+				ep.id.replace(/\$/g, '-') === episodeId
+			);
+			canGoNext = findNextNonFillerEpisode(currentIndex, 'next') !== null;
+			canGoPrev = findNextNonFillerEpisode(currentIndex, 'prev') !== null;
+		} else {
+			canGoNext = !!nextEpisode;
+			canGoPrev = !!prevEpisode;
+		}
 	}
 </script>
 
@@ -155,7 +228,7 @@
 			<h2 class="text-lg text-gray-400">{episode.title}</h2>
 		</div>
 
-		<!-- Language Selection -->
+		<!-- Language Selection and Skip Filler Toggle -->
 		<div class="mb-6 flex flex-wrap items-center gap-4">
 			<div class="flex items-center gap-2">
 				<label for="language-select" class="text-sm font-medium text-white">Language:</label>
@@ -170,13 +243,32 @@
 					{/each}
 				</select>
 			</div>
+
+			<!-- Skip Filler Toggle -->
+			<div class="flex items-center gap-2">
+				<label for="skip-filler-toggle" class="text-sm font-medium text-white cursor-pointer">
+					Skip Filler:
+				</label>
+				<button
+					id="skip-filler-toggle"
+					type="button"
+					role="switch"
+					aria-checked={skipFiller}
+					onclick={toggleSkipFiller}
+					class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 {skipFiller ? 'bg-blue-600' : 'bg-gray-600'}"
+				>
+					<span
+						class="inline-block h-4 w-4 transform rounded-full bg-white transition-transform {skipFiller ? 'translate-x-6' : 'translate-x-1'}"
+					></span>
+				</button>
+			</div>
 		</div>
 
 		<!-- Navigation -->
 		<div class="mb-8 flex items-center gap-4">
 			<button
 				onclick={goToPrevEpisode}
-				disabled={!prevEpisode}
+				disabled={!canGoPrev}
 				class="rounded-lg bg-gray-700 px-4 py-2 text-white hover:bg-gray-600 disabled:bg-gray-800 disabled:text-gray-500"
 			>
 				← Previous
@@ -184,7 +276,7 @@
 
 			<button
 				onclick={goToNextEpisode}
-				disabled={!nextEpisode}
+				disabled={!canGoNext}
 				class="rounded-lg bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 disabled:bg-gray-800 disabled:text-gray-500"
 			>
 				Next →
