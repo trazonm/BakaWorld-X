@@ -69,6 +69,7 @@
 	let lastIframeSrc = '';
 	let hasAdvanced = false;
 	let videoEndedListenerAdded = false;
+	let scrollHandler: ((e: Event) => void) | null = null;
 	const USER_INACTIVITY_THRESHOLD = 30000; // 30 seconds
 	const MIN_EPISODE_DURATION = 600000; // 10 minutes in milliseconds
 	const CHECK_INTERVAL = 1000; // Check every 1 second for faster detection
@@ -168,6 +169,170 @@
 
 	function handleIframeLoad() {
 		if (!iframeElement) return;
+		
+		// Ensure iframe is connected to DOM before proceeding
+		if (!iframeElement.isConnected) {
+			console.warn('Iframe not connected to DOM');
+			return;
+		}
+		
+		// Prevent auto-scroll when iframe receives focus - more aggressive approach
+		let scrollPosition = window.pageYOffset || document.documentElement.scrollTop;
+		let isPreventingScroll = false;
+		let scrollPreventionTimeout: ReturnType<typeof setTimeout> | null = null;
+		
+		// Store scroll position constantly
+		const updateScrollPosition = () => {
+			if (!isPreventingScroll) {
+				scrollPosition = window.pageYOffset || document.documentElement.scrollTop;
+			}
+		};
+		
+		// Continuously track scroll position (only update when not preventing)
+		const scrollTracker = setInterval(updateScrollPosition, 50);
+		
+		// Override scrollIntoView completely
+		Object.defineProperty(iframeElement, 'scrollIntoView', {
+			value: function() {
+				// Prevent automatic scrolling - do nothing
+				return;
+			},
+			writable: false,
+			configurable: false
+		});
+
+		// More aggressive scroll prevention
+		const preventScrollOnFocus = (e: Event) => {
+			e.preventDefault();
+			e.stopPropagation();
+			
+			// Lock scroll position immediately
+			scrollPosition = window.pageYOffset || document.documentElement.scrollTop;
+			isPreventingScroll = true;
+			
+			// Clear any existing timeout
+			if (scrollPreventionTimeout) {
+				clearTimeout(scrollPreventionTimeout);
+			}
+			
+			// Restore scroll position multiple times to override browser behavior
+			const restoreScroll = () => {
+				window.scrollTo({
+					top: scrollPosition,
+					left: 0,
+					behavior: 'auto'
+				});
+				document.documentElement.scrollTop = scrollPosition;
+				document.body.scrollTop = scrollPosition;
+			};
+			
+			// Restore immediately and repeatedly
+			restoreScroll();
+			requestAnimationFrame(restoreScroll);
+			setTimeout(restoreScroll, 0);
+			setTimeout(restoreScroll, 10);
+			setTimeout(restoreScroll, 50);
+			setTimeout(restoreScroll, 100);
+			setTimeout(restoreScroll, 200);
+			
+			// Stop preventing after a longer period
+			scrollPreventionTimeout = setTimeout(() => {
+				isPreventingScroll = false;
+				scrollPreventionTimeout = null;
+			}, 500);
+		};
+
+		// Listen for all possible focus/click events on iframe and container
+		iframeElement.addEventListener('focus', preventScrollOnFocus, true);
+		iframeElement.addEventListener('focusin', preventScrollOnFocus, true);
+		iframeElement.addEventListener('click', (e) => {
+			// Preemptively save scroll position before click
+			scrollPosition = window.pageYOffset || document.documentElement.scrollTop;
+		}, true);
+		
+		// Also prevent on mouse events that might trigger focus
+		iframeElement.addEventListener('mousedown', () => {
+			scrollPosition = window.pageYOffset || document.documentElement.scrollTop;
+		}, true);
+		
+		// Wrap iframe container to catch events before they reach iframe
+		const videoContainer = iframeElement.parentElement;
+		if (videoContainer) {
+			videoContainer.addEventListener('click', (e) => {
+				// Save scroll position before any click
+				scrollPosition = window.pageYOffset || document.documentElement.scrollTop;
+			}, true);
+			
+			videoContainer.addEventListener('mousedown', (e) => {
+				scrollPosition = window.pageYOffset || document.documentElement.scrollTop;
+			}, true);
+		}
+
+		// Aggressive scroll interception - prevent ALL scroll when iframe is active
+		let lastKnownScroll = scrollPosition;
+		scrollHandler = (e: Event) => {
+			const currentScroll = window.pageYOffset || document.documentElement.scrollTop;
+			
+			if (isPreventingScroll) {
+				e.preventDefault();
+				e.stopPropagation();
+				window.scrollTo({
+					top: scrollPosition,
+					left: 0,
+					behavior: 'auto'
+				});
+				document.documentElement.scrollTop = scrollPosition;
+				document.body.scrollTop = scrollPosition;
+				return false;
+			} else if (document.activeElement === iframeElement || 
+			           (iframeElement && iframeElement.contains(document.activeElement))) {
+				// If iframe or any element inside it is focused, prevent scroll
+				if (Math.abs(currentScroll - lastKnownScroll) > 1) {
+					e.preventDefault();
+					e.stopPropagation();
+					window.scrollTo({
+						top: lastKnownScroll,
+						left: 0,
+						behavior: 'auto'
+					});
+					document.documentElement.scrollTop = lastKnownScroll;
+					document.body.scrollTop = lastKnownScroll;
+					return false;
+				}
+			} else {
+				lastKnownScroll = currentScroll;
+			}
+		};
+
+		// Intercept scroll at multiple levels with high priority
+		window.addEventListener('scroll', scrollHandler, { passive: false, capture: true });
+		document.addEventListener('scroll', scrollHandler, { passive: false, capture: true });
+		document.documentElement.addEventListener('scroll', scrollHandler, { passive: false, capture: true });
+		
+		// Also use a MutationObserver to detect scroll changes
+		const scrollMutationObserver = new MutationObserver(() => {
+			if (document.activeElement === iframeElement && isPreventingScroll) {
+				window.scrollTo(0, scrollPosition);
+			}
+		});
+		
+		// Observe body for attribute changes that might indicate scroll
+		if (document.body) {
+			scrollMutationObserver.observe(document.body, {
+				attributes: true,
+				attributeFilter: ['style']
+			});
+		}
+		
+		// Clean up interval on destroy
+		onDestroy(() => {
+			if (scrollTracker) {
+				clearInterval(scrollTracker);
+			}
+			if (scrollPreventionTimeout) {
+				clearTimeout(scrollPreventionTimeout);
+			}
+		});
 		
 		setupPopupBlocker();
 
@@ -330,15 +495,24 @@
 			});
 
 			// Monitor iframe with MutationObserver
-			if (iframeElement) {
-				iframeObserver = new MutationObserver(() => {
-					monitorIframe();
-				});
+			if (iframeElement && iframeElement.isConnected) {
+				try {
+					iframeObserver = new MutationObserver(() => {
+						monitorIframe();
+					});
 
-				iframeObserver.observe(iframeElement, {
-					attributes: true,
-					attributeFilter: ['src']
-				});
+					iframeObserver.observe(iframeElement, {
+						attributes: true,
+						attributeFilter: ['src']
+					});
+				} catch (e) {
+					console.warn('Failed to observe iframe:', e);
+					// Clean up observer if it failed
+					if (iframeObserver) {
+						iframeObserver.disconnect();
+						iframeObserver = null;
+					}
+				}
 			}
 		}
 	}
@@ -399,6 +573,14 @@
 		// Remove message listener
 		if (browser) {
 			window.removeEventListener('message', handleMessage);
+		}
+
+		// Remove scroll handler
+		if (scrollHandler) {
+			window.removeEventListener('scroll', scrollHandler, { capture: true });
+			document.removeEventListener('scroll', scrollHandler, { capture: true });
+			document.documentElement.removeEventListener('scroll', scrollHandler, { capture: true });
+			scrollHandler = null;
 		}
 	});
 
@@ -534,6 +716,8 @@
 				title="Video Player"
 				onload={handleIframeLoad}
 				referrerpolicy="no-referrer-when-downgrade"
+				sandbox="allow-scripts allow-same-origin"
+				tabindex="-1"
 			></iframe>
 		{:else}
 			<div class="absolute top-0 left-0 w-full h-full flex items-center justify-center bg-gray-900">
@@ -658,5 +842,16 @@
 
 	.select-dropdown:hover {
 		background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 14 14'%3E%3Cpath fill='%23ffffff' fill-opacity='1' stroke='none' d='M7 10.5L1.5 5h11z'/%3E%3C/svg%3E");
+	}
+
+	/* Prevent scroll behavior on iframe focus */
+	iframe {
+		scroll-margin: 0 !important;
+		scroll-padding: 0 !important;
+	}
+
+	/* Prevent smooth scrolling to iframe */
+	:global(html) {
+		scroll-behavior: auto !important;
 	}
 </style>
