@@ -33,60 +33,357 @@
 	const SKIP_FILLER_STORAGE_KEY = 'bakaworld-skip-filler';
 	let skipFiller = false;
 
+	// Autoplay state
+	const AUTOPLAY_STORAGE_KEY = 'bakaworld-autoplay';
+	let autoplay = false;
+
 	// Language options for MegaPlay
 	const languages = [
 		{ name: 'sub', label: 'Subbed' },
 		{ name: 'dub', label: 'Dubbed' }
 	];
 
+	// Skip Filler options
+	const skipFillerOptions = [
+		{ value: 'false', label: 'Show All' },
+		{ value: 'true', label: 'Skip Filler' }
+	];
+
+	// Autoplay options
+	const autoplayOptions = [
+		{ value: 'false', label: 'Off' },
+		{ value: 'true', label: 'On' }
+	];
+
+	// Skip filler dropdown value
+	let skipFillerValue = 'false';
+
+	// Autoplay dropdown value
+	let autoplayValue = 'false';
+
+	// Autoplay tracking
+	let autoplayCheckInterval: ReturnType<typeof setInterval> | null = null;
+	let iframeObserver: MutationObserver | null = null;
+	let pageLoadTime = Date.now();
+	let lastUserActivity = Date.now();
+	let lastIframeSrc = '';
+	let hasAdvanced = false;
+	let videoEndedListenerAdded = false;
+	const USER_INACTIVITY_THRESHOLD = 30000; // 30 seconds
+	const MIN_EPISODE_DURATION = 600000; // 10 minutes in milliseconds
+	const CHECK_INTERVAL = 1000; // Check every 1 second for faster detection
+	const AUTOPLAY_DELAY = 100; // 100ms minimal delay to ensure smooth transition
+
 	// Get the embed URL from videoData
 	$: embedUrl = videoData?.embedUrl || videoData?.sources?.[0]?.url;
 	$: loading = !embedUrl;
+	
+	// Reset autoplay tracking when embed URL changes
+	$: if (embedUrl && autoplay && browser) {
+		hasAdvanced = false;
+		videoEndedListenerAdded = false;
+		pageLoadTime = Date.now();
+		lastUserActivity = Date.now();
+	}
 
 	// Block popups from iframe
 	let iframeElement: HTMLIFrameElement;
+	let popupBlocked = false;
 	
+	function setupPopupBlocker() {
+		if (popupBlocked || !browser) return;
+		popupBlocked = true;
+
+		// Block window.open globally
+		window.open = function(url?: string | URL, target?: string, features?: string) {
+			console.log('Blocked popup attempt to:', url);
+			return null;
+		};
+
+		// Block attempts to create new windows via various methods
+		document.addEventListener('click', (e) => {
+			const target = e.target as HTMLElement;
+			// Check if click is on or inside iframe
+			if (iframeElement && (target === iframeElement || iframeElement.contains(target))) {
+				// Prevent default might not work for iframe clicks, but we try
+				e.stopPropagation();
+			}
+		}, true); // Use capture phase
+
+		// Block beforeunload popups
+		window.addEventListener('beforeunload', (e) => {
+			// Only prevent if it's from an iframe interaction
+			// We can't always detect this, so we're selective
+		});
+
+		// Monitor for window blur events that might indicate popup opened
+		let lastBlurTime = 0;
+		let isInteractingWithIframe = false;
+		
+		// Track if user is interacting with iframe
+		if (iframeElement) {
+			iframeElement.addEventListener('mouseenter', () => {
+				isInteractingWithIframe = true;
+			});
+			iframeElement.addEventListener('mouseleave', () => {
+				setTimeout(() => {
+					isInteractingWithIframe = false;
+				}, 500);
+			});
+		}
+
+		window.addEventListener('blur', () => {
+			if (isInteractingWithIframe) {
+				lastBlurTime = Date.now();
+				// Try to close any popup and focus back
+				setTimeout(() => {
+					window.focus();
+					// Try to close any popup windows that might have opened
+					if (window.opener) {
+						try {
+							window.close();
+						} catch (e) {
+							// Can't close, ignore
+						}
+					}
+				}, 50);
+			}
+		});
+
+		// Block target="_blank" links that might open new tabs (on parent page only)
+		// Note: Can't block links inside iframe due to cross-origin restrictions
+		document.addEventListener('click', (e) => {
+			const target = e.target as HTMLElement;
+			// Only block links that are NOT inside the iframe (we can't access iframe content)
+			if (iframeElement && target !== iframeElement && !iframeElement.contains(target)) {
+				const link = target.closest('a[target="_blank"]') as HTMLAnchorElement;
+				if (link) {
+					// Only block if it's a suspicious popup link
+					const href = link.href.toLowerCase();
+					// Allow normal navigation, but could add filtering here if needed
+				}
+			}
+		}, true);
+	}
+
 	function handleIframeLoad() {
 		if (!iframeElement) return;
 		
+		setupPopupBlocker();
+
 		// Try to access iframe content and block window.open
 		try {
-			// Block window.open from the parent window (though iframe can't access parent's window.open directly)
-			// Instead, we'll monitor for new window creation
-			const originalOpen = window.open;
-			window.open = function(url?: string | URL, target?: string, features?: string) {
-				// Block popups - don't open new windows
-				console.log('Blocked popup attempt:', url);
-				return null;
-			};
-			
-			// Also monitor beforeunload which might trigger popups
-			window.addEventListener('beforeunload', (e) => {
-				// Allow normal navigation, but this won't prevent iframe popups
-			});
+			// Try to inject script to block popups inside iframe (may fail due to CORS)
+			const iframeWindow = iframeElement.contentWindow;
+			if (iframeWindow) {
+				try {
+					// This will fail for cross-origin iframes, which is expected
+					iframeWindow.open = function() {
+						console.log('Blocked iframe popup attempt');
+						return null;
+					};
+				} catch (e) {
+					// Cross-origin restriction - can't access iframe content
+					// This is normal and expected
+				}
+			}
 		} catch (e) {
 			// Cross-origin restriction - can't access iframe content
-			console.log('Cannot access iframe content (cross-origin)');
+			// This is expected for cross-origin iframes
+		}
+
+		// Start monitoring iframe for autoplay
+		if (autoplay) {
+			setTimeout(() => {
+				monitorIframe();
+			}, 1000);
 		}
 	}
 	
 	// Store original window.open to restore later
 	let originalWindowOpen: typeof window.open;
 	
+	// Listen for messages from iframe (if video player supports it)
+	function handleMessage(event: MessageEvent) {
+		// Check if message is from video player indicating video ended
+		if (event.data) {
+			const data = event.data;
+			const dataStr = typeof data === 'string' ? data.toLowerCase() : '';
+			const dataType = typeof data === 'object' ? (data.type || data.event || '').toLowerCase() : '';
+			
+			// Check various message formats that video players might use
+			const isVideoEnded = 
+				dataType === 'ended' || 
+				dataType === 'video-ended' ||
+				dataType === 'complete' ||
+				dataStr.includes('ended') ||
+				dataStr.includes('complete') ||
+				(data && typeof data === 'object' && (data.state === 'ended' || data.status === 'ended'));
+
+			if (isVideoEnded) {
+				if (autoplay && canGoNext && !hasAdvanced) {
+					hasAdvanced = true;
+					setTimeout(() => {
+						goToNextEpisode();
+					}, AUTOPLAY_DELAY); // Small delay to ensure video has fully ended
+				}
+			}
+		}
+	}
+
+	// Monitor iframe for changes that might indicate video ended
+	function monitorIframe() {
+		if (!iframeElement) return;
+
+		try {
+			// Watch for iframe src changes
+			if (iframeElement.src !== lastIframeSrc) {
+				lastIframeSrc = iframeElement.src;
+				// Reset listener flag when iframe src changes
+				videoEndedListenerAdded = false;
+			}
+
+			// Try to access iframe content (may fail due to CORS)
+			if (!videoEndedListenerAdded) {
+				try {
+					const iframeDoc = iframeElement.contentDocument || iframeElement.contentWindow?.document;
+					if (iframeDoc) {
+						// Check for video element
+						const video = iframeDoc.querySelector('video');
+						if (video && !videoEndedListenerAdded) {
+							// Listen for video ended event
+							video.addEventListener('ended', () => {
+								if (autoplay && canGoNext && !hasAdvanced) {
+									hasAdvanced = true;
+									setTimeout(() => {
+										goToNextEpisode();
+									}, AUTOPLAY_DELAY);
+								}
+							}, { once: true });
+							videoEndedListenerAdded = true;
+						}
+					}
+				} catch (e) {
+					// CORS restriction - can't access iframe content
+					// This is expected for cross-origin iframes
+				}
+			}
+		} catch (e) {
+			// Silently handle errors
+		}
+	}
+
+	// Check if we should auto-advance to next episode
+	function checkAutoplay() {
+		if (!autoplay || !canGoNext) return;
+
+		const now = Date.now();
+		const timeSinceLoad = now - pageLoadTime;
+		const timeSinceActivity = now - lastUserActivity;
+
+		// Only auto-advance if:
+		// 1. Minimum episode duration has passed (to avoid premature skipping)
+		// 2. User has been inactive for a while (not actively watching)
+		// 3. Page is visible (user hasn't switched tabs)
+		if (
+			timeSinceLoad >= MIN_EPISODE_DURATION &&
+			timeSinceActivity >= USER_INACTIVITY_THRESHOLD &&
+			document.visibilityState === 'visible'
+		) {
+			// This is a fallback - ideally the iframe will send a message when video ends
+			// But since we can't reliably detect that, we'll let users manually advance
+			// or wait for the message event
+		}
+	}
+
+	function startAutoplayMonitoring() {
+		if (autoplayCheckInterval) {
+			clearInterval(autoplayCheckInterval);
+		}
+		
+		if (autoplay && browser) {
+			// Reset tracking
+			hasAdvanced = false;
+			pageLoadTime = Date.now();
+			lastUserActivity = Date.now();
+
+			// Monitor iframe
+			if (iframeElement) {
+				lastIframeSrc = iframeElement.src || '';
+				monitorIframe();
+			}
+
+			// Set up interval to check autoplay conditions
+			autoplayCheckInterval = setInterval(() => {
+				checkAutoplay();
+				monitorIframe();
+			}, CHECK_INTERVAL);
+
+			// Track user activity
+			const activityEvents = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart', 'click'];
+			const updateActivity = () => {
+				lastUserActivity = Date.now();
+			};
+
+			activityEvents.forEach(event => {
+				window.addEventListener(event, updateActivity, { passive: true });
+			});
+
+			// Monitor iframe with MutationObserver
+			if (iframeElement) {
+				iframeObserver = new MutationObserver(() => {
+					monitorIframe();
+				});
+
+				iframeObserver.observe(iframeElement, {
+					attributes: true,
+					attributeFilter: ['src']
+				});
+			}
+		}
+	}
+
+	function stopAutoplayMonitoring() {
+		if (autoplayCheckInterval) {
+			clearInterval(autoplayCheckInterval);
+			autoplayCheckInterval = null;
+		}
+
+		if (iframeObserver) {
+			iframeObserver.disconnect();
+			iframeObserver = null;
+		}
+
+		hasAdvanced = false;
+		videoEndedListenerAdded = false;
+	}
+
 	onMount(() => {
 		// Save original window.open
 		originalWindowOpen = window.open;
 		
-		// Override window.open to block popups
-		window.open = function(url?: string | URL, target?: string, features?: string) {
-			console.log('Blocked popup attempt to:', url);
-			return null; // Return null to block the popup
-		};
+		// Set up comprehensive popup blocking
+		setupPopupBlocker();
 
-		// Load skip filler preference from localStorage
+		// Load preferences from localStorage
 		if (browser) {
-			const stored = localStorage.getItem(SKIP_FILLER_STORAGE_KEY);
-			skipFiller = stored === 'true';
+			const storedSkipFiller = localStorage.getItem(SKIP_FILLER_STORAGE_KEY);
+			skipFiller = storedSkipFiller === 'true';
+			skipFillerValue = skipFiller ? 'true' : 'false';
+
+			const storedAutoplay = localStorage.getItem(AUTOPLAY_STORAGE_KEY);
+			autoplay = storedAutoplay === 'true';
+			autoplayValue = autoplay ? 'true' : 'false';
+
+			// Set up message listener for iframe communication
+			window.addEventListener('message', handleMessage);
+
+			// Start autoplay monitoring if enabled
+			if (autoplay) {
+				pageLoadTime = Date.now();
+				lastUserActivity = Date.now();
+				startAutoplayMonitoring();
+			}
 		}
 	});
 	
@@ -94,6 +391,14 @@
 		// Restore original window.open
 		if (originalWindowOpen) {
 			window.open = originalWindowOpen;
+		}
+
+		// Clean up autoplay monitoring
+		stopAutoplayMonitoring();
+
+		// Remove message listener
+		if (browser) {
+			window.removeEventListener('message', handleMessage);
 		}
 	});
 
@@ -149,10 +454,29 @@
 		navigateToEpisode(prevEpisode);
 	}
 
-	function toggleSkipFiller() {
-		skipFiller = !skipFiller;
+	function changeSkipFiller(value: string) {
+		skipFiller = value === 'true';
 		if (browser) {
 			localStorage.setItem(SKIP_FILLER_STORAGE_KEY, skipFiller.toString());
+		}
+	}
+
+	function changeAutoplay(value: string) {
+		const wasEnabled = autoplay;
+		autoplay = value === 'true';
+		autoplayValue = value;
+		
+		if (browser) {
+			localStorage.setItem(AUTOPLAY_STORAGE_KEY, autoplay.toString());
+		}
+
+		// Start or stop monitoring based on new value
+		if (autoplay && !wasEnabled) {
+			pageLoadTime = Date.now();
+			lastUserActivity = Date.now();
+			startAutoplayMonitoring();
+		} else if (!autoplay && wasEnabled) {
+			stopAutoplayMonitoring();
 		}
 	}
 
@@ -176,6 +500,18 @@
 			canGoNext = !!nextEpisode;
 			canGoPrev = !!prevEpisode;
 		}
+
+		// Reset autoplay tracking when episode changes
+		hasAdvanced = false;
+		videoEndedListenerAdded = false;
+		if (autoplay && browser) {
+			pageLoadTime = Date.now();
+			lastUserActivity = Date.now();
+			// Restart monitoring if it was stopped
+			if (!autoplayCheckInterval) {
+				startAutoplayMonitoring();
+			}
+		}
 	}
 </script>
 
@@ -197,6 +533,7 @@
 				allowfullscreen
 				title="Video Player"
 				onload={handleIframeLoad}
+				referrerpolicy="no-referrer-when-downgrade"
 			></iframe>
 		{:else}
 			<div class="absolute top-0 left-0 w-full h-full flex items-center justify-center bg-gray-900">
@@ -236,7 +573,7 @@
 					id="language-select"
 					bind:value={selectedLanguage}
 					onchange={(e) => changeLanguage(e.currentTarget.value)}
-					class="rounded-lg border border-gray-600 bg-gray-700 px-3 py-2 text-sm text-white focus:border-blue-500 focus:outline-none"
+					class="select-dropdown rounded-lg border border-gray-600 bg-gray-700 px-3 py-2 pr-10 text-sm text-white focus:border-blue-500 focus:outline-none"
 				>
 					{#each languages as langOption}
 						<option value={langOption.name}>{langOption.label}</option>
@@ -244,50 +581,82 @@
 				</select>
 			</div>
 
-			<!-- Skip Filler Toggle -->
+			<!-- Skip Filler Dropdown -->
 			<div class="flex items-center gap-2">
-				<label for="skip-filler-toggle" class="text-sm font-medium text-white cursor-pointer">
-					Skip Filler:
-				</label>
-				<button
-					id="skip-filler-toggle"
-					type="button"
-					role="switch"
-					aria-checked={skipFiller}
-					onclick={toggleSkipFiller}
-					class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 {skipFiller ? 'bg-blue-600' : 'bg-gray-600'}"
+				<label for="skip-filler-select" class="text-sm font-medium text-white">Skip Filler:</label>
+				<select
+					id="skip-filler-select"
+					bind:value={skipFillerValue}
+					onchange={() => changeSkipFiller(skipFillerValue)}
+					class="select-dropdown rounded-lg border border-gray-600 bg-gray-700 px-3 py-2 pr-10 text-sm text-white focus:border-blue-500 focus:outline-none"
 				>
-					<span
-						class="inline-block h-4 w-4 transform rounded-full bg-white transition-transform {skipFiller ? 'translate-x-6' : 'translate-x-1'}"
-					></span>
-				</button>
+					{#each skipFillerOptions as option}
+						<option value={option.value}>{option.label}</option>
+					{/each}
+				</select>
+			</div>
+
+			<!-- Autoplay Dropdown -->
+			<div class="flex items-center gap-2">
+				<label for="autoplay-select" class="text-sm font-medium text-white">Autoplay:</label>
+				<select
+					id="autoplay-select"
+					bind:value={autoplayValue}
+					onchange={() => changeAutoplay(autoplayValue)}
+					class="select-dropdown rounded-lg border border-gray-600 bg-gray-700 px-3 py-2 pr-10 text-sm text-white focus:border-blue-500 focus:outline-none"
+				>
+					{#each autoplayOptions as option}
+						<option value={option.value}>{option.label}</option>
+					{/each}
+				</select>
 			</div>
 		</div>
 
 		<!-- Navigation -->
-		<div class="mb-8 flex items-center gap-4">
+		<div class="mb-8 flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-4">
 			<button
 				onclick={goToPrevEpisode}
 				disabled={!canGoPrev}
-				class="rounded-lg bg-gray-700 px-4 py-2 text-white hover:bg-gray-600 disabled:bg-gray-800 disabled:text-gray-500"
+				class="rounded-lg bg-gray-700 px-3 py-1.5 sm:px-4 sm:py-2 text-sm sm:text-base text-white hover:bg-gray-600 disabled:bg-gray-800 disabled:text-gray-500"
 			>
-				← Previous
+				<span class="mr-1 sm:mr-1.5 text-base sm:text-lg font-semibold">◀</span> Previous
 			</button>
 
 			<button
 				onclick={goToNextEpisode}
 				disabled={!canGoNext}
-				class="rounded-lg bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 disabled:bg-gray-800 disabled:text-gray-500"
+				class="rounded-lg bg-blue-600 px-3 py-1.5 sm:px-4 sm:py-2 text-sm sm:text-base text-white hover:bg-blue-700 disabled:bg-gray-800 disabled:text-gray-500"
 			>
-				Next →
+				Next <span class="ml-1 sm:ml-1.5 text-base sm:text-lg font-semibold">▶</span>
 			</button>
 
 			<a
 				href="/anime/{animeId}"
-				class="rounded-lg bg-gray-700 px-4 py-2 text-white hover:bg-gray-600"
+				class="rounded-lg bg-gray-700 px-3 py-1.5 sm:px-4 sm:py-2 text-sm sm:text-base text-white hover:bg-gray-600 text-center"
 			>
-				← Back to Episodes
+				<span class="mr-1 sm:mr-1.5 text-base sm:text-lg font-semibold">◀</span> Back to Episodes
 			</a>
 		</div>
 	</div>
 </div>
+
+<style>
+	/* Custom styling for select dropdown arrows - bright white for visibility */
+	.select-dropdown {
+		appearance: none;
+		-webkit-appearance: none;
+		-moz-appearance: none;
+		background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 14 14'%3E%3Cpath fill='%23ffffff' fill-opacity='1' stroke='none' d='M7 10.5L1.5 5h11z'/%3E%3C/svg%3E");
+		background-repeat: no-repeat;
+		background-position: right 0.75rem center;
+		background-size: 14px 14px;
+	}
+
+	.select-dropdown:disabled {
+		background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 14 14'%3E%3Cpath fill='%239ca3af' fill-opacity='1' stroke='none' d='M7 10.5L1.5 5h11z'/%3E%3C/svg%3E");
+	}
+
+	.select-dropdown:hover {
+		background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 14 14'%3E%3Cpath fill='%23ffffff' fill-opacity='1' stroke='none' d='M7 10.5L1.5 5h11z'/%3E%3C/svg%3E");
+	}
+</style>
