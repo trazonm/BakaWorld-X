@@ -8,12 +8,22 @@ export const GET: RequestHandler = async ({ url, request }) => {
 		return new Response('Missing image URL', { status: 400 });
 	}
 
+	// Extract origin from referer URL
+	let origin = 'https://readcomicsonline.ru';
+	try {
+		const refererUrl = new URL(referer);
+		origin = refererUrl.origin;
+	} catch (e) {
+		// If referer parsing fails, use default
+		console.warn('Failed to parse referer URL, using default origin:', referer);
+	}
+
 	try {
 		const response = await fetch(imageUrl, {
 			headers: {
 				'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
 				'Referer': referer,
-				'Origin': 'https://readcomicsonline.ru',
+				'Origin': origin,
 				'Accept': 'image/webp,image/apng,image/*,*/*;q=0.8',
 				'Accept-Language': 'en-US,en;q=0.9',
 				'Connection': 'keep-alive',
