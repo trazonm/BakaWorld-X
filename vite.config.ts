@@ -63,11 +63,7 @@ export default defineConfig({
 					{
 						// Don't cache proxy images - always fetch fresh
 						urlPattern: /\/api\/proxy\/image/,
-						handler: 'NetworkOnly',
-						options: {
-							cacheName: 'proxy-images-cache',
-							networkTimeoutSeconds: 10
-						}
+						handler: 'NetworkOnly'
 					},
 					{
 						urlPattern: /^https:\/\/api\./,
