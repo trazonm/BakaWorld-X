@@ -69,8 +69,11 @@ export const GET: RequestHandler = async ({ url, request }) => {
 				'Access-Control-Allow-Methods': 'GET, HEAD, OPTIONS',
 				'Access-Control-Allow-Headers': '*',
 				'Access-Control-Expose-Headers': '*',
-				'Cache-Control': 'public, max-age=31536000', // Cache for 1 year
+				// Use shorter cache with revalidation to prevent stale cached images
+				'Cache-Control': 'public, max-age=3600, must-revalidate', // 1 hour with revalidation
 				'X-Content-Type-Options': 'nosniff',
+				// Prevent Opera GX and other browsers from aggressively caching
+				'Pragma': 'no-cache',
 			}
 		});
 	} catch (error) {

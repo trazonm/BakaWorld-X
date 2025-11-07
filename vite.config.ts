@@ -47,7 +47,10 @@ export default defineConfig({
 				navigateFallbackDenylist: [/^\/_/, /^\/api/], // Don't cache SvelteKit internals or API routes
 				runtimeCaching: [
 					{
-						urlPattern: /^https:\/\/.*\.(?:png|jpg|jpeg|svg|gif|webp)$/,
+						// Cache external images, but exclude our proxy endpoint
+						urlPattern: ({ url }) => {
+							return url.origin !== self.location.origin && /\.(?:png|jpg|jpeg|svg|gif|webp)$/i.test(url.pathname);
+						},
 						handler: 'CacheFirst',
 						options: {
 							cacheName: 'images-cache',
@@ -55,6 +58,15 @@ export default defineConfig({
 								maxEntries: 100,
 								maxAgeSeconds: 60 * 60 * 24 * 30 // 30 days
 							}
+						}
+					},
+					{
+						// Don't cache proxy images - always fetch fresh
+						urlPattern: /\/api\/proxy\/image/,
+						handler: 'NetworkOnly',
+						options: {
+							cacheName: 'proxy-images-cache',
+							networkTimeoutSeconds: 10
 						}
 					},
 					{
