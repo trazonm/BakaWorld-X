@@ -51,12 +51,26 @@ export const GET: RequestHandler = async ({ url, request }) => {
 			}
 		}
 
+		// Validate that we actually got an image (not HTML or text)
+		// Check if content type is actually an image type
+		if (!contentType.startsWith('image/')) {
+			throw new Error(`Invalid content type: ${contentType}. Expected image type.`);
+		}
+
+		// Check blob size - if it's suspiciously small, it might be a placeholder
+		if (imageBlob.size < 100) {
+			throw new Error(`Image blob too small (${imageBlob.size} bytes), likely a placeholder or error page.`);
+		}
+
 		return new Response(imageBlob, {
 			headers: {
 				'Content-Type': contentType,
 				'Access-Control-Allow-Origin': '*',
 				'Access-Control-Allow-Methods': 'GET, HEAD, OPTIONS',
+				'Access-Control-Allow-Headers': '*',
+				'Access-Control-Expose-Headers': '*',
 				'Cache-Control': 'public, max-age=31536000', // Cache for 1 year
+				'X-Content-Type-Options': 'nosniff',
 			}
 		});
 	} catch (error) {
@@ -75,6 +89,7 @@ export const OPTIONS: RequestHandler = async () => {
 		headers: {
 			'Access-Control-Allow-Origin': '*',
 			'Access-Control-Allow-Methods': 'GET, HEAD, OPTIONS',
+			'Access-Control-Allow-Headers': '*',
 			'Access-Control-Max-Age': '86400'
 		}
 	});

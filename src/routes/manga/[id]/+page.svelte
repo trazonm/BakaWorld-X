@@ -77,10 +77,15 @@
 						alt={mangaTitle}
 						class="w-80 h-96 object-cover rounded-lg shadow-2xl"
 						style="width: 300px; height: 400px; object-fit: cover;"
+						crossorigin="anonymous"
+						referrerpolicy="no-referrer"
 						on:error={(e) => {
 							// Fallback to a placeholder if image fails to load
 							const img = e.currentTarget as HTMLImageElement;
-							img.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="300" height="400"%3E%3Crect fill="%23374151" width="300" height="400"/%3E%3Ctext fill="%239CA3AF" font-family="sans-serif" font-size="18" x="50%25" y="50%25" text-anchor="middle" dy=".3em"%3ENo Image%3C/text%3E%3C/svg%3E';
+							// Prevent infinite loop if placeholder also fails
+							if (!img.src.startsWith('data:')) {
+								img.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="300" height="400"%3E%3Crect fill="%23374151" width="300" height="400"/%3E%3Ctext fill="%239CA3AF" font-family="sans-serif" font-size="18" x="50%25" y="50%25" text-anchor="middle" dy=".3em"%3ENo Image%3C/text%3E%3C/svg%3E';
+							}
 						}}
 					/>
 				{:else}
