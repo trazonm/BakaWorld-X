@@ -1,6 +1,7 @@
 <!-- Individual Manga Card Component -->
 <script lang="ts">
 	import type { ConsumetManga } from '$lib/types/manga';
+	import { dev } from '$app/environment';
 
 	export let manga: ConsumetManga;
 	export let searchQuery: string = '';
@@ -15,17 +16,35 @@
 			? String(manga.releaseDate) 
 			: String(manga.releaseDate).substring(0, 4))
 		: '';
+	
+	// Use proxy only in production (to handle CORS), direct URL in dev
+	$: imageSrc = manga.image 
+		? (dev 
+			? manga.image 
+			: `/api/proxy/image?url=${encodeURIComponent(manga.image)}&referer=https://mangadex.org/`)
+		: '';
 </script>
 
 <div class="manga-card bg-gray-900 rounded-xl shadow-xl overflow-hidden border border-gray-800 flex flex-col group h-full w-full">
 	<!-- Image Container (fixed height) -->
 	<div class="relative w-full flex-shrink-0 aspect-[3/4]">
-		<img 
-			src={manga.image} 
-			alt={manga.title} 
-			class="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-			loading="lazy"
-		/>
+		{#if imageSrc}
+			<img 
+				src={imageSrc}
+				alt={manga.title} 
+				class="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+				loading="lazy"
+				on:error={(e) => {
+					// Fallback to a placeholder if image fails to load
+					const img = e.currentTarget as HTMLImageElement;
+					img.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="300" height="400"%3E%3Crect fill="%23374151" width="300" height="400"/%3E%3Ctext fill="%239CA3AF" font-family="sans-serif" font-size="18" x="50%25" y="50%25" text-anchor="middle" dy=".3em"%3ENo Image%3C/text%3E%3C/svg%3E';
+				}}
+			/>
+		{:else}
+			<div class="w-full h-full bg-gray-800 flex items-center justify-center">
+				<p class="text-gray-500 text-sm">No Image</p>
+			</div>
+		{/if}
 		<!-- Overlay on hover -->
 		<div class="absolute inset-0 bg-opacity-0 group-hover:bg-opacity-20 transition-opacity duration-300"></div>
 	</div>
@@ -64,9 +83,9 @@
 					Ch {manga.lastChapter}
 				</span>
 			{/if}
-			{#if manga.rating}
+			{#if (manga as any).rating}
 				<span class="bg-yellow-700 text-yellow-100 text-xs px-2.5 py-1 rounded-full whitespace-nowrap inline-block">
-					⭐ {manga.rating}
+					⭐ {(manga as any).rating}
 				</span>
 			{/if}
 		</div>

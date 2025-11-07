@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { PageData } from './$types';
+	import { dev } from '$app/environment';
 	
 	export let data: PageData;
 	$: manga = data.manga;
@@ -19,6 +20,13 @@
 	
 	// Back to results URL
 	$: backToResultsUrl = searchQuery ? `/manga?query=${encodeURIComponent(searchQuery)}` : '/manga';
+	
+	// Use proxy only in production (to handle CORS), direct URL in dev
+	$: imageSrc = manga.image 
+		? (dev 
+			? manga.image 
+			: `/api/proxy/image?url=${encodeURIComponent(manga.image)}&referer=https://mangadex.org/`)
+		: '';
 </script>
 
 <svelte:head>
@@ -63,12 +71,23 @@
 		<div class="flex flex-col lg:flex-row gap-8 mb-8">
 			<!-- Manga Cover -->
 			<div class="flex-shrink-0">
-				<img 
-					src={manga.image} 
-					alt={manga.title}
-					class="w-80 h-96 object-cover rounded-lg shadow-2xl"
-					style="width: 300px; height: 400px; object-fit: cover;"
-				/>
+				{#if imageSrc}
+					<img 
+						src={imageSrc}
+						alt={mangaTitle}
+						class="w-80 h-96 object-cover rounded-lg shadow-2xl"
+						style="width: 300px; height: 400px; object-fit: cover;"
+						on:error={(e) => {
+							// Fallback to a placeholder if image fails to load
+							const img = e.currentTarget as HTMLImageElement;
+							img.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="300" height="400"%3E%3Crect fill="%23374151" width="300" height="400"/%3E%3Ctext fill="%239CA3AF" font-family="sans-serif" font-size="18" x="50%25" y="50%25" text-anchor="middle" dy=".3em"%3ENo Image%3C/text%3E%3C/svg%3E';
+						}}
+					/>
+				{:else}
+					<div class="w-80 h-96 bg-gray-800 flex items-center justify-center rounded-lg shadow-2xl" style="width: 300px; height: 400px;">
+						<p class="text-gray-500">No Image</p>
+					</div>
+				{/if}
 			</div>
 
 			<!-- Manga Info -->
@@ -88,9 +107,9 @@
 							{manga.status}
 						</span>
 					{/if}
-					{#if manga.rating}
+					{#if (manga as any).rating}
 						<span class="bg-yellow-700 text-yellow-100 text-sm px-3 py-1 rounded-full">
-							⭐ {manga.rating}
+							⭐ {(manga as any).rating}
 						</span>
 					{/if}
 					{#if manga.releaseDate}
