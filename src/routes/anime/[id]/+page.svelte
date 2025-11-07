@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { PageData } from './$types';
+	import { navigating } from '$app/stores';
 	
 	export let data: PageData;
 	$: anime = data.anime;
@@ -8,6 +9,12 @@
 			episode.id = episode.id.replace(/\$/g, '-');
 		});
 	}
+	
+	// Check if we're navigating to/from a watch page (handles both forward and backward navigation)
+	$: isNavigatingToEpisode = $navigating !== null && (
+		$navigating.to?.url.pathname.includes('/watch/') ||
+		$navigating.from?.url.pathname.includes('/watch/')
+	);
 </script>
 
 <svelte:head>
@@ -32,6 +39,17 @@
 </style>
 
 <div class="anime-detail-container">
+	{#if isNavigatingToEpisode}
+		<!-- Loading Overlay -->
+		<div class="fixed inset-0 bg-gray-900 bg-opacity-95 z-50 flex items-center justify-center">
+			<div class="text-center">
+				<!-- Spinner -->
+				<div class="inline-block animate-spin rounded-full h-16 w-16 border-4 border-gray-600 border-t-blue-500 mb-4"></div>
+				<p class="text-white text-lg font-medium">Loading...</p>
+				<p class="text-gray-400 text-sm mt-2">Please wait</p>
+			</div>
+		</div>
+	{/if}
 	<main class="container mx-auto px-4 py-8 max-w-7xl">
 		<!-- Header Section -->
 		<div class="flex flex-col lg:flex-row gap-8 mb-8">

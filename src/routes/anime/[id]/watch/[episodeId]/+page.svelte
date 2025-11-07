@@ -2,6 +2,7 @@
 	import { goto } from '$app/navigation';
 	import { onMount, onDestroy } from 'svelte';
 	import { browser } from '$app/environment';
+	import { navigating } from '$app/stores';
 	import type { PageData } from './$types';
 
 	export let data: PageData;
@@ -70,6 +71,9 @@
 	let hasAdvanced = false;
 	let videoEndedListenerAdded = false;
 	let scrollHandler: ((e: Event) => void) | null = null;
+	const USER_INTERACTION_KEY = 'bakaworld-user-interacted';
+	let userHasInteracted = false; // Track if user has clicked play at least once
+	let isNavigating = false; // Track if we're navigating to a new episode
 	const USER_INACTIVITY_THRESHOLD = 30000; // 30 seconds
 	const MIN_EPISODE_DURATION = 600000; // 10 minutes in milliseconds
 	const CHECK_INTERVAL = 1000; // Check every 1 second for faster detection
@@ -78,14 +82,30 @@
 	// Get the embed URL from videoData
 	$: embedUrl = videoData?.embedUrl || videoData?.sources?.[0]?.url;
 	$: loading = !embedUrl;
+	// Show loading when navigating (forward or backward) or when embedUrl is not available
+	// Check both 'to' (forward nav) and 'from' (backward nav) to handle browser back button
+	$: isNavigatingToEpisode = isNavigating || 
+		($navigating !== null && (
+			$navigating.to?.url.pathname.includes('/watch/') || 
+			$navigating.from?.url.pathname.includes('/watch/')
+		)) || 
+		loading;
 	
-	// Reset autoplay tracking when embed URL changes
-	$: if (embedUrl && autoplay && browser) {
-		hasAdvanced = false;
-		videoEndedListenerAdded = false;
-		pageLoadTime = Date.now();
-		lastUserActivity = Date.now();
-	}
+		// Reset autoplay tracking when embed URL changes
+		$: if (embedUrl && autoplay && browser) {
+			hasAdvanced = false;
+			videoEndedListenerAdded = false;
+			pageLoadTime = Date.now();
+			lastUserActivity = Date.now();
+		}
+		
+		// Reset navigating flag when embedUrl is available (episode loaded)
+		$: if (embedUrl && isNavigating) {
+			// Small delay to ensure smooth transition
+			setTimeout(() => {
+				isNavigating = false;
+			}, 500);
+		}
 
 	// Block popups from iframe
 	let iframeElement: HTMLIFrameElement;
@@ -261,10 +281,20 @@
 			videoContainer.addEventListener('click', (e) => {
 				// Save scroll position before any click
 				scrollPosition = window.pageYOffset || document.documentElement.scrollTop;
+				// Mark that user has interacted with the video player
+				userHasInteracted = true;
+				if (browser) {
+					localStorage.setItem(USER_INTERACTION_KEY, 'true');
+				}
 			}, true);
 			
 			videoContainer.addEventListener('mousedown', (e) => {
 				scrollPosition = window.pageYOffset || document.documentElement.scrollTop;
+				// Mark that user has interacted with the video player
+				userHasInteracted = true;
+				if (browser) {
+					localStorage.setItem(USER_INTERACTION_KEY, 'true');
+				}
 			}, true);
 		}
 
@@ -362,6 +392,47 @@
 			setTimeout(() => {
 				monitorIframe();
 			}, 1000);
+		}
+
+		// If user has interacted and we're navigating (not first load), try to autoplay
+		if (userHasInteracted && isNavigating) {
+			setTimeout(() => {
+				tryToAutoplayVideo();
+			}, 1500); // Wait for iframe to fully load
+		}
+	}
+
+	// Function to try to autoplay video when navigating between episodes
+	function tryToAutoplayVideo() {
+		if (!iframeElement || !userHasInteracted) return;
+
+		try {
+			// Try to access iframe content (may fail due to CORS)
+			const iframeDoc = iframeElement.contentDocument || iframeElement.contentWindow?.document;
+			if (iframeDoc) {
+				// Try to find video element and play it
+				const video = iframeDoc.querySelector('video');
+				if (video) {
+					video.play().catch((e) => {
+						console.log('Autoplay prevented by browser:', e);
+					});
+					return;
+				}
+			}
+		} catch (e) {
+			// Cross-origin restriction - can't access iframe content directly
+			// Try using postMessage instead
+			try {
+				const iframeWindow = iframeElement.contentWindow;
+				if (iframeWindow) {
+					// Send play command via postMessage (if iframe supports it)
+					iframeWindow.postMessage({ action: 'play' }, '*');
+					iframeWindow.postMessage({ command: 'play' }, '*');
+					iframeWindow.postMessage({ type: 'play' }, '*');
+				}
+			} catch (err) {
+				console.log('Could not send play command to iframe:', err);
+			}
 		}
 	}
 	
@@ -533,6 +604,12 @@
 	}
 
 	onMount(() => {
+		// Load user interaction status from localStorage
+		if (browser) {
+			const storedInteraction = localStorage.getItem(USER_INTERACTION_KEY);
+			userHasInteracted = storedInteraction === 'true';
+		}
+
 		// Save original window.open
 		originalWindowOpen = window.open;
 		
@@ -587,6 +664,7 @@
 	function navigateToEpisode(episode: any) {
 		if (!episode) return;
 		const episodeId = episode.id.replace(/\$/g, '-');
+		isNavigating = true; // Mark that we're navigating
 		goto(`/anime/${animeId}/watch/${episodeId}?language=${selectedLanguage}`);
 	}
 
@@ -705,7 +783,17 @@
 <div class="theme-bg-primary">
 	<!-- Video Player -->
 	<div class="relative w-full" style="padding-top: 56.25%;">
-		{#if embedUrl}
+		{#if isNavigatingToEpisode}
+			<!-- Loading Overlay -->
+			<div class="absolute top-0 left-0 w-full h-full flex items-center justify-center bg-gray-900 bg-opacity-95 z-50">
+				<div class="text-center">
+					<!-- Spinner -->
+					<div class="inline-block animate-spin rounded-full h-16 w-16 border-4 border-gray-600 border-t-blue-500 mb-4"></div>
+					<p class="text-white text-lg font-medium">Loading...</p>
+					<p class="text-gray-400 text-sm mt-2">Please wait</p>
+				</div>
+			</div>
+		{:else if embedUrl}
 			<iframe
 				bind:this={iframeElement}
 				src={embedUrl}
@@ -801,7 +889,7 @@
 			<button
 				onclick={goToPrevEpisode}
 				disabled={!canGoPrev}
-				class="rounded-lg bg-gray-700 px-3 py-1.5 sm:px-4 sm:py-2 text-sm sm:text-base text-white hover:bg-gray-600 disabled:bg-gray-800 disabled:text-gray-500"
+				class="rounded-lg bg-gray-700 px-3 py-1.5 sm:px-4 sm:py-2 text-sm sm:text-base text-white hover:bg-gray-600 disabled:bg-gray-800 disabled:text-gray-500 disabled:cursor-not-allowed cursor-pointer"
 			>
 				<span class="mr-1 sm:mr-1.5 text-base sm:text-lg font-semibold">◀</span> Previous
 			</button>
@@ -809,7 +897,7 @@
 			<button
 				onclick={goToNextEpisode}
 				disabled={!canGoNext}
-				class="rounded-lg bg-blue-600 px-3 py-1.5 sm:px-4 sm:py-2 text-sm sm:text-base text-white hover:bg-blue-700 disabled:bg-gray-800 disabled:text-gray-500"
+				class="rounded-lg bg-blue-600 px-3 py-1.5 sm:px-4 sm:py-2 text-sm sm:text-base text-white hover:bg-blue-700 disabled:bg-gray-800 disabled:text-gray-500 disabled:cursor-not-allowed cursor-pointer"
 			>
 				Next <span class="ml-1 sm:ml-1.5 text-base sm:text-lg font-semibold">▶</span>
 			</button>

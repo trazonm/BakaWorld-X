@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { navigating } from '$app/stores';
 	import { useAnimeSearch } from '$lib/composables/useAnimeSearch';
 	import AnimeSearchForm from '$lib/components/AnimeSearchForm.svelte';
 	import AnimeGrid from '$lib/components/AnimeGrid.svelte';
@@ -7,6 +8,12 @@
 
 	const animeSearch = useAnimeSearch();
 	const { state } = animeSearch;
+	
+	// Check if we're navigating to/from an anime detail page (handles both forward and backward navigation)
+	$: isNavigatingToAnime = $navigating !== null && (
+		($navigating.to?.url.pathname.startsWith('/anime/') && !$navigating.to?.url.pathname.includes('/watch/')) ||
+		($navigating.from?.url.pathname.startsWith('/anime/') && !$navigating.from?.url.pathname.includes('/watch/'))
+	);
 
 	// Local query for input field (doesn't update until search is executed)
 	let localQuery = '';
@@ -49,6 +56,17 @@
 </style>
 
 <div class="anime-search-container">
+	{#if isNavigatingToAnime}
+		<!-- Loading Overlay -->
+		<div class="fixed inset-0 bg-gray-900 bg-opacity-95 z-50 flex items-center justify-center">
+			<div class="text-center">
+				<!-- Spinner -->
+				<div class="inline-block animate-spin rounded-full h-16 w-16 border-4 border-gray-600 border-t-blue-500 mb-4"></div>
+				<p class="text-white text-lg font-medium">Loading anime...</p>
+				<p class="text-gray-400 text-sm mt-2">Please wait</p>
+			</div>
+		</div>
+	{/if}
 	<main class="container mx-auto px-4 py-8 max-w-7xl">
 		<!-- Header Section -->
 		<div class="text-center mb-8">
