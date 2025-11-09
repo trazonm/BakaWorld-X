@@ -163,7 +163,7 @@
 		display: block;
 		margin: 0 auto;
 		object-fit: contain;
-		touch-action: pinch-zoom;
+		touch-action: pan-y pinch-zoom;
 		cursor: zoom-in;
 	}
 
@@ -172,7 +172,7 @@
 		max-height: none;
 		width: 100%;
 		height: auto;
-		touch-action: pinch-zoom;
+		touch-action: pan-y pinch-zoom;
 	}
 
 	.manga-viewer:-webkit-full-screen .manga-page {
@@ -180,7 +180,7 @@
 		max-height: none;
 		width: 100%;
 		height: auto;
-		touch-action: pinch-zoom;
+		touch-action: pan-y pinch-zoom;
 	}
 
 	.manga-viewer:-moz-full-screen .manga-page {
@@ -188,7 +188,7 @@
 		max-height: none;
 		width: 100%;
 		height: auto;
-		touch-action: pinch-zoom;
+		touch-action: pan-y pinch-zoom;
 	}
 
 	.manga-viewer:-ms-fullscreen .manga-page {
@@ -196,7 +196,7 @@
 		max-height: none;
 		width: 100%;
 		height: auto;
-		touch-action: pinch-zoom;
+		touch-action: pan-y pinch-zoom;
 	}
 
 	.fullscreen-button {

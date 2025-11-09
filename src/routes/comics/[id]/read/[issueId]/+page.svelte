@@ -18,6 +18,9 @@
 	let viewerContainer: HTMLDivElement;
 	let isFullscreen = false;
 	let loadingPages = false;
+	let currentPage = 0;
+	let touchStartX = 0;
+	let touchEndX = 0;
 	
 	function toggleFullscreen() {
 		if (!viewerContainer) return;
@@ -51,12 +54,73 @@
 		isFullscreen = !!(document.fullscreenElement || (document as any).webkitFullscreenElement || (document as any).mozFullScreenElement || (document as any).msFullscreenElement);
 	}
 	
+	function nextPage() {
+		if (currentPage < pages.length - 1) {
+			currentPage++;
+		}
+	}
+	
+	function prevPage() {
+		if (currentPage > 0) {
+			currentPage--;
+		}
+	}
+	
+	function goToPage(pageIndex: number) {
+		if (pageIndex >= 0 && pageIndex < pages.length) {
+			currentPage = pageIndex;
+		}
+	}
+	
+	function handleKeydown(e: KeyboardEvent) {
+		if (e.key === 'ArrowRight' || e.key === 'PageDown') {
+			e.preventDefault();
+			nextPage();
+		} else if (e.key === 'ArrowLeft' || e.key === 'PageUp') {
+			e.preventDefault();
+			prevPage();
+		} else if (e.key === 'Home') {
+			e.preventDefault();
+			goToPage(0);
+		} else if (e.key === 'End') {
+			e.preventDefault();
+			goToPage(pages.length - 1);
+		}
+	}
+	
+	function handleTouchStart(e: TouchEvent) {
+		touchStartX = e.touches[0].clientX;
+	}
+	
+	function handleTouchEnd(e: TouchEvent) {
+		touchEndX = e.changedTouches[0].clientX;
+		handleSwipe();
+	}
+	
+	function handleSwipe() {
+		const swipeThreshold = 50;
+		const diff = touchStartX - touchEndX;
+		
+		if (Math.abs(diff) > swipeThreshold) {
+			if (diff > 0) {
+				// Swiped left - next page
+				nextPage();
+			} else {
+				// Swiped right - previous page
+				prevPage();
+			}
+		}
+	}
+	
 	onMount(() => {
 		// Listen for fullscreen changes
 		document.addEventListener('fullscreenchange', handleFullscreenChange);
 		document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
 		document.addEventListener('mozfullscreenchange', handleFullscreenChange);
 		document.addEventListener('MSFullscreenChange', handleFullscreenChange);
+		
+		// Listen for keyboard navigation
+		document.addEventListener('keydown', handleKeydown);
 		
 		// Preload all images
 		if (pages.length > 0) {
@@ -80,6 +144,7 @@
 			document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
 			document.removeEventListener('mozfullscreenchange', handleFullscreenChange);
 			document.removeEventListener('MSFullscreenChange', handleFullscreenChange);
+			document.removeEventListener('keydown', handleKeydown);
 		};
 	});
 </script>
@@ -133,28 +198,30 @@
 		display: flex;
 		flex-direction: column;
 		align-items: center;
-		gap: 0.5rem;
+		justify-content: center;
 		padding: 1rem;
+		min-height: 500px;
+		position: relative;
 	}
 
 	.comic-viewer:fullscreen .comic-page-container {
 		padding: 0;
-		gap: 0;
+		min-height: 100vh;
 	}
 
 	.comic-viewer:-webkit-full-screen .comic-page-container {
 		padding: 0;
-		gap: 0;
+		min-height: 100vh;
 	}
 
 	.comic-viewer:-moz-full-screen .comic-page-container {
 		padding: 0;
-		gap: 0;
+		min-height: 100vh;
 	}
 
 	.comic-viewer:-ms-fullscreen .comic-page-container {
 		padding: 0;
-		gap: 0;
+		min-height: 100vh;
 	}
 
 	.comic-page {
@@ -164,7 +231,7 @@
 		display: block;
 		margin: 0 auto;
 		object-fit: contain;
-		touch-action: pinch-zoom;
+		touch-action: pan-y pinch-zoom;
 		cursor: zoom-in;
 	}
 
@@ -173,7 +240,7 @@
 		max-height: none;
 		width: 100%;
 		height: auto;
-		touch-action: pinch-zoom;
+		touch-action: pan-y pinch-zoom;
 	}
 
 	.comic-viewer:-webkit-full-screen .comic-page {
@@ -181,7 +248,7 @@
 		max-height: none;
 		width: 100%;
 		height: auto;
-		touch-action: pinch-zoom;
+		touch-action: pan-y pinch-zoom;
 	}
 
 	.comic-viewer:-moz-full-screen .comic-page {
@@ -189,7 +256,7 @@
 		max-height: none;
 		width: 100%;
 		height: auto;
-		touch-action: pinch-zoom;
+		touch-action: pan-y pinch-zoom;
 	}
 
 	.comic-viewer:-ms-fullscreen .comic-page {
@@ -197,7 +264,7 @@
 		max-height: none;
 		width: 100%;
 		height: auto;
-		touch-action: pinch-zoom;
+		touch-action: pan-y pinch-zoom;
 	}
 
 	.fullscreen-button {
@@ -247,6 +314,113 @@
 	@keyframes spin {
 		0% { transform: rotate(0deg); }
 		100% { transform: rotate(360deg); }
+	}
+
+	.page-navigation {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 1rem;
+		margin-top: 1.5rem;
+		width: 100%;
+		max-width: 600px;
+	}
+
+	.comic-viewer:fullscreen .page-navigation {
+		position: fixed;
+		bottom: 2rem;
+		left: 50%;
+		transform: translateX(-50%);
+		background: rgba(0, 0, 0, 0.8);
+		padding: 1rem 2rem;
+		border-radius: 2rem;
+		backdrop-filter: blur(10px);
+		border: 2px solid rgba(255, 255, 255, 0.2);
+		z-index: 20;
+	}
+
+	.comic-viewer:-webkit-full-screen .page-navigation {
+		position: fixed;
+		bottom: 2rem;
+		left: 50%;
+		transform: translateX(-50%);
+		background: rgba(0, 0, 0, 0.8);
+		padding: 1rem 2rem;
+		border-radius: 2rem;
+		backdrop-filter: blur(10px);
+		border: 2px solid rgba(255, 255, 255, 0.2);
+		z-index: 20;
+	}
+
+	.comic-viewer:-moz-full-screen .page-navigation {
+		position: fixed;
+		bottom: 2rem;
+		left: 50%;
+		transform: translateX(-50%);
+		background: rgba(0, 0, 0, 0.8);
+		padding: 1rem 2rem;
+		border-radius: 2rem;
+		backdrop-filter: blur(10px);
+		border: 2px solid rgba(255, 255, 255, 0.2);
+		z-index: 20;
+	}
+
+	.comic-viewer:-ms-fullscreen .page-navigation {
+		position: fixed;
+		bottom: 2rem;
+		left: 50%;
+		transform: translateX(-50%);
+		background: rgba(0, 0, 0, 0.8);
+		padding: 1rem 2rem;
+		border-radius: 2rem;
+		backdrop-filter: blur(10px);
+		border: 2px solid rgba(255, 255, 255, 0.2);
+		z-index: 20;
+	}
+
+	.nav-button {
+		background: rgba(59, 130, 246, 0.9);
+		border: 2px solid rgba(59, 130, 246, 0.5);
+		color: white;
+		padding: 0.75rem 1.5rem;
+		border-radius: 0.5rem;
+		cursor: pointer;
+		transition: all 0.2s;
+		font-weight: 600;
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		backdrop-filter: blur(4px);
+	}
+
+	.nav-button:hover:not(:disabled) {
+		background: rgba(59, 130, 246, 1);
+		border-color: rgba(59, 130, 246, 0.8);
+		transform: scale(1.05);
+	}
+
+	.nav-button:disabled {
+		background: rgba(75, 85, 99, 0.5);
+		border-color: rgba(75, 85, 99, 0.3);
+		cursor: not-allowed;
+		opacity: 0.5;
+	}
+
+	.page-counter {
+		background: rgba(0, 0, 0, 0.7);
+		border: 2px solid rgba(255, 255, 255, 0.3);
+		color: white;
+		padding: 0.75rem 1.5rem;
+		border-radius: 0.5rem;
+		font-weight: 600;
+		font-size: 1.1rem;
+		white-space: nowrap;
+		backdrop-filter: blur(4px);
+	}
+
+	.arrow-icon {
+		width: 1.25rem;
+		height: 1.25rem;
 	}
 </style>
 
@@ -312,20 +486,54 @@
 					</div>
 				{/if}
 
-				<!-- Comic Pages Container -->
-				<div class="comic-page-container">
-					{#each pages as page, index}
-						<img 
-							src={`/api/proxy/image?url=${encodeURIComponent(page.img)}&referer=https://readcomicsonline.ru/`}
-							alt="Page {page.page || index + 1}"
-							class="comic-page"
-							loading="lazy"
-							on:error={(e) => {
-								console.error('Failed to load image:', page.img);
-							}}
-						/>
-					{/each}
+			<!-- Comic Pages Container -->
+			<div 
+				class="comic-page-container"
+				on:touchstart={handleTouchStart}
+				on:touchend={handleTouchEnd}
+			>
+				{#if pages[currentPage]}
+					<img 
+						src={`/api/proxy/image?url=${encodeURIComponent(pages[currentPage].img)}&referer=https://readcomicsonline.ru/`}
+						alt="Page {pages[currentPage].page || currentPage + 1}"
+						class="comic-page"
+						on:error={(e) => {
+							console.error('Failed to load image:', pages[currentPage].img);
+						}}
+					/>
+				{/if}
+
+				<!-- Page Navigation -->
+				<div class="page-navigation">
+					<button 
+						class="nav-button"
+						on:click={prevPage}
+						disabled={currentPage === 0}
+						title="Previous page (← or PageUp)"
+					>
+						<svg xmlns="http://www.w3.org/2000/svg" class="arrow-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+						</svg>
+						<span class="hidden sm:inline">Previous</span>
+					</button>
+
+					<div class="page-counter">
+						{currentPage + 1} / {pages.length}
+					</div>
+
+					<button 
+						class="nav-button"
+						on:click={nextPage}
+						disabled={currentPage === pages.length - 1}
+						title="Next page (→ or PageDown)"
+					>
+						<span class="hidden sm:inline">Next</span>
+						<svg xmlns="http://www.w3.org/2000/svg" class="arrow-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+						</svg>
+					</button>
 				</div>
+			</div>
 			</div>
 		{:else}
 			<div class="bg-gray-900 rounded-lg p-8 text-center">
