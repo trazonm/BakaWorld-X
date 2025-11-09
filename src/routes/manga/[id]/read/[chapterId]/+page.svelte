@@ -238,12 +238,13 @@
 		right: 1rem;
 		display: flex;
 		gap: 0.5rem;
-		z-index: 100;
+		z-index: 10;
 	}
 
 	.manga-viewer:fullscreen .controls,
 	.manga-viewer:-webkit-full-screen .controls {
 		position: fixed;
+		z-index: 100;
 	}
 	
 	@media (max-width: 640px) {

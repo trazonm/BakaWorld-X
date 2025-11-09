@@ -325,12 +325,13 @@
 		right: 1rem;
 		display: flex;
 		gap: 0.5rem;
-		z-index: 100;
+		z-index: 10;
 	}
 
 	.comic-viewer:fullscreen .controls,
 	.comic-viewer:-webkit-full-screen .controls {
 		position: fixed;
+		z-index: 100;
 	}
 	
 	@media (max-width: 640px) {
@@ -382,6 +383,7 @@
 		gap: 1rem;
 		margin-top: 1.5rem;
 		padding: 1rem;
+		z-index: 10;
 	}
 
 	.comic-viewer:fullscreen .page-navigation,
@@ -484,7 +486,7 @@
 		opacity: 0;
 		transition: opacity 0.2s;
 		pointer-events: none;
-		z-index: 100;
+		z-index: 10;
 	}
 
 	.zoom-indicator.visible {
@@ -494,6 +496,7 @@
 	.comic-viewer:fullscreen .zoom-indicator,
 	.comic-viewer:-webkit-full-screen .zoom-indicator {
 		position: fixed;
+		z-index: 100;
 	}
 	
 	@media (max-width: 640px) {
