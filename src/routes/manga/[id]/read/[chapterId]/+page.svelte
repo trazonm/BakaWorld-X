@@ -163,26 +163,40 @@
 		display: block;
 		margin: 0 auto;
 		object-fit: contain;
+		touch-action: pinch-zoom;
+		cursor: zoom-in;
 	}
 
 	.manga-viewer:fullscreen .manga-page {
-		max-width: 100vw;
-		max-height: 100vh;
+		max-width: none;
+		max-height: none;
+		width: 100%;
+		height: auto;
+		touch-action: pinch-zoom;
 	}
 
 	.manga-viewer:-webkit-full-screen .manga-page {
-		max-width: 100vw;
-		max-height: 100vh;
+		max-width: none;
+		max-height: none;
+		width: 100%;
+		height: auto;
+		touch-action: pinch-zoom;
 	}
 
 	.manga-viewer:-moz-full-screen .manga-page {
-		max-width: 100vw;
-		max-height: 100vh;
+		max-width: none;
+		max-height: none;
+		width: 100%;
+		height: auto;
+		touch-action: pinch-zoom;
 	}
 
 	.manga-viewer:-ms-fullscreen .manga-page {
-		max-width: 100vw;
-		max-height: 100vh;
+		max-width: none;
+		max-height: none;
+		width: 100%;
+		height: auto;
+		touch-action: pinch-zoom;
 	}
 
 	.fullscreen-button {

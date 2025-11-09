@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { PageData } from './$types';
+	import type { ComicPage } from '$lib/types/comic';
 	import { onMount } from 'svelte';
 	
 	export let data: PageData;
@@ -60,7 +61,7 @@
 		// Preload all images
 		if (pages.length > 0) {
 			loadingPages = true;
-			const imagePromises = pages.map((page) => {
+			const imagePromises = pages.map((page: ComicPage) => {
 				return new Promise((resolve) => {
 					const img = new Image();
 					img.onload = () => resolve(img);
@@ -163,26 +164,40 @@
 		display: block;
 		margin: 0 auto;
 		object-fit: contain;
+		touch-action: pinch-zoom;
+		cursor: zoom-in;
 	}
 
 	.comic-viewer:fullscreen .comic-page {
-		max-width: 100vw;
-		max-height: 100vh;
+		max-width: none;
+		max-height: none;
+		width: 100%;
+		height: auto;
+		touch-action: pinch-zoom;
 	}
 
 	.comic-viewer:-webkit-full-screen .comic-page {
-		max-width: 100vw;
-		max-height: 100vh;
+		max-width: none;
+		max-height: none;
+		width: 100%;
+		height: auto;
+		touch-action: pinch-zoom;
 	}
 
 	.comic-viewer:-moz-full-screen .comic-page {
-		max-width: 100vw;
-		max-height: 100vh;
+		max-width: none;
+		max-height: none;
+		width: 100%;
+		height: auto;
+		touch-action: pinch-zoom;
 	}
 
 	.comic-viewer:-ms-fullscreen .comic-page {
-		max-width: 100vw;
-		max-height: 100vh;
+		max-width: none;
+		max-height: none;
+		width: 100%;
+		height: auto;
+		touch-action: pinch-zoom;
 	}
 
 	.fullscreen-button {
