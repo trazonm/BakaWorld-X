@@ -85,7 +85,7 @@
 
 <svelte:head>
 	<title>
-		{manga ? `${manga.title} - Chapter - BakaWorld X` : 'Manga Reader - BakaWorld X'}
+		{manga ? `${manga.title} - Chapter - BakaWorld χ` : 'Manga Reader - BakaWorld χ'}
 	</title>
 </svelte:head>
 

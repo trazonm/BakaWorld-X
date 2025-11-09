@@ -3,7 +3,7 @@ import { dev } from '$app/environment';
 
 export const config = {
 	app: {
-		name: 'BakaWorld X',
+		name: 'BakaWorld χ',
 		version: '1.0.0',
 		description: 'Modern torrent search and download manager'
 	},

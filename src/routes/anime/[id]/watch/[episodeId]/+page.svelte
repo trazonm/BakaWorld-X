@@ -30,6 +30,9 @@
 	let loading = false;
 	let error = '';
 
+	// Language preference state
+	const LANGUAGE_STORAGE_KEY = 'bakaworld-language-preference';
+	
 	// Skip Filler toggle state
 	const SKIP_FILLER_STORAGE_KEY = 'bakaworld-skip-filler';
 	let skipFiller = false;
@@ -618,6 +621,16 @@
 
 		// Load preferences from localStorage
 		if (browser) {
+			// Initialize language preference from data (query param) or localStorage
+			const storedLanguage = localStorage.getItem(LANGUAGE_STORAGE_KEY);
+			if (data.language) {
+				// Use the language from the URL query param (which comes from server)
+				selectedLanguage = data.language;
+			} else if (storedLanguage) {
+				// If no query param, use stored preference
+				selectedLanguage = storedLanguage;
+			}
+			
 			const storedSkipFiller = localStorage.getItem(SKIP_FILLER_STORAGE_KEY);
 			skipFiller = storedSkipFiller === 'true';
 			skipFillerValue = skipFiller ? 'true' : 'false';
@@ -665,6 +678,7 @@
 		if (!episode) return;
 		const episodeId = episode.id.replace(/\$/g, '-');
 		isNavigating = true; // Mark that we're navigating
+		// Use the current selectedLanguage (which is either from user selection or stored preference)
 		goto(`/anime/${animeId}/watch/${episodeId}?language=${selectedLanguage}`);
 	}
 
@@ -742,6 +756,10 @@
 
 	function changeLanguage(newLanguage: string) {
 		selectedLanguage = newLanguage;
+		// Save language preference to localStorage
+		if (browser) {
+			localStorage.setItem(LANGUAGE_STORAGE_KEY, newLanguage);
+		}
 		goto(`/anime/${animeId}/watch/${episodeId}?language=${newLanguage}`);
 	}
 
@@ -776,7 +794,7 @@
 </script>
 
 <svelte:head>
-	<title>{episode.title} - {anime.title} - BakaWorld X</title>
+	<title>{episode.title} - {anime.title} - BakaWorld χ</title>
 	<meta name="description" content="Watch {episode.title} from {anime.title}" />
 </svelte:head>
 

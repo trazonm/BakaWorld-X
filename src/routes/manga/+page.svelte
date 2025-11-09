@@ -38,7 +38,7 @@
 </script>
 
 <svelte:head>
-	<title>BakaWorld X - Manga Search</title>
+	<title>BakaWorld χ - Manga Search</title>
 	<meta name="description" content="Search and discover your favorite manga series" />
 </svelte:head>
 

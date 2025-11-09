@@ -1,6 +1,8 @@
 <script lang="ts">
 	import type { PageData } from './$types';
 	import { navigating } from '$app/stores';
+	import { browser } from '$app/environment';
+	import { onMount } from 'svelte';
 	
 	export let data: PageData;
 	$: anime = data.anime;
@@ -15,10 +17,23 @@
 		$navigating.to?.url.pathname.includes('/watch/') ||
 		$navigating.from?.url.pathname.includes('/watch/')
 	);
+
+	// Language preference
+	const LANGUAGE_STORAGE_KEY = 'bakaworld-language-preference';
+	let preferredLanguage = 'sub';
+
+	onMount(() => {
+		if (browser) {
+			const storedLanguage = localStorage.getItem(LANGUAGE_STORAGE_KEY);
+			if (storedLanguage) {
+				preferredLanguage = storedLanguage;
+			}
+		}
+	});
 </script>
 
 <svelte:head>
-	<title>{anime.title} - BakaWorld X</title>
+	<title>{anime.title} - BakaWorld χ</title>
 	<meta name="description" content={anime.description || `Watch ${anime.title} online`} />
 </svelte:head>
 
@@ -145,7 +160,7 @@
 				<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
 					{#each anime.episodes as episode}
 						<a
-							href="/anime/{anime.id}/watch/{episode.id.replace(/\$/g, '-')}"
+							href="/anime/{anime.id}/watch/{episode.id.replace(/\$/g, '-')}?language={preferredLanguage}"
 							class="bg-gray-800 hover:bg-gray-700 rounded-lg p-4 transition-colors border border-gray-700 hover:border-blue-500"
 						>
 							<div class="flex items-center justify-between mb-2">

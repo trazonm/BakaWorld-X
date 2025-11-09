@@ -85,7 +85,7 @@
 
 <svelte:head>
 	<title>
-		{comic ? `${comic.title} - Issue - BakaWorld X` : 'Comic Reader - BakaWorld X'}
+		{comic ? `${comic.title} - Issue - BakaWorld χ` : 'Comic Reader - BakaWorld χ'}
 	</title>
 </svelte:head>
 

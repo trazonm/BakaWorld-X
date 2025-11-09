@@ -172,7 +172,7 @@
 					</svg>
 				</div>
 				<div class="flex-1">
-					<h3 class="text-white font-semibold text-sm sm:text-base">Install BakaWorld X</h3>
+					<h3 class="text-white font-semibold text-sm sm:text-base">Install BakaWorld χ</h3>
 					<p class="text-blue-100 text-xs sm:text-sm">
 						{isIOS 
 							? 'Add to your home screen for quick access'

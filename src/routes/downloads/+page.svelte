@@ -105,7 +105,7 @@
 </script>
 
 <svelte:head>
-	<title>BakaWorld X - Downloads</title>
+	<title>BakaWorld χ - Downloads</title>
 </svelte:head>
 
 <main class="text-white">

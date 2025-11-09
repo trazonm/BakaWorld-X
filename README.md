@@ -1,8 +1,8 @@
-# 🎌 BakaWorld X
+# 🎌 BakaWorld χ
 
 **A modern anime, manga, and comics platform with integrated torrent management**
 
-BakaWorld X is a full-stack web application built with SvelteKit that provides streaming, reading, and torrent management capabilities. Features Real-Debrid integration, Jackett torrent search, and a modern anime-inspired UI with dual theme support.
+BakaWorld χ is a full-stack web application built with SvelteKit that provides streaming, reading, and torrent management capabilities. Features Real-Debrid integration, Jackett torrent search, and a modern anime-inspired UI with dual theme support.
 
 ## ✨ Features
 

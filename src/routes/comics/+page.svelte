@@ -38,7 +38,7 @@
 </script>
 
 <svelte:head>
-	<title>BakaWorld X - Comics Search</title>
+	<title>BakaWorld χ - Comics Search</title>
 	<meta name="description" content="Search and discover your favorite comic book series" />
 </svelte:head>
 

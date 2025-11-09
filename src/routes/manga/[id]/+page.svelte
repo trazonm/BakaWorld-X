@@ -30,7 +30,7 @@
 </script>
 
 <svelte:head>
-	<title>{mangaTitle} - BakaWorld X</title>
+	<title>{mangaTitle} - BakaWorld χ</title>
 	<meta name="description" content={mangaDescription || `Read ${mangaTitle} online`} />
 </svelte:head>
 

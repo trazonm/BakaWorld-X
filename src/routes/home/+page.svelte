@@ -500,7 +500,7 @@
 </script>
 
 <svelte:head>
-	<title>BakaWorld X - Home</title>
+	<title>BakaWorld χ - Home</title>
 </svelte:head>
 
 <style>

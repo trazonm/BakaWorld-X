@@ -10,7 +10,7 @@
 </script>
 
 <svelte:head>
-	<title>{comic.title} - BakaWorld X</title>
+	<title>{comic.title} - BakaWorld χ</title>
 	<meta name="description" content={comic.description || `View ${comic.title} comic series`} />
 </svelte:head>
 

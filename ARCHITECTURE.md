@@ -1,6 +1,6 @@
-# BakaWorld X - Project Structure
+# BakaWorld χ - Project Structure
 
-This document outlines the organized structure of the BakaWorld X SvelteKit application, following industry standards and best practices.
+This document outlines the organized structure of the BakaWorld χ SvelteKit application, following industry standards and best practices.
 
 ## 📁 Directory Structure
 
