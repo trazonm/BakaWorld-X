@@ -1,9 +1,7 @@
-// Manga search endpoint using Consumet API
+// Manga search endpoint using Mangapill API (manga-scrapers)
 import type { RequestHandler } from '@sveltejs/kit';
 import { getSessionUser } from '$lib/server/session';
-import { createConsumetService } from '$lib/services/consumetService';
-import { config } from '$lib/config';
-import '$lib/server/dns-config';
+import { mangapillService } from '$lib/services/mangapillService';
 
 export const GET: RequestHandler = async ({ request }) => {
     // TODO: Re-enable auth when ready
@@ -14,21 +12,16 @@ export const GET: RequestHandler = async ({ request }) => {
     
     const url = new URL(request.url);
     const query = url.searchParams.get('query')?.trim();
-    const provider = url.searchParams.get('provider') || config.consumet.defaultMangaProvider;
     
     if (!query) {
         return new Response(JSON.stringify({ error: 'Query parameter is required' }), { status: 400 });
     }
     
     try {
-        // Use config default (http://192.168.0.107:6000)
-        const baseUrl = config.consumet.baseUrl;
-        console.log('Manga search - Using base URL:', baseUrl);
-        console.log('Manga search - Query:', query, 'Provider:', provider);
+        console.log('Manga search - Using Mangapill API');
+        console.log('Manga search - Query:', query);
         
-        const consumetService = createConsumetService(baseUrl);
-        // Note: Consumet manga search doesn't support page parameter - it's a path parameter only
-        const result = await consumetService.searchManga(query, provider, 1);
+        const result = await mangapillService.searchManga(query);
         
         return new Response(JSON.stringify(result), { 
             status: 200,

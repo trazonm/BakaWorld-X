@@ -1,27 +1,26 @@
 <!-- Individual Manga Card Component -->
 <script lang="ts">
-	import type { ConsumetManga } from '$lib/types/manga';
+	import type { Manga } from '$lib/types/manga';
 	import { dev } from '$app/environment';
 
-	export let manga: ConsumetManga;
+	export let manga: Manga;
 	export let searchQuery: string = '';
 	
-	$: mangaUrl = searchQuery 
-		? `/manga/${manga.id}?query=${encodeURIComponent(searchQuery)}`
-		: `/manga/${manga.id}`;
+	// Strip 'manga/' prefix from ID if present (Mangapill returns IDs like "manga/1063/dragon-ball")
+	$: cleanMangaId = manga.id.startsWith('manga/') ? manga.id.substring(6) : manga.id;
 	
-	// Format release date - extract year only for consistent sizing
-	$: releaseYear = manga.releaseDate 
-		? (typeof manga.releaseDate === 'number' 
-			? String(manga.releaseDate) 
-			: String(manga.releaseDate).substring(0, 4))
+	$: mangaUrl = searchQuery 
+		? `/manga/${cleanMangaId}?query=${encodeURIComponent(searchQuery)}`
+		: `/manga/${cleanMangaId}`;
+	
+	// Format year for display
+	$: releaseYear = manga.year 
+		? String(manga.year)
 		: '';
 	
-	// Use proxy only in production (to handle CORS), direct URL in dev
+	// Use our own proxy with proper referer for Mangapill CDN
 	$: imageSrc = manga.image 
-		? (dev 
-			? manga.image 
-			: `/api/proxy/image?url=${encodeURIComponent(manga.image)}&referer=https://mangadex.org/`)
+		? `/api/proxy/image?url=${encodeURIComponent(manga.image)}&referer=https://mangapill.com/`
 		: '';
 </script>
 
@@ -68,29 +67,14 @@
 					{manga.status}
 				</span>
 			{/if}
-			{#if manga.contentRating}
+			{#if manga.type}
 				<span class="bg-purple-700 text-purple-100 text-xs px-2.5 py-1 rounded-full whitespace-nowrap inline-block">
-					{manga.contentRating}
+					{manga.type}
 				</span>
 			{/if}
 			{#if releaseYear}
 				<span class="bg-gray-700 text-gray-200 text-xs px-2.5 py-1 rounded-full whitespace-nowrap inline-block">
 					{releaseYear}
-				</span>
-			{/if}
-			{#if manga.lastVolume}
-				<span class="bg-green-700 text-green-100 text-xs px-2.5 py-1 rounded-full whitespace-nowrap inline-block">
-					Vol {manga.lastVolume}
-				</span>
-			{/if}
-			{#if manga.lastChapter}
-				<span class="bg-orange-700 text-orange-100 text-xs px-2.5 py-1 rounded-full whitespace-nowrap inline-block">
-					Ch {manga.lastChapter}
-				</span>
-			{/if}
-			{#if (manga as any).rating}
-				<span class="bg-yellow-700 text-yellow-100 text-xs px-2.5 py-1 rounded-full whitespace-nowrap inline-block">
-					⭐ {(manga as any).rating}
 				</span>
 			{/if}
 		</div>

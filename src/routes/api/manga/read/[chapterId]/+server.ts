@@ -1,9 +1,7 @@
-// Manga chapter pages endpoint using Consumet API
+// Manga chapter pages endpoint using Mangapill API (manga-scrapers)
 import type { RequestHandler } from '@sveltejs/kit';
 import { getSessionUser } from '$lib/server/session';
-import { createConsumetService } from '$lib/services/consumetService';
-import { config } from '$lib/config';
-import '$lib/server/dns-config';
+import { mangapillService } from '$lib/services/mangapillService';
 
 export const GET: RequestHandler = async ({ request, params }) => {
     // TODO: Re-enable auth when ready
@@ -13,17 +11,15 @@ export const GET: RequestHandler = async ({ request, params }) => {
     // }
     
     const chapterId = params.chapterId;
-    const url = new URL(request.url);
-    const provider = url.searchParams.get('provider') || config.consumet.defaultMangaProvider;
     
     if (!chapterId) {
         return new Response(JSON.stringify({ error: 'Chapter ID is required' }), { status: 400 });
     }
     
     try {
-        const baseUrl = config.consumet.baseUrl;
-        const consumetService = createConsumetService(baseUrl);
-        const data = await consumetService.getMangaChapterPages(chapterId, provider);
+        console.log('Manga chapter pages - Using Mangapill API for chapter ID:', chapterId);
+        
+        const data = await mangapillService.getChapterPages(chapterId);
         
         return new Response(JSON.stringify(data), { 
             status: 200,

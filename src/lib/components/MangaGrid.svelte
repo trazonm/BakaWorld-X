@@ -1,9 +1,9 @@
 <!-- Manga Grid Component -->
 <script lang="ts">
-	import type { ConsumetManga } from '$lib/types/manga';
+	import type { Manga } from '$lib/types/manga';
 	import MangaCard from './MangaCard.svelte';
 
-	export let results: ConsumetManga[] = [];
+	export let results: Manga[] = [];
 	export let loading: boolean = false;
 	export let error: string = '';
 	export let query: string = '';

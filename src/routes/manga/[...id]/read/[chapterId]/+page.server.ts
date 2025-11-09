@@ -3,7 +3,8 @@ import { error } from '@sveltejs/kit';
 
 export const load: PageServerLoad = async ({ params, fetch }) => {
 	const chapterId = params.chapterId;
-	const mangaId = params.id;
+	// params.id is now an array like ["3069", "naruto"] because we use [...id]
+	const mangaIdSegments = params.id;
 	
 	if (!chapterId) {
 		throw error(400, 'Chapter ID is required');
@@ -12,9 +13,13 @@ export const load: PageServerLoad = async ({ params, fetch }) => {
 	try {
 		// Get manga info for navigation
 		let manga = null;
-		if (mangaId) {
+		if (mangaIdSegments) {
 			try {
-				const mangaResponse = await fetch(`/api/search/manga/${mangaId}`);
+				// Join the segments back together: ["3069", "naruto"] -> "3069/naruto"
+				const mangaId = mangaIdSegments;
+				// Prepend "manga/" for the API call
+				const fullMangaId = `manga/${mangaId}`;
+				const mangaResponse = await fetch(`/api/search/manga/${encodeURIComponent(fullMangaId)}`);
 				if (mangaResponse.ok) {
 					manga = await mangaResponse.json();
 				}
@@ -24,7 +29,10 @@ export const load: PageServerLoad = async ({ params, fetch }) => {
 		}
 
 		// Get chapter pages
-		const chapterResponse = await fetch(`/api/manga/read/${chapterId}`);
+		// The params.chapterId will be something like "1063-10001000/dragon-ball-chapter-1"
+		// We need to prepend "chapters/" for the API call
+		const fullChapterId = `chapters/${chapterId}`;
+		const chapterResponse = await fetch(`/api/manga/read/${encodeURIComponent(fullChapterId)}`);
 		
 		if (!chapterResponse.ok) {
 			throw error(chapterResponse.status, 'Chapter not found');
@@ -38,11 +46,17 @@ export const load: PageServerLoad = async ({ params, fetch }) => {
 		let prevChapter = null;
 
 		if (manga && manga.chapters) {
-			// Sort chapters by chapter number (ascending - oldest to newest)
-			// Convert chapterNumber to number for proper sorting
+			// Sort chapters by chapter number extracted from title (ascending - oldest to newest)
+			// Mangapill API only provides "title" field like "Chapter 1", "Chapter 2.5"
 			const sortedChapters = [...manga.chapters].sort((a: any, b: any) => {
-				const numA = parseFloat(String(a.chapterNumber || a.number || 0));
-				const numB = parseFloat(String(b.chapterNumber || b.number || 0));
+				// Extract chapter number from title (e.g., "Chapter 123" -> 123)
+				const extractChapterNum = (title: string) => {
+					const match = title.match(/chapter\s+(\d+(?:\.\d+)?)/i);
+					return match ? parseFloat(match[1]) : 0;
+				};
+				
+				const numA = extractChapterNum(a.title || '');
+				const numB = extractChapterNum(b.title || '');
 				return numA - numB;
 			});
 			

@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { page } from '$app/stores';
+	import { page, navigating } from '$app/stores';
 	import { useMangaSearch } from '$lib/composables/useMangaSearch';
 	import MangaSearchForm from '$lib/components/MangaSearchForm.svelte';
 	import MangaGrid from '$lib/components/MangaGrid.svelte';
@@ -35,6 +35,9 @@
 		lastSearchedQuery = $state.query;
 		localQuery = $state.query;
 	}
+	
+	// Track navigation loading state
+	$: isNavigating = !!$navigating;
 </script>
 
 <svelte:head>
@@ -48,7 +51,51 @@
 		overflow-y: auto !important;
 		height: auto !important;
 	}
+
+	.loading-overlay {
+		position: fixed;
+		top: 0;
+		left: 0;
+		right: 0;
+		bottom: 0;
+		background: rgba(0, 0, 0, 0.7);
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		gap: 1rem;
+		z-index: 9999;
+		backdrop-filter: blur(4px);
+	}
+
+	.spinner {
+		border: 4px solid rgba(255, 255, 255, 0.1);
+		border-radius: 50%;
+		border-top: 4px solid #3b82f6;
+		width: 64px;
+		height: 64px;
+		animation: spin 1s linear infinite;
+	}
+
+	@keyframes spin {
+		0% { transform: rotate(0deg); }
+		100% { transform: rotate(360deg); }
+	}
+
+	.loading-text {
+		color: white;
+		font-size: 1.125rem;
+		font-weight: 600;
+	}
 </style>
+
+<!-- Loading Overlay -->
+{#if isNavigating}
+	<div class="loading-overlay">
+		<div class="spinner"></div>
+		<p class="loading-text">Loading manga...</p>
+	</div>
+{/if}
 
 <div class="manga-search-container">
 	<main class="container mx-auto px-4 py-8 max-w-7xl">
@@ -56,7 +103,7 @@
 		<div class="text-center mb-8">
 			<h1 class="text-4xl md:text-5xl font-extrabold text-white drop-shadow-lg mb-4">
 				<span class="bg-gradient-to-r from-purple-400 to-pink-500 bg-clip-text text-transparent">
-					Manga Search (beta)
+					Manga Search
 				</span>
 			</h1>
 			<p class="text-gray-400 text-lg">Discover your favorite manga series</p>

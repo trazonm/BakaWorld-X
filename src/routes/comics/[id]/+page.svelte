@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { PageData } from './$types';
+	import { navigating } from '$app/stores';
 	
 	export let data: PageData;
 	$: comic = data.comic;
@@ -7,6 +8,9 @@
 	
 	// Back to results URL
 	$: backToResultsUrl = searchQuery ? `/comics?query=${encodeURIComponent(searchQuery)}` : '/comics';
+	
+	// Track navigation loading state
+	$: isNavigating = !!$navigating;
 </script>
 
 <svelte:head>
@@ -28,7 +32,51 @@
 		-webkit-box-orient: vertical;
 		overflow: hidden;
 	}
+
+	.loading-overlay {
+		position: fixed;
+		top: 0;
+		left: 0;
+		right: 0;
+		bottom: 0;
+		background: rgba(0, 0, 0, 0.7);
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		gap: 1rem;
+		z-index: 9999;
+		backdrop-filter: blur(4px);
+	}
+
+	.spinner {
+		border: 4px solid rgba(255, 255, 255, 0.1);
+		border-radius: 50%;
+		border-top: 4px solid #3b82f6;
+		width: 64px;
+		height: 64px;
+		animation: spin 1s linear infinite;
+	}
+
+	@keyframes spin {
+		0% { transform: rotate(0deg); }
+		100% { transform: rotate(360deg); }
+	}
+
+	.loading-text {
+		color: white;
+		font-size: 1.125rem;
+		font-weight: 600;
+	}
 </style>
+
+<!-- Loading Overlay -->
+{#if isNavigating}
+	<div class="loading-overlay">
+		<div class="spinner"></div>
+		<p class="loading-text">Loading comic...</p>
+	</div>
+{/if}
 
 <div class="comic-detail-container min-h-screen">
 	<main class="container mx-auto px-4 py-8 max-w-7xl">
@@ -107,17 +155,22 @@
 					{#each comic.issues as issue}
 						<a 
 							href="/comics/{comic.id}/read/{issue.id}"
-							class="bg-gray-900 border border-gray-800 rounded-lg p-4 hover:bg-gray-800 hover:border-blue-500 transition-all cursor-pointer"
+							class="bg-gray-900 border border-gray-800 rounded-lg p-4 hover:bg-gray-800 hover:border-blue-500 transition-all cursor-pointer flex items-center justify-between group"
 						>
-							<h3 class="text-white font-semibold mb-1">
-								Issue #{issue.issueNumber}
-								{#if issue.title}
-									<span class="text-gray-400 text-sm block mt-1">{issue.title}</span>
+							<div>
+								<h3 class="text-white font-semibold mb-1">
+									Issue #{issue.issueNumber}
+									{#if issue.title}
+										<span class="text-gray-400 text-sm block mt-1">{issue.title}</span>
+									{/if}
+								</h3>
+								{#if issue.coverDate}
+									<p class="text-gray-500 text-xs mt-2">{issue.coverDate}</p>
 								{/if}
-							</h3>
-							{#if issue.coverDate}
-								<p class="text-gray-500 text-xs mt-2">{issue.coverDate}</p>
-							{/if}
+							</div>
+							<svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-gray-500 group-hover:text-blue-400 transition-colors flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+							</svg>
 						</a>
 					{/each}
 				</div>

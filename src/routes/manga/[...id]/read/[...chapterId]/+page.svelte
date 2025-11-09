@@ -1,16 +1,20 @@
 <script lang="ts">
 	import type { PageData } from './$types';
-	import type { ComicPage } from '$lib/types/comic';
 	import { onMount } from 'svelte';
 	import { navigating } from '$app/stores';
 	
 	export let data: PageData;
-	$: issue = data.issue;
-	$: comic = data.comic;
-	$: nextIssue = data.nextIssue;
-	$: prevIssue = data.prevIssue;
-	$: pages = issue?.pages || [];
-	$: comicTitle = comic?.title || 'Comic';
+	$: chapter = data.chapter;
+	$: manga = data.manga;
+	$: nextChapter = data.nextChapter;
+	$: prevChapter = data.prevChapter;
+	$: pages = chapter?.pages || [];
+	$: mangaTitle = manga?.title || 'Manga';
+	
+	// Strip prefixes from IDs for clean URLs
+	$: cleanMangaId = manga?.id ? (manga.id.startsWith('manga/') ? manga.id.substring(6) : manga.id) : '';
+	$: cleanPrevChapterId = prevChapter?.id ? (prevChapter.id.startsWith('chapters/') ? prevChapter.id.substring(9) : prevChapter.id) : '';
+	$: cleanNextChapterId = nextChapter?.id ? (nextChapter.id.startsWith('chapters/') ? nextChapter.id.substring(9) : nextChapter.id) : '';
 	
 	// Track navigation loading state
 	$: isNavigating = !!$navigating;
@@ -35,8 +39,8 @@
 	let initialDistance = 0;
 	let initialScale = 1;
 	
-	// Reset to page 1 when issue changes
-	$: if (issue) {
+	// Reset to page 1 when chapter changes
+	$: if (chapter) {
 		currentPage = 0;
 		resetZoom();
 	}
@@ -257,25 +261,25 @@
 
 <svelte:head>
 	<title>
-		{comic ? `${comic.title} - Issue - BakaWorld χ` : 'Comic Reader - BakaWorld χ'}
+		{manga ? `${manga.title} - Chapter - BakaWorld χ` : 'Manga Reader - BakaWorld χ'}
 	</title>
 </svelte:head>
 
 <style>
-	.comic-reader-container {
+	.manga-reader-container {
 		min-height: 100vh;
 		background: #0a0a0a;
 	}
 
-	.comic-viewer {
+	.manga-viewer {
 		background: #1a1a1a;
 		border-radius: 0.5rem;
 		position: relative;
 		overflow: hidden;
 	}
 
-	.comic-viewer:fullscreen,
-	.comic-viewer:-webkit-full-screen {
+	.manga-viewer:fullscreen,
+	.manga-viewer:-webkit-full-screen {
 		background: #000;
 		border-radius: 0;
 		width: 100vw;
@@ -302,8 +306,8 @@
 		cursor: grabbing;
 	}
 
-	.comic-viewer:fullscreen .page-container,
-	.comic-viewer:-webkit-full-screen .page-container {
+	.manga-viewer:fullscreen .page-container,
+	.manga-viewer:-webkit-full-screen .page-container {
 		min-height: 100vh;
 		padding: 0;
 	}
@@ -324,7 +328,7 @@
 		cursor: grabbing;
 	}
 
-	.comic-page {
+	.manga-page {
 		max-width: 100%;
 		max-height: 70vh;
 		width: auto;
@@ -334,8 +338,8 @@
 		pointer-events: none;
 	}
 
-	.comic-viewer:fullscreen .comic-page,
-	.comic-viewer:-webkit-full-screen .comic-page {
+	.manga-viewer:fullscreen .manga-page,
+	.manga-viewer:-webkit-full-screen .manga-page {
 		max-width: 100vw;
 		max-height: 100vh;
 	}
@@ -349,15 +353,15 @@
 		z-index: 10;
 	}
 
-	.comic-viewer:fullscreen .controls,
-	.comic-viewer:-webkit-full-screen .controls {
+	.manga-viewer:fullscreen .controls,
+	.manga-viewer:-webkit-full-screen .controls {
 		position: fixed;
 		z-index: 100;
 	}
 	
 	@media (max-width: 640px) {
-		.comic-viewer:fullscreen .controls,
-		.comic-viewer:-webkit-full-screen .controls {
+		.manga-viewer:fullscreen .controls,
+		.manga-viewer:-webkit-full-screen .controls {
 			top: 0.5rem;
 			right: 0.5rem;
 			gap: 0.25rem;
@@ -385,13 +389,13 @@
 	}
 	
 	@media (max-width: 640px) {
-		.comic-viewer:fullscreen .control-button,
-		.comic-viewer:-webkit-full-screen .control-button {
+		.manga-viewer:fullscreen .control-button,
+		.manga-viewer:-webkit-full-screen .control-button {
 			padding: 0.5rem;
 		}
 		
-		.comic-viewer:fullscreen .control-button svg,
-		.comic-viewer:-webkit-full-screen .control-button svg {
+		.manga-viewer:fullscreen .control-button svg,
+		.manga-viewer:-webkit-full-screen .control-button svg {
 			width: 1.25rem;
 			height: 1.25rem;
 		}
@@ -407,8 +411,8 @@
 		z-index: 10;
 	}
 
-	.comic-viewer:fullscreen .page-navigation,
-	.comic-viewer:-webkit-full-screen .page-navigation {
+	.manga-viewer:fullscreen .page-navigation,
+	.manga-viewer:-webkit-full-screen .page-navigation {
 		position: fixed;
 		bottom: 1rem;
 		left: 50%;
@@ -424,8 +428,8 @@
 	}
 	
 	@media (max-width: 640px) {
-		.comic-viewer:fullscreen .page-navigation,
-		.comic-viewer:-webkit-full-screen .page-navigation {
+		.manga-viewer:fullscreen .page-navigation,
+		.manga-viewer:-webkit-full-screen .page-navigation {
 			bottom: 0.5rem;
 			padding: 0.5rem 1rem;
 			gap: 0.5rem;
@@ -460,8 +464,8 @@
 	}
 	
 	@media (max-width: 640px) {
-		.comic-viewer:fullscreen .nav-button,
-		.comic-viewer:-webkit-full-screen .nav-button {
+		.manga-viewer:fullscreen .nav-button,
+		.manga-viewer:-webkit-full-screen .nav-button {
 			padding: 0.5rem 0.75rem;
 			font-size: 0.875rem;
 		}
@@ -486,8 +490,8 @@
 	}
 	
 	@media (max-width: 640px) {
-		.comic-viewer:fullscreen .page-counter,
-		.comic-viewer:-webkit-full-screen .page-counter {
+		.manga-viewer:fullscreen .page-counter,
+		.manga-viewer:-webkit-full-screen .page-counter {
 			padding: 0.5rem 1rem;
 			font-size: 1rem;
 			min-width: 5rem;
@@ -514,15 +518,15 @@
 		opacity: 1;
 	}
 
-	.comic-viewer:fullscreen .zoom-indicator,
-	.comic-viewer:-webkit-full-screen .zoom-indicator {
+	.manga-viewer:fullscreen .zoom-indicator,
+	.manga-viewer:-webkit-full-screen .zoom-indicator {
 		position: fixed;
 		z-index: 100;
 	}
 	
 	@media (max-width: 640px) {
-		.comic-viewer:fullscreen .zoom-indicator,
-		.comic-viewer:-webkit-full-screen .zoom-indicator {
+		.manga-viewer:fullscreen .zoom-indicator,
+		.manga-viewer:-webkit-full-screen .zoom-indicator {
 			top: 4rem;
 			right: 0.5rem;
 			padding: 0.4rem 0.8rem;
@@ -536,14 +540,36 @@
 	}
 	
 	@media (max-width: 640px) {
-		.comic-viewer:fullscreen .arrow-icon,
-		.comic-viewer:-webkit-full-screen .arrow-icon {
+		.manga-viewer:fullscreen .arrow-icon,
+		.manga-viewer:-webkit-full-screen .arrow-icon {
 			width: 1rem;
 			height: 1rem;
 		}
 	}
 
-	.issue-loading-overlay {
+	.loading-spinner {
+		position: absolute;
+		top: 50%;
+		left: 50%;
+		transform: translate(-50%, -50%);
+		z-index: 5;
+	}
+
+	.spinner {
+		border: 4px solid rgba(255, 255, 255, 0.1);
+		border-radius: 50%;
+		border-top: 4px solid #3b82f6;
+		width: 48px;
+		height: 48px;
+		animation: spin 1s linear infinite;
+	}
+
+	@keyframes spin {
+		0% { transform: rotate(0deg); }
+		100% { transform: rotate(360deg); }
+	}
+
+	.chapter-loading-overlay {
 		position: fixed;
 		top: 0;
 		left: 0;
@@ -551,15 +577,13 @@
 		bottom: 0;
 		background: rgba(0, 0, 0, 0.7);
 		display: flex;
-		flex-direction: column;
 		align-items: center;
 		justify-content: center;
-		gap: 1rem;
 		z-index: 9999;
 		backdrop-filter: blur(4px);
 	}
 
-	.issue-spinner {
+	.chapter-spinner {
 		border: 4px solid rgba(255, 255, 255, 0.1);
 		border-radius: 50%;
 		border-top: 4px solid #3b82f6;
@@ -573,70 +597,53 @@
 		font-size: 1.125rem;
 		font-weight: 600;
 	}
-
-	.page-loading-spinner {
-		position: absolute;
-		top: 50%;
-		left: 50%;
-		transform: translate(-50%, -50%);
-		z-index: 5;
-	}
-
-	.page-spinner {
-		border: 4px solid rgba(255, 255, 255, 0.1);
-		border-radius: 50%;
-		border-top: 4px solid #3b82f6;
-		width: 48px;
-		height: 48px;
-		animation: spin 1s linear infinite;
-	}
 </style>
 
-<!-- Issue Navigation Loading Overlay -->
+<!-- Chapter Navigation Loading Overlay -->
 {#if isNavigating}
-	<div class="issue-loading-overlay">
-		<div class="issue-spinner"></div>
-		<p class="loading-text">Loading issue...</p>
+	<div class="chapter-loading-overlay">
+		<div class="chapter-spinner"></div>
+		<p class="loading-text">Loading chapter...</p>
 	</div>
 {/if}
 
-<div class="comic-reader-container">
+<div class="manga-reader-container">
 	<main class="container mx-auto px-4 py-8 max-w-7xl">
 		<!-- Navigation Header -->
 		<div class="bg-gray-900 rounded-lg p-4 mb-6 flex flex-col sm:flex-row justify-between items-center gap-4">
 			<div>
-				{#if comic}
-					<a href="/comics/{comic.id}" class="text-blue-400 hover:text-blue-300 text-sm mb-1 block">
-						← Back to {comicTitle}
+				{#if manga}
+					<a href="/manga/{cleanMangaId}" class="text-blue-400 hover:text-blue-300 text-sm mb-1 block">
+						← Back to {mangaTitle}
 					</a>
-					<h1 class="text-white text-xl font-bold">{comicTitle}</h1>
+					<h1 class="text-white text-xl font-bold">{mangaTitle}</h1>
 				{/if}
 			</div>
 			
 			<div class="flex gap-4 items-center">
-				{#if prevIssue && comic}
+				{#if prevChapter && manga}
 					<a 
-						href="/comics/{comic.id}/read/{prevIssue.id}"
+						href="/manga/{cleanMangaId}/read/{cleanPrevChapterId}"
 						class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors"
 					>
-						← Previous Issue
+						← Previous Chapter
 					</a>
 				{/if}
 				
-				{#if nextIssue && comic}
+				{#if nextChapter && manga}
 					<a 
-						href="/comics/{comic.id}/read/{nextIssue.id}"
+						href="/manga/{cleanMangaId}/read/{cleanNextChapterId}"
 						class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors"
 					>
-						Next Issue →
+						Next Chapter →
 					</a>
 				{/if}
 			</div>
 		</div>
 
-		<!-- Comic Viewer -->
+		<!-- Manga Viewer -->
 		{#if pages.length > 0}
-			<div class="comic-viewer" bind:this={viewerContainer}>
+			<div class="manga-viewer" bind:this={viewerContainer}>
 				<!-- Controls -->
 				<div class="controls">
 					<button 
@@ -705,10 +712,12 @@
 					on:touchmove={handleTouchMove}
 					on:touchend={handleTouchEnd}
 					on:dblclick={handleDoubleClick}
+					role="button"
+					tabindex="0"
 				>
 					{#if imageLoading}
-						<div class="page-loading-spinner">
-							<div class="page-spinner"></div>
+						<div class="loading-spinner">
+							<div class="spinner"></div>
 						</div>
 					{/if}
 					
@@ -721,9 +730,9 @@
 								bind:this={imageContainer}
 							>
 								<img 
-									src={`/api/proxy/image?url=${encodeURIComponent(pages[currentPage].img)}&referer=https://readcomicsonline.ru/`}
+									src={`/api/proxy/image?url=${encodeURIComponent(pages[currentPage].image)}&referer=https://mangapill.com/`}
 									alt="Page {currentPage + 1}"
-									class="comic-page"
+									class="manga-page"
 									on:load={handleImageLoad}
 									on:error={handleImageError}
 									style="opacity: {imageLoading ? 0 : 1}; transition: opacity 0.2s;"
@@ -764,9 +773,50 @@
 					</button>
 				</div>
 			</div>
+
+			<!-- Chapter Navigation (Bottom) -->
+			<div class="flex flex-col sm:flex-row justify-center items-center gap-4 mt-6 bg-gray-900 rounded-lg p-4">
+				{#if prevChapter && manga}
+					<a 
+						href="/manga/{cleanMangaId}/read/{cleanPrevChapterId}"
+						class="bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 rounded-lg transition-colors font-semibold flex items-center gap-2 w-full sm:w-auto justify-center"
+					>
+						<svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
+						</svg>
+						Previous Chapter
+					</a>
+				{:else}
+					<div class="bg-gray-800 text-gray-500 px-6 py-3 rounded-lg font-semibold flex items-center gap-2 w-full sm:w-auto justify-center cursor-not-allowed opacity-50">
+						<svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
+						</svg>
+						Previous Chapter
+					</div>
+				{/if}
+				
+				{#if nextChapter && manga}
+					<a 
+						href="/manga/{cleanMangaId}/read/{cleanNextChapterId}"
+						class="bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 rounded-lg transition-colors font-semibold flex items-center gap-2 w-full sm:w-auto justify-center"
+					>
+						Next Chapter
+						<svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 5l7 7-7 7M5 5l7 7-7 7" />
+						</svg>
+					</a>
+				{:else}
+					<div class="bg-gray-800 text-gray-500 px-6 py-3 rounded-lg font-semibold flex items-center gap-2 w-full sm:w-auto justify-center cursor-not-allowed opacity-50">
+						Next Chapter
+						<svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 5l7 7-7 7M5 5l7 7-7 7" />
+						</svg>
+					</div>
+				{/if}
+			</div>
 		{:else}
 			<div class="bg-gray-900 rounded-lg p-8 text-center">
-				<p class="text-gray-400 text-lg mb-2">No pages available for this issue</p>
+				<p class="text-gray-400 text-lg mb-2">No pages available for this chapter</p>
 			</div>
 		{/if}
 	</main>
