@@ -8,67 +8,188 @@
 	$: comic = data.comic;
 	$: nextIssue = data.nextIssue;
 	$: prevIssue = data.prevIssue;
-
 	$: pages = issue?.pages || [];
-	$: currentIssueIndex = data.currentIssueIndex;
-	
-	// Compute comic title (handle null title)
 	$: comicTitle = comic?.title || 'Comic';
 	
 	let viewerContainer: HTMLDivElement;
+	let imageContainer: HTMLDivElement;
 	let isFullscreen = false;
-	let loadingPages = false;
 	let currentPage = 0;
-	let touchStartX = 0;
-	let touchEndX = 0;
+	
+	// Zoom and pan state
+	let scale = 1;
+	let posX = 0;
+	let posY = 0;
+	let isDragging = false;
+	let startX = 0;
+	let startY = 0;
+	let lastPosX = 0;
+	let lastPosY = 0;
+	
+	// Touch state
+	let initialDistance = 0;
+	let initialScale = 1;
 	
 	function toggleFullscreen() {
 		if (!viewerContainer) return;
 		
 		if (!isFullscreen) {
-			// Enter fullscreen
 			if (viewerContainer.requestFullscreen) {
 				viewerContainer.requestFullscreen();
 			} else if ((viewerContainer as any).webkitRequestFullscreen) {
 				(viewerContainer as any).webkitRequestFullscreen();
-			} else if ((viewerContainer as any).mozRequestFullScreen) {
-				(viewerContainer as any).mozRequestFullScreen();
-			} else if ((viewerContainer as any).msRequestFullscreen) {
-				(viewerContainer as any).msRequestFullscreen();
 			}
 		} else {
-			// Exit fullscreen
 			if (document.exitFullscreen) {
 				document.exitFullscreen();
-			} else if ((document as any).webkitExitFullscreen) {
-				(document as any).webkitExitFullscreen();
-			} else if ((document as any).mozCancelFullScreen) {
-				(document as any).mozCancelFullScreen();
-			} else if ((document as any).msExitFullscreen) {
-				(document as any).msExitFullscreen();
 			}
 		}
 	}
 	
 	function handleFullscreenChange() {
-		isFullscreen = !!(document.fullscreenElement || (document as any).webkitFullscreenElement || (document as any).mozFullScreenElement || (document as any).msFullscreenElement);
+		isFullscreen = !!(document.fullscreenElement || (document as any).webkitFullscreenElement);
 	}
 	
 	function nextPage() {
 		if (currentPage < pages.length - 1) {
 			currentPage++;
+			resetZoom();
 		}
 	}
 	
 	function prevPage() {
 		if (currentPage > 0) {
 			currentPage--;
+			resetZoom();
 		}
 	}
 	
-	function goToPage(pageIndex: number) {
-		if (pageIndex >= 0 && pageIndex < pages.length) {
-			currentPage = pageIndex;
+	function resetZoom() {
+		scale = 1;
+		posX = 0;
+		posY = 0;
+	}
+	
+	function updateTransform() {
+		if (imageContainer) {
+			imageContainer.style.transform = `translate(${posX}px, ${posY}px) scale(${scale})`;
+		}
+	}
+	
+	function constrainPosition() {
+		if (!imageContainer) return;
+		
+		const rect = imageContainer.getBoundingClientRect();
+		const parentRect = imageContainer.parentElement?.getBoundingClientRect();
+		if (!parentRect) return;
+		
+		// Don't constrain if not zoomed
+		if (scale <= 1) {
+			posX = 0;
+			posY = 0;
+			return;
+		}
+		
+		// Calculate max pan based on scaled image size
+		const maxX = Math.max(0, (rect.width - parentRect.width) / 2);
+		const maxY = Math.max(0, (rect.height - parentRect.height) / 2);
+		
+		// Constrain position
+		posX = Math.max(-maxX, Math.min(maxX, posX));
+		posY = Math.max(-maxY, Math.min(maxY, posY));
+	}
+	
+	function handleWheel(e: WheelEvent) {
+		if (!e.ctrlKey && !e.metaKey) return;
+		
+		e.preventDefault();
+		
+		const delta = -e.deltaY;
+		const scaleChange = delta > 0 ? 1.2 : 0.8;
+		
+		scale = Math.max(1, Math.min(5, scale * scaleChange));
+		constrainPosition();
+		updateTransform();
+	}
+	
+	function handleMouseDown(e: MouseEvent) {
+		if (scale <= 1) return;
+		
+		isDragging = true;
+		startX = e.clientX - posX;
+		startY = e.clientY - posY;
+		lastPosX = posX;
+		lastPosY = posY;
+	}
+	
+	function handleMouseMove(e: MouseEvent) {
+		if (!isDragging) return;
+		
+		posX = e.clientX - startX;
+		posY = e.clientY - startY;
+		constrainPosition();
+		updateTransform();
+	}
+	
+	function handleMouseUp() {
+		isDragging = false;
+	}
+	
+	function getDistance(touch1: Touch, touch2: Touch) {
+		const dx = touch1.clientX - touch2.clientX;
+		const dy = touch1.clientY - touch2.clientY;
+		return Math.sqrt(dx * dx + dy * dy);
+	}
+	
+	function handleTouchStart(e: TouchEvent) {
+		if (e.touches.length === 2) {
+			// Pinch zoom start
+			e.preventDefault();
+			initialDistance = getDistance(e.touches[0], e.touches[1]);
+			initialScale = scale;
+		} else if (e.touches.length === 1 && scale > 1) {
+			// Pan start when zoomed
+			e.preventDefault();
+			isDragging = true;
+			startX = e.touches[0].clientX - posX;
+			startY = e.touches[0].clientY - posY;
+		}
+	}
+	
+	function handleTouchMove(e: TouchEvent) {
+		if (e.touches.length === 2) {
+			// Pinch zoom
+			e.preventDefault();
+			const currentDistance = getDistance(e.touches[0], e.touches[1]);
+			const scaleChange = currentDistance / initialDistance;
+			scale = Math.max(1, Math.min(5, initialScale * scaleChange));
+			constrainPosition();
+			updateTransform();
+		} else if (e.touches.length === 1 && isDragging && scale > 1) {
+			// Pan when zoomed
+			e.preventDefault();
+			posX = e.touches[0].clientX - startX;
+			posY = e.touches[0].clientY - startY;
+			constrainPosition();
+			updateTransform();
+		}
+	}
+	
+	function handleTouchEnd(e: TouchEvent) {
+		if (e.touches.length === 0) {
+			isDragging = false;
+			initialDistance = 0;
+		}
+	}
+	
+	function handleDoubleClick() {
+		if (scale > 1) {
+			resetZoom();
+			updateTransform();
+		} else {
+			scale = 2.5;
+			constrainPosition();
+			updateTransform();
 		}
 	}
 	
@@ -79,71 +200,35 @@
 		} else if (e.key === 'ArrowLeft' || e.key === 'PageUp') {
 			e.preventDefault();
 			prevPage();
-		} else if (e.key === 'Home') {
-			e.preventDefault();
-			goToPage(0);
-		} else if (e.key === 'End') {
-			e.preventDefault();
-			goToPage(pages.length - 1);
-		}
-	}
-	
-	function handleTouchStart(e: TouchEvent) {
-		touchStartX = e.touches[0].clientX;
-	}
-	
-	function handleTouchEnd(e: TouchEvent) {
-		touchEndX = e.changedTouches[0].clientX;
-		handleSwipe();
-	}
-	
-	function handleSwipe() {
-		const swipeThreshold = 50;
-		const diff = touchStartX - touchEndX;
-		
-		if (Math.abs(diff) > swipeThreshold) {
-			if (diff > 0) {
-				// Swiped left - next page
-				nextPage();
-			} else {
-				// Swiped right - previous page
-				prevPage();
+		} else if (e.key === 'Escape' && isFullscreen) {
+			if (document.exitFullscreen) {
+				document.exitFullscreen();
 			}
+		} else if (e.key === '0' || e.key === 'Home') {
+			e.preventDefault();
+			resetZoom();
+			updateTransform();
+		} else if (e.key === '+' || e.key === '=') {
+			e.preventDefault();
+			scale = Math.min(5, scale * 1.3);
+			constrainPosition();
+			updateTransform();
+		} else if (e.key === '-' || e.key === '_') {
+			e.preventDefault();
+			scale = Math.max(1, scale / 1.3);
+			constrainPosition();
+			updateTransform();
 		}
 	}
 	
 	onMount(() => {
-		// Listen for fullscreen changes
 		document.addEventListener('fullscreenchange', handleFullscreenChange);
 		document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
-		document.addEventListener('mozfullscreenchange', handleFullscreenChange);
-		document.addEventListener('MSFullscreenChange', handleFullscreenChange);
-		
-		// Listen for keyboard navigation
 		document.addEventListener('keydown', handleKeydown);
-		
-		// Preload all images
-		if (pages.length > 0) {
-			loadingPages = true;
-			const imagePromises = pages.map((page: ComicPage) => {
-				return new Promise((resolve) => {
-					const img = new Image();
-					img.onload = () => resolve(img);
-					img.onerror = () => resolve(null);
-					img.src = page.img;
-				});
-			});
-			
-			Promise.all(imagePromises).then(() => {
-				loadingPages = false;
-			});
-		}
 		
 		return () => {
 			document.removeEventListener('fullscreenchange', handleFullscreenChange);
 			document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
-			document.removeEventListener('mozfullscreenchange', handleFullscreenChange);
-			document.removeEventListener('MSFullscreenChange', handleFullscreenChange);
 			document.removeEventListener('keydown', handleKeydown);
 		};
 	});
@@ -156,226 +241,172 @@
 </svelte:head>
 
 <style>
-	/* Override global overflow for this page only */
-	:global(html), :global(body) {
-		overflow-y: auto !important;
-		height: auto !important;
+	.comic-reader-container {
+		min-height: 100vh;
+		background: #0a0a0a;
 	}
 
 	.comic-viewer {
 		background: #1a1a1a;
 		border-radius: 0.5rem;
-		overflow: hidden;
 		position: relative;
-		max-width: 100%;
+		overflow: hidden;
 	}
 
-	.comic-viewer:fullscreen {
-		background: #000;
-		padding: 1rem;
-		overflow-y: auto;
-	}
-
+	.comic-viewer:fullscreen,
 	.comic-viewer:-webkit-full-screen {
 		background: #000;
-		padding: 1rem;
-		overflow-y: auto;
+		border-radius: 0;
+		width: 100vw;
+		height: 100vh;
 	}
 
-	.comic-viewer:-moz-full-screen {
-		background: #000;
-		padding: 1rem;
-		overflow-y: auto;
-	}
-
-	.comic-viewer:-ms-fullscreen {
-		background: #000;
-		padding: 1rem;
-		overflow-y: auto;
-	}
-
-	.comic-page-container {
+	.page-container {
 		display: flex;
-		flex-direction: column;
 		align-items: center;
 		justify-content: center;
-		padding: 1rem;
-		min-height: 500px;
+		min-height: 70vh;
+		padding: 2rem 1rem;
 		position: relative;
+		overflow: hidden;
+		user-select: none;
 	}
 
-	.comic-viewer:fullscreen .comic-page-container {
-		padding: 0;
-		min-height: 100vh;
+	.page-container.zoomed {
+		cursor: grab;
+		touch-action: none;
 	}
 
-	.comic-viewer:-webkit-full-screen .comic-page-container {
-		padding: 0;
-		min-height: 100vh;
+	.page-container.dragging {
+		cursor: grabbing;
 	}
 
-	.comic-viewer:-moz-full-screen .comic-page-container {
-		padding: 0;
+	.comic-viewer:fullscreen .page-container,
+	.comic-viewer:-webkit-full-screen .page-container {
 		min-height: 100vh;
+		padding: 0;
 	}
 
-	.comic-viewer:-ms-fullscreen .comic-page-container {
-		padding: 0;
-		min-height: 100vh;
+	.image-container {
+		position: relative;
+		transform-origin: center center;
+		transition: transform 0.1s ease-out;
+		will-change: transform;
+		user-select: none;
+	}
+	
+	.image-container.zoomed {
+		cursor: grab;
+	}
+	
+	.image-container.dragging {
+		cursor: grabbing;
 	}
 
 	.comic-page {
 		max-width: 100%;
+		max-height: 70vh;
 		width: auto;
 		height: auto;
 		display: block;
-		margin: 0 auto;
-		object-fit: contain;
-		touch-action: pan-y pinch-zoom;
-		cursor: zoom-in;
+		user-select: none;
+		pointer-events: none;
 	}
 
-	.comic-viewer:fullscreen .comic-page {
-		max-width: none;
-		max-height: none;
-		width: 100%;
-		height: auto;
-		touch-action: pan-y pinch-zoom;
-	}
-
+	.comic-viewer:fullscreen .comic-page,
 	.comic-viewer:-webkit-full-screen .comic-page {
-		max-width: none;
-		max-height: none;
-		width: 100%;
-		height: auto;
-		touch-action: pan-y pinch-zoom;
+		max-width: 100vw;
+		max-height: 100vh;
 	}
 
-	.comic-viewer:-moz-full-screen .comic-page {
-		max-width: none;
-		max-height: none;
-		width: 100%;
-		height: auto;
-		touch-action: pan-y pinch-zoom;
-	}
-
-	.comic-viewer:-ms-fullscreen .comic-page {
-		max-width: none;
-		max-height: none;
-		width: 100%;
-		height: auto;
-		touch-action: pan-y pinch-zoom;
-	}
-
-	.fullscreen-button {
+	.controls {
 		position: absolute;
 		top: 1rem;
 		right: 1rem;
-		z-index: 10;
+		display: flex;
+		gap: 0.5rem;
+		z-index: 100;
+	}
+
+	.comic-viewer:fullscreen .controls,
+	.comic-viewer:-webkit-full-screen .controls {
+		position: fixed;
+	}
+	
+	@media (max-width: 640px) {
+		.comic-viewer:fullscreen .controls,
+		.comic-viewer:-webkit-full-screen .controls {
+			top: 0.5rem;
+			right: 0.5rem;
+			gap: 0.25rem;
+		}
+	}
+
+	.control-button {
 		background: rgba(0, 0, 0, 0.7);
 		border: 2px solid rgba(255, 255, 255, 0.3);
 		color: white;
-		padding: 0.75rem 1rem;
+		padding: 0.75rem;
 		border-radius: 0.5rem;
 		cursor: pointer;
 		transition: all 0.2s;
 		backdrop-filter: blur(4px);
+		display: flex;
+		align-items: center;
+		justify-content: center;
 	}
 
-	.fullscreen-button:hover {
+	.control-button:hover {
 		background: rgba(0, 0, 0, 0.9);
 		border-color: rgba(255, 255, 255, 0.5);
 		transform: scale(1.05);
 	}
-
-	.loading-overlay {
-		position: absolute;
-		top: 0;
-		left: 0;
-		right: 0;
-		bottom: 0;
-		background: rgba(0, 0, 0, 0.8);
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		z-index: 5;
-		border-radius: 0.5rem;
-	}
-
-	.spinner {
-		border: 4px solid rgba(255, 255, 255, 0.1);
-		border-top: 4px solid #3b82f6;
-		border-radius: 50%;
-		width: 3rem;
-		height: 3rem;
-		animation: spin 1s linear infinite;
-	}
-
-	@keyframes spin {
-		0% { transform: rotate(0deg); }
-		100% { transform: rotate(360deg); }
+	
+	@media (max-width: 640px) {
+		.comic-viewer:fullscreen .control-button,
+		.comic-viewer:-webkit-full-screen .control-button {
+			padding: 0.5rem;
+		}
+		
+		.comic-viewer:fullscreen .control-button svg,
+		.comic-viewer:-webkit-full-screen .control-button svg {
+			width: 1.25rem;
+			height: 1.25rem;
+		}
 	}
 
 	.page-navigation {
 		display: flex;
 		align-items: center;
-		justify-content: space-between;
+		justify-content: center;
 		gap: 1rem;
 		margin-top: 1.5rem;
-		width: 100%;
-		max-width: 600px;
+		padding: 1rem;
 	}
 
-	.comic-viewer:fullscreen .page-navigation {
-		position: fixed;
-		bottom: 2rem;
-		left: 50%;
-		transform: translateX(-50%);
-		background: rgba(0, 0, 0, 0.8);
-		padding: 1rem 2rem;
-		border-radius: 2rem;
-		backdrop-filter: blur(10px);
-		border: 2px solid rgba(255, 255, 255, 0.2);
-		z-index: 20;
-	}
-
+	.comic-viewer:fullscreen .page-navigation,
 	.comic-viewer:-webkit-full-screen .page-navigation {
 		position: fixed;
-		bottom: 2rem;
+		bottom: 1rem;
 		left: 50%;
 		transform: translateX(-50%);
 		background: rgba(0, 0, 0, 0.8);
-		padding: 1rem 2rem;
+		padding: 0.75rem 1.5rem;
 		border-radius: 2rem;
 		backdrop-filter: blur(10px);
 		border: 2px solid rgba(255, 255, 255, 0.2);
-		z-index: 20;
+		margin-top: 0;
+		z-index: 100;
+		max-width: 90vw;
 	}
-
-	.comic-viewer:-moz-full-screen .page-navigation {
-		position: fixed;
-		bottom: 2rem;
-		left: 50%;
-		transform: translateX(-50%);
-		background: rgba(0, 0, 0, 0.8);
-		padding: 1rem 2rem;
-		border-radius: 2rem;
-		backdrop-filter: blur(10px);
-		border: 2px solid rgba(255, 255, 255, 0.2);
-		z-index: 20;
-	}
-
-	.comic-viewer:-ms-fullscreen .page-navigation {
-		position: fixed;
-		bottom: 2rem;
-		left: 50%;
-		transform: translateX(-50%);
-		background: rgba(0, 0, 0, 0.8);
-		padding: 1rem 2rem;
-		border-radius: 2rem;
-		backdrop-filter: blur(10px);
-		border: 2px solid rgba(255, 255, 255, 0.2);
-		z-index: 20;
+	
+	@media (max-width: 640px) {
+		.comic-viewer:fullscreen .page-navigation,
+		.comic-viewer:-webkit-full-screen .page-navigation {
+			bottom: 0.5rem;
+			padding: 0.5rem 1rem;
+			gap: 0.5rem;
+		}
 	}
 
 	.nav-button {
@@ -390,12 +421,11 @@
 		display: flex;
 		align-items: center;
 		gap: 0.5rem;
-		backdrop-filter: blur(4px);
+		flex-shrink: 0;
 	}
 
 	.nav-button:hover:not(:disabled) {
 		background: rgba(59, 130, 246, 1);
-		border-color: rgba(59, 130, 246, 0.8);
 		transform: scale(1.05);
 	}
 
@@ -404,6 +434,14 @@
 		border-color: rgba(75, 85, 99, 0.3);
 		cursor: not-allowed;
 		opacity: 0.5;
+	}
+	
+	@media (max-width: 640px) {
+		.comic-viewer:fullscreen .nav-button,
+		.comic-viewer:-webkit-full-screen .nav-button {
+			padding: 0.5rem 0.75rem;
+			font-size: 0.875rem;
+		}
 	}
 
 	.page-counter {
@@ -414,17 +452,75 @@
 		border-radius: 0.5rem;
 		font-weight: 600;
 		font-size: 1.1rem;
+		user-select: none;
+		min-width: 6rem;
+		text-align: center;
 		white-space: nowrap;
-		backdrop-filter: blur(4px);
+		flex-shrink: 0;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+	}
+	
+	@media (max-width: 640px) {
+		.comic-viewer:fullscreen .page-counter,
+		.comic-viewer:-webkit-full-screen .page-counter {
+			padding: 0.5rem 1rem;
+			font-size: 1rem;
+			min-width: 5rem;
+		}
+	}
+
+	.zoom-indicator {
+		position: absolute;
+		top: 5rem;
+		right: 1rem;
+		background: rgba(0, 0, 0, 0.7);
+		border: 2px solid rgba(255, 255, 255, 0.3);
+		color: white;
+		padding: 0.5rem 1rem;
+		border-radius: 0.5rem;
+		font-size: 0.9rem;
+		opacity: 0;
+		transition: opacity 0.2s;
+		pointer-events: none;
+		z-index: 100;
+	}
+
+	.zoom-indicator.visible {
+		opacity: 1;
+	}
+
+	.comic-viewer:fullscreen .zoom-indicator,
+	.comic-viewer:-webkit-full-screen .zoom-indicator {
+		position: fixed;
+	}
+	
+	@media (max-width: 640px) {
+		.comic-viewer:fullscreen .zoom-indicator,
+		.comic-viewer:-webkit-full-screen .zoom-indicator {
+			top: 4rem;
+			right: 0.5rem;
+			padding: 0.4rem 0.8rem;
+			font-size: 0.8rem;
+		}
 	}
 
 	.arrow-icon {
 		width: 1.25rem;
 		height: 1.25rem;
 	}
+	
+	@media (max-width: 640px) {
+		.comic-viewer:fullscreen .arrow-icon,
+		.comic-viewer:-webkit-full-screen .arrow-icon {
+			width: 1rem;
+			height: 1rem;
+		}
+	}
 </style>
 
-<div class="comic-reader-container min-h-screen bg-black">
+<div class="comic-reader-container">
 	<main class="container mx-auto px-4 py-8 max-w-7xl">
 		<!-- Navigation Header -->
 		<div class="bg-gray-900 rounded-lg p-4 mb-6 flex flex-col sm:flex-row justify-between items-center gap-4">
@@ -458,50 +554,98 @@
 			</div>
 		</div>
 
-		<!-- Comic Viewer Container -->
+		<!-- Comic Viewer -->
 		{#if pages.length > 0}
 			<div class="comic-viewer" bind:this={viewerContainer}>
-				<!-- Fullscreen Button -->
-				<button 
-					class="fullscreen-button"
-					on:click={toggleFullscreen}
-					title={isFullscreen ? 'Exit Fullscreen (Esc)' : 'Enter Fullscreen (F11)'}
+				<!-- Controls -->
+				<div class="controls">
+					<button 
+						class="control-button"
+						on:click={() => { scale = Math.max(1, scale / 1.3); constrainPosition(); updateTransform(); }}
+						title="Zoom Out (- key)"
+					>
+						<svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM13 10H7" />
+						</svg>
+					</button>
+					
+					<button 
+						class="control-button"
+						on:click={() => { resetZoom(); updateTransform(); }}
+						title="Reset Zoom (0 key)"
+					>
+						<svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+						</svg>
+					</button>
+					
+					<button 
+						class="control-button"
+						on:click={() => { scale = Math.min(5, scale * 1.3); constrainPosition(); updateTransform(); }}
+						title="Zoom In (+ key)"
+					>
+						<svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" />
+						</svg>
+					</button>
+					
+					<button 
+						class="control-button"
+						on:click={toggleFullscreen}
+						title={isFullscreen ? 'Exit Fullscreen (Esc)' : 'Enter Fullscreen (F)'}
+					>
+						{#if isFullscreen}
+							<svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+							</svg>
+						{:else}
+							<svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+							</svg>
+						{/if}
+					</button>
+				</div>
+
+				<!-- Zoom Indicator -->
+				<div class="zoom-indicator" class:visible={scale > 1}>
+					{Math.round(scale * 100)}%
+				</div>
+
+				<!-- Page Container -->
+				<div 
+					class="page-container"
+					class:zoomed={scale > 1}
+					class:dragging={isDragging}
+					on:wheel={handleWheel}
+					on:mousedown={handleMouseDown}
+					on:mousemove={handleMouseMove}
+					on:mouseup={handleMouseUp}
+					on:mouseleave={handleMouseUp}
+					on:touchstart={handleTouchStart}
+					on:touchmove={handleTouchMove}
+					on:touchend={handleTouchEnd}
+					on:dblclick={handleDoubleClick}
 				>
-					{#if isFullscreen}
-						<svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3H5a2 2 0 00-2 2v4m6-6h10a2 2 0 012 2v4M9 21H5a2 2 0 01-2-2v-4m6 6h10a2 2 0 002-2v-4" />
-						</svg>
-					{:else}
-						<svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
-						</svg>
+					{#if pages[currentPage]}
+						{#key currentPage}
+							<div 
+								class="image-container" 
+								class:zoomed={scale > 1}
+								class:dragging={isDragging}
+								bind:this={imageContainer}
+							>
+								<img 
+									src={`/api/proxy/image?url=${encodeURIComponent(pages[currentPage].img)}&referer=https://readcomicsonline.ru/`}
+									alt="Page {currentPage + 1}"
+									class="comic-page"
+									on:error={() => {
+										console.error('Failed to load image:', pages[currentPage].img);
+									}}
+								/>
+							</div>
+						{/key}
 					{/if}
-				</button>
-
-				<!-- Loading Overlay -->
-				{#if loadingPages}
-					<div class="loading-overlay">
-						<div class="spinner"></div>
-					</div>
-				{/if}
-
-			<!-- Comic Pages Container -->
-			<div 
-				class="comic-page-container"
-				on:touchstart={handleTouchStart}
-				on:touchend={handleTouchEnd}
-			>
-				{#if pages[currentPage]}
-					<img 
-						src={`/api/proxy/image?url=${encodeURIComponent(pages[currentPage].img)}&referer=https://readcomicsonline.ru/`}
-						alt="Page {pages[currentPage].page || currentPage + 1}"
-						class="comic-page"
-						on:error={(e) => {
-							console.error('Failed to load image:', pages[currentPage].img);
-						}}
-					/>
-				{/if}
+				</div>
 
 				<!-- Page Navigation -->
 				<div class="page-navigation">
@@ -534,15 +678,10 @@
 					</button>
 				</div>
 			</div>
-			</div>
 		{:else}
 			<div class="bg-gray-900 rounded-lg p-8 text-center">
 				<p class="text-gray-400 text-lg mb-2">No pages available for this issue</p>
-				<p class="text-gray-500 text-sm">
-					Note: Comic Vine API provides metadata only. For actual comic reading, consider integrating with a reading service.
-				</p>
 			</div>
 		{/if}
 	</main>
 </div>
-
