@@ -17,6 +17,12 @@
 	let isDragging = false;
 	let startX = 0;
 	let startY = 0;
+	
+	// Reset all zoom states when chapter changes
+	$: if (chapter) {
+		imageStates.clear();
+		imageStates = new Map();
+	}
 	let initialDistance = 0;
 	let initialScale = 1;
 	
