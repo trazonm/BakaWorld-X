@@ -30,6 +30,12 @@
 	let initialDistance = 0;
 	let initialScale = 1;
 	
+	// Reset to page 1 when issue changes
+	$: if (issue) {
+		currentPage = 0;
+		resetZoom();
+	}
+	
 	function toggleFullscreen() {
 		if (!viewerContainer) return;
 		
