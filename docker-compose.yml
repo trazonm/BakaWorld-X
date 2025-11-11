@@ -21,6 +21,9 @@ services:
       JWT_SECRET: ${JWT_SECRET}
       REAL_DEBRID_AUTH: ${REAL_DEBRID_AUTH}
       JACKETT_API_KEY: ${JACKETT_API_KEY}
+      RECAPTCHA_SITE_KEY: ${RECAPTCHA_SITE_KEY}
+      RECAPTCHA_SECRET_KEY: ${RECAPTCHA_SECRET_KEY}
+      IP_INFO_TOKEN: ${IP_INFO_TOKEN}
     volumes:
       - ./static:/app/static:ro
 
