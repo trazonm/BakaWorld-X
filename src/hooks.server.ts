@@ -1,6 +1,17 @@
 import type { Handle } from '@sveltejs/kit';
+import { createIpLogTable } from '$lib/server/ipLogModel';
+import { getClientIp, logIpGeolocation } from '$lib/server/ipLogger';
+
+// Initialize IP log table on server start
+createIpLogTable().catch(console.error);
 
 export const handle: Handle = async ({ event, resolve }) => {
+	// Log IP geolocation (non-blocking)
+	const clientIp = getClientIp(event.request);
+	logIpGeolocation(clientIp).catch((err) => {
+		console.error('IP logging error:', err);
+	});
+
 	const response = await resolve(event);
 
 	// Security Headers
@@ -21,13 +32,13 @@ export const handle: Handle = async ({ event, resolve }) => {
 		// Content Security Policy - configured for media streaming app
 		'Content-Security-Policy': [
 			"default-src 'self'",
-			"script-src 'self' 'unsafe-inline' 'unsafe-eval'", // unsafe-inline/eval needed for SvelteKit dev mode and some dynamic imports
+			"script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.google.com https://www.gstatic.com", // unsafe-inline/eval needed for SvelteKit dev mode and some dynamic imports, Google domains for reCAPTCHA
 			"style-src 'self' 'unsafe-inline'", // unsafe-inline needed for component styles
 			"img-src 'self' data: blob: https:", // Allow images from HTTPS sources
 			"media-src 'self' data: blob: https:", // Allow media from HTTPS sources
 			"font-src 'self' data:", // Allow fonts
 			"connect-src 'self' https: wss:", // Allow API calls and WebSocket
-			"frame-src 'self' https://*.megaplay.buzz https://megaplay.buzz", // Allow megaplay.buzz video embeds
+			"frame-src 'self' https://*.megaplay.buzz https://megaplay.buzz https://www.google.com https://bakaserver.gleeze.com", // Allow megaplay.buzz video embeds, reCAPTCHA, and bakaserver
 			"object-src 'none'",
 			"base-uri 'self'",
 			"form-action 'self'",

@@ -13,14 +13,19 @@
 	import { registerSW } from 'virtual:pwa-register';
 	export const slots = ['content'];
 
-	const navLinks: Array<{ href: string; label: string }> = [
+	const adminUsers = ['bakaboi341'];
+	
+	let isAdmin = $derived($auth.isLoggedIn && adminUsers.includes($auth.username.toLowerCase()));
+	
+	let navLinks = $derived([
 		{ href: '/home', label: 'Home' },
 		{ href: '/downloads', label: 'Downloads' },
 		{ href: '/anime', label: 'Anime' },
 		{ href: '/manga', label: 'Manga' },
 		{ href: '/comics', label: 'Comics' },
-		{ href: '/brain', label: 'Brain' }
-	];
+		{ href: '/brain', label: 'Brain' },
+		...(isAdmin ? [{ href: '/admin', label: 'Admin' }] : [])
+	]);
 
 	const menuOpen = writable(false);
 	let activeUrl = $derived(page.url.pathname);

@@ -283,3 +283,9 @@ a[role="button"] {
     background-position: 100% 50%;
   }
 }
+
+/* Admin table row hover effect with theme support */
+.admin-table-row:hover {
+  background-color: var(--theme-bg-tertiary);
+  opacity: 0.7;
+}

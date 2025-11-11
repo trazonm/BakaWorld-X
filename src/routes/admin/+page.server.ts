@@ -17,6 +17,8 @@ export const load: PageServerLoad = async ({ request }) => {
 		throw error(403, 'Access denied.');
 	}
 
-	return {};
+	return {
+		username
+	};
 };
 
