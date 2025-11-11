@@ -211,18 +211,27 @@
 			}
 		};
 		
-		// Continuously track scroll position (only update when not preventing)
-		const scrollTracker = setInterval(updateScrollPosition, 50);
-		
-		// Override scrollIntoView completely
-		Object.defineProperty(iframeElement, 'scrollIntoView', {
-			value: function() {
-				// Prevent automatic scrolling - do nothing
-				return;
-			},
-			writable: false,
-			configurable: false
-		});
+	// Continuously track scroll position (only update when not preventing)
+	const scrollTracker = setInterval(updateScrollPosition, 50);
+	
+	// Override scrollIntoView completely (only if not already overridden)
+	try {
+		const descriptor = Object.getOwnPropertyDescriptor(iframeElement, 'scrollIntoView');
+		// Only define if not already defined by us (check if it's the native method)
+		if (!descriptor || descriptor.configurable !== false) {
+			Object.defineProperty(iframeElement, 'scrollIntoView', {
+				value: function() {
+					// Prevent automatic scrolling - do nothing
+					return;
+				},
+				writable: false,
+				configurable: true // Allow redefinition on navigation
+			});
+		}
+	} catch (e) {
+		// Property already defined and not configurable, that's fine
+		console.log('scrollIntoView already overridden');
+	}
 
 		// More aggressive scroll prevention
 		const preventScrollOnFocus = (e: Event) => {
