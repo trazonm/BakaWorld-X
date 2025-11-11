@@ -83,7 +83,7 @@
 		</a>
 		
 		<!-- Center: Navigation Links -->
-		<div class="hidden md:flex items-center gap-6 text-sm absolute left-1/2 transform -translate-x-1/2">
+		<div class="hidden lg:flex items-center gap-6 text-sm absolute left-1/2 transform -translate-x-1/2">
 			{#each navLinks as link}
 				<a href={link.href} class={linkClasses(link.href)}>{link.label}</a>
 			{/each}
@@ -99,14 +99,14 @@
 			
 			{#if $auth.isLoggedIn}
 				<button
-					class="hidden md:inline-flex items-center rounded-lg border border-red-900 bg-red-700 px-4 py-2 font-semibold text-white shadow hover:bg-red-800 focus:outline-none focus:ring-2 focus:ring-red-500"
+					class="hidden lg:inline-flex items-center rounded-lg border border-red-900 bg-red-700 px-4 py-2 font-semibold text-white shadow hover:bg-red-800 focus:outline-none focus:ring-2 focus:ring-red-500"
 					onclick={handleLogout}
 				>
 					Logout
 				</button>
 			{/if}
 			<button
-				class="inline-flex h-11 w-11 items-center justify-center rounded-lg bg-gray-900/90 text-white shadow-lg ring-1 ring-gray-700 transition-colors hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 md:hidden"
+				class="inline-flex h-11 w-11 items-center justify-center rounded-lg bg-gray-900/90 text-white shadow-lg ring-1 ring-gray-700 transition-colors hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 lg:hidden"
 				type="button"
 				onclick={toggleMenu}
 				aria-label={$menuOpen ? 'Close menu' : 'Open menu'}
