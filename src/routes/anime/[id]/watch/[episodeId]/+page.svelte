@@ -81,6 +81,8 @@
 	const MIN_EPISODE_DURATION = 600000; // 10 minutes in milliseconds
 	const CHECK_INTERVAL = 1000; // Check every 1 second for faster detection
 	const AUTOPLAY_DELAY = 100; // 100ms minimal delay to ensure smooth transition
+	let scrollTracker: ReturnType<typeof setInterval> | null = null;
+	let scrollPreventionTimeout: ReturnType<typeof setTimeout> | null = null;
 
 	// Get the embed URL from videoData
 	$: embedUrl = videoData?.embedUrl || videoData?.sources?.[0]?.url;
@@ -199,38 +201,40 @@
 			return;
 		}
 		
-		// Prevent auto-scroll when iframe receives focus - more aggressive approach
-		let scrollPosition = window.pageYOffset || document.documentElement.scrollTop;
-		let isPreventingScroll = false;
-		let scrollPreventionTimeout: ReturnType<typeof setTimeout> | null = null;
-		
-		// Store scroll position constantly
-		const updateScrollPosition = () => {
-			if (!isPreventingScroll) {
-				scrollPosition = window.pageYOffset || document.documentElement.scrollTop;
-			}
-		};
-		
+	// Prevent auto-scroll when iframe receives focus - more aggressive approach
+	let scrollPosition = window.pageYOffset || document.documentElement.scrollTop;
+	let isPreventingScroll = false;
+	
+	// Store scroll position constantly
+	const updateScrollPosition = () => {
+		if (!isPreventingScroll) {
+			scrollPosition = window.pageYOffset || document.documentElement.scrollTop;
+		}
+	};
+	
 	// Continuously track scroll position (only update when not preventing)
-	const scrollTracker = setInterval(updateScrollPosition, 50);
+	// Clear any existing tracker first
+	if (scrollTracker) {
+		clearInterval(scrollTracker);
+	}
+	scrollTracker = setInterval(updateScrollPosition, 50);
 	
 	// Override scrollIntoView completely (only if not already overridden)
 	try {
 		const descriptor = Object.getOwnPropertyDescriptor(iframeElement, 'scrollIntoView');
-		// Only define if not already defined by us (check if it's the native method)
+		// Only define if not already defined by us
 		if (!descriptor || descriptor.configurable !== false) {
 			Object.defineProperty(iframeElement, 'scrollIntoView', {
 				value: function() {
 					// Prevent automatic scrolling - do nothing
 					return;
 				},
-				writable: false,
-				configurable: true // Allow redefinition on navigation
+				writable: true,
+				configurable: true
 			});
 		}
 	} catch (e) {
-		// Property already defined and not configurable, that's fine
-		console.log('scrollIntoView already overridden');
+		// Property already defined and not configurable, silently ignore
 	}
 
 		// More aggressive scroll prevention
@@ -310,41 +314,21 @@
 			}, true);
 		}
 
-		// Aggressive scroll interception - prevent ALL scroll when iframe is active
-		let lastKnownScroll = scrollPosition;
-		scrollHandler = (e: Event) => {
-			const currentScroll = window.pageYOffset || document.documentElement.scrollTop;
-			
-			if (isPreventingScroll) {
-				e.preventDefault();
-				e.stopPropagation();
-				window.scrollTo({
-					top: scrollPosition,
-					left: 0,
-					behavior: 'auto'
-				});
-				document.documentElement.scrollTop = scrollPosition;
-				document.body.scrollTop = scrollPosition;
-				return false;
-			} else if (document.activeElement === iframeElement || 
-			           (iframeElement && iframeElement.contains(document.activeElement))) {
-				// If iframe or any element inside it is focused, prevent scroll
-				if (Math.abs(currentScroll - lastKnownScroll) > 1) {
-					e.preventDefault();
-					e.stopPropagation();
-					window.scrollTo({
-						top: lastKnownScroll,
-						left: 0,
-						behavior: 'auto'
-					});
-					document.documentElement.scrollTop = lastKnownScroll;
-					document.body.scrollTop = lastKnownScroll;
-					return false;
-				}
-			} else {
-				lastKnownScroll = currentScroll;
-			}
-		};
+	// Scroll interception - only prevent during the brief moment after iframe click/focus
+	scrollHandler = (e: Event) => {
+		if (isPreventingScroll) {
+			e.preventDefault();
+			e.stopPropagation();
+			window.scrollTo({
+				top: scrollPosition,
+				left: 0,
+				behavior: 'auto'
+			});
+			document.documentElement.scrollTop = scrollPosition;
+			document.body.scrollTop = scrollPosition;
+			return false;
+		}
+	};
 
 		// Intercept scroll at multiple levels with high priority
 		window.addEventListener('scroll', scrollHandler, { passive: false, capture: true });
@@ -358,25 +342,15 @@
 			}
 		});
 		
-		// Observe body for attribute changes that might indicate scroll
-		if (document.body) {
-			scrollMutationObserver.observe(document.body, {
-				attributes: true,
-				attributeFilter: ['style']
-			});
-		}
-		
-		// Clean up interval on destroy
-		onDestroy(() => {
-			if (scrollTracker) {
-				clearInterval(scrollTracker);
-			}
-			if (scrollPreventionTimeout) {
-				clearTimeout(scrollPreventionTimeout);
-			}
+	// Observe body for attribute changes that might indicate scroll
+	if (document.body) {
+		scrollMutationObserver.observe(document.body, {
+			attributes: true,
+			attributeFilter: ['style']
 		});
-		
-		setupPopupBlocker();
+	}
+	
+	setupPopupBlocker();
 
 		// Try to access iframe content and block window.open
 		try {
@@ -660,28 +634,38 @@
 		}
 	});
 	
-	onDestroy(() => {
-		// Restore original window.open
-		if (originalWindowOpen) {
-			window.open = originalWindowOpen;
-		}
+onDestroy(() => {
+	// Restore original window.open
+	if (originalWindowOpen) {
+		window.open = originalWindowOpen;
+	}
 
-		// Clean up autoplay monitoring
-		stopAutoplayMonitoring();
+	// Clean up autoplay monitoring
+	stopAutoplayMonitoring();
 
-		// Remove message listener
-		if (browser) {
-			window.removeEventListener('message', handleMessage);
-		}
+	// Remove message listener
+	if (browser) {
+		window.removeEventListener('message', handleMessage);
+	}
 
-		// Remove scroll handler
-		if (scrollHandler) {
-			window.removeEventListener('scroll', scrollHandler, { capture: true });
-			document.removeEventListener('scroll', scrollHandler, { capture: true });
-			document.documentElement.removeEventListener('scroll', scrollHandler, { capture: true });
-			scrollHandler = null;
-		}
-	});
+	// Remove scroll handler
+	if (scrollHandler) {
+		window.removeEventListener('scroll', scrollHandler, { capture: true });
+		document.removeEventListener('scroll', scrollHandler, { capture: true });
+		document.documentElement.removeEventListener('scroll', scrollHandler, { capture: true });
+		scrollHandler = null;
+	}
+
+	// Clean up scroll tracker and timeout
+	if (scrollTracker) {
+		clearInterval(scrollTracker);
+		scrollTracker = null;
+	}
+	if (scrollPreventionTimeout) {
+		clearTimeout(scrollPreventionTimeout);
+		scrollPreventionTimeout = null;
+	}
+});
 
 	function navigateToEpisode(episode: any) {
 		if (!episode) return;

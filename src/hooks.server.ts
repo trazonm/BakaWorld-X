@@ -50,6 +50,14 @@ export const handle: Handle = async ({ event, resolve }) => {
 		response.headers.set(header, value);
 	});
 
+	// Force revalidation for HTML responses to ensure CSP updates are picked up immediately
+	// This allows other assets to be cached normally
+	const contentType = response.headers.get('content-type') || '';
+	if (contentType.includes('text/html')) {
+		// Allow caching but require revalidation to pick up header changes
+		response.headers.set('Cache-Control', 'no-cache, must-revalidate');
+	}
+
 	return response;
 };
 
