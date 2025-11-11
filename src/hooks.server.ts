@@ -27,7 +27,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 			"media-src 'self' data: blob: https:", // Allow media from HTTPS sources
 			"font-src 'self' data:", // Allow fonts
 			"connect-src 'self' https: wss:", // Allow API calls and WebSocket
-			"frame-src 'self'",
+			"frame-src 'self' https://*.megaplay.buzz https://megaplay.buzz", // Allow megaplay.buzz video embeds
 			"object-src 'none'",
 			"base-uri 'self'",
 			"form-action 'self'",
