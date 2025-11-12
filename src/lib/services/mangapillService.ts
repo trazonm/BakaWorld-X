@@ -77,6 +77,11 @@ class MangapillService {
 			const data = await response.json();
 			console.log('MangapillService - Search response:', data);
 
+			// Check if the JSON body indicates an error (e.g., { status: 502, results: [] })
+			if (data.status && data.status !== 200) {
+				throw new Error(`API error: ${data.status} - Service unavailable`);
+			}
+
 			// API returns: { status: 200, results: [...] }
 			if (data.results && Array.isArray(data.results)) {
 				return {
@@ -126,6 +131,11 @@ class MangapillService {
 			const data = await response.json();
 			console.log('MangapillService - Info response:', data);
 
+			// Check if the JSON body indicates an error (e.g., { status: 502, results: {} })
+			if (data.status && data.status !== 200) {
+				throw new Error(`API error: ${data.status} - Service unavailable`);
+			}
+
 			// API returns: { status: 200, results: {...} }
 			if (data.results) {
 				// Add the manga ID to the results (needed for navigation)
@@ -168,6 +178,11 @@ class MangapillService {
 
 			const data = await response.json();
 			console.log('MangapillService - Pages response:', data);
+
+			// Check if the JSON body indicates an error (e.g., { status: 502, results: [] })
+			if (data.status && data.status !== 200) {
+				throw new Error(`API error: ${data.status} - Service unavailable`);
+			}
 
 			// API returns: { status: 200, results: ["url1", "url2", ...] }
 			let imageUrls: string[] = [];
@@ -216,6 +231,11 @@ class MangapillService {
 
 			const data = await response.json();
 			console.log('MangapillService - Newest response:', data);
+
+			// Check if the JSON body indicates an error (e.g., { status: 502, results: [] })
+			if (data.status && data.status !== 200) {
+				throw new Error(`API error: ${data.status} - Service unavailable`);
+			}
 
 			// Return the results array
 			if (Array.isArray(data)) {

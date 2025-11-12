@@ -25,6 +25,22 @@ export function useMangaSearch() {
 			const response = await fetch(`/api/search/manga?query=${encodeURIComponent(query)}&page=${page}`);
 			
 			if (!response.ok) {
+				// Try to parse error response for special error codes
+				try {
+					const errorData = await response.json();
+					if (errorData.error === 'MANGA_API_DOWN') {
+						state.update(s => ({
+							...s,
+							loading: false,
+							error: 'MANGA_API_DOWN',
+							results: [],
+							hasSearched: true
+						}));
+						return;
+					}
+				} catch {
+					// If JSON parsing fails, use default error
+				}
 				throw new Error(`Search failed: ${response.statusText}`);
 			}
 			

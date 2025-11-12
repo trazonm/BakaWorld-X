@@ -12,10 +12,43 @@
 
 {#if error}
 	<div class="text-center py-12">
-		<div class="bg-red-900/50 border border-red-700 rounded-lg p-6 max-w-md mx-auto">
-			<p class="text-red-300 font-semibold mb-2">Error loading manga</p>
-			<p class="text-red-400 text-sm">{error}</p>
-		</div>
+		{#if error === 'MANGA_API_DOWN' || error.includes('MANGA_API_DOWN')}
+			<div class="bg-gradient-to-br from-purple-900/50 to-pink-900/50 border-2 border-purple-500/50 rounded-xl p-8 max-w-2xl mx-auto backdrop-blur-sm">
+				<div class="mb-6 flex justify-center">
+					<img 
+						src="/killua_error.png" 
+						alt="Killua error" 
+						class="max-w-xs w-full h-auto drop-shadow-2xl"
+					/>
+				</div>
+				<h3 class="text-2xl font-bold text-white mb-3">Mangas are taking a nap!</h3>
+				<p class="text-purple-200 text-lg mb-6 leading-relaxed">
+					Looks like the manga servers decided to hit the snooze button! While BakaBoi341 is working their magic to wake them up, why not explore something else?
+				</p>
+				<div class="flex flex-col sm:flex-row gap-4 justify-center items-center">
+					<a 
+						href="/anime" 
+						class="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-semibold px-6 py-3 rounded-lg transition-all transform hover:scale-105 shadow-lg"
+					>
+						🎬 Watch Some Anime
+					</a>
+					<a 
+						href="/comics" 
+						class="bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white font-semibold px-6 py-3 rounded-lg transition-all transform hover:scale-105 shadow-lg"
+					>
+						📚 Read Some Comics
+					</a>
+				</div>
+				<p class="text-purple-300 text-sm mt-6 italic">
+					Don't worry, BakaBoi341 is on it! 🔧
+				</p>
+			</div>
+		{:else}
+			<div class="bg-red-900/50 border border-red-700 rounded-lg p-6 max-w-md mx-auto">
+				<p class="text-red-300 font-semibold mb-2">Error loading manga</p>
+				<p class="text-red-400 text-sm">{error}</p>
+			</div>
+		{/if}
 	</div>
 {:else if loading}
 	<div class="flex justify-center items-center py-20">

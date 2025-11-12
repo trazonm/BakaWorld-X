@@ -32,6 +32,20 @@ export const GET: RequestHandler = async ({ request }) => {
         const errorStack = error instanceof Error ? error.stack : undefined;
         console.error('Manga search error:', errorMessage);
         console.error('Error stack:', errorStack);
+        
+        // Check if it's a Mangapill API error (502, 503, 504, etc.)
+        const isMangapillError = errorMessage.includes('502') || 
+                                  errorMessage.includes('503') || 
+                                  errorMessage.includes('504') ||
+                                  errorMessage.includes('API error: 5');
+        
+        if (isMangapillError) {
+            return new Response(JSON.stringify({ 
+                error: 'MANGA_API_DOWN',
+                message: 'Mangas seem to be taking a nap right now! 😴 While BakaBoi341 is working their magic to fix things, why not check out some awesome anime or dive into some epic comics?'
+            }), { status: 503 });
+        }
+        
         return new Response(JSON.stringify({ 
             error: errorMessage,
             details: errorStack
