@@ -1,5 +1,6 @@
 <!-- Search results modal component -->
 <script lang="ts">
+	import { onDestroy } from 'svelte';
 	import type { SearchResult } from '$lib/types';
 	import { showResultsStore } from '$lib/stores/ui';
 	import SearchTable from './SearchTable.svelte';
@@ -12,6 +13,47 @@
 	export let sortDirection: 'asc' | 'desc' = 'desc';
 	export let onSort: (key: 'Title' | 'Size' | 'Seeders') => void;
 	export let onAddToQueue: (result: SearchResult) => void;
+
+	// Local input value for immediate UI updates
+	let inputValue = modalSearch;
+	
+	// Debounce timer
+	let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+	const DEBOUNCE_DELAY = 300;
+	
+	// Flag to track if we're updating modalSearch internally (to avoid reactive loop)
+	let isInternalUpdate = false;
+
+	// Update inputValue when modalSearch changes externally (e.g., when modal closes/resets)
+	$: if (!isInternalUpdate && modalSearch !== inputValue) {
+		inputValue = modalSearch;
+	}
+
+	// Debounced update of modalSearch
+	function handleInput() {
+		// Clear existing timer
+		if (debounceTimer) {
+			clearTimeout(debounceTimer);
+		}
+		
+		// Set new timer to update modalSearch after user stops typing
+		debounceTimer = setTimeout(() => {
+			isInternalUpdate = true;
+			modalSearch = inputValue;
+			debounceTimer = null;
+			// Reset flag after a tick to allow external updates
+			setTimeout(() => {
+				isInternalUpdate = false;
+			}, 0);
+		}, DEBOUNCE_DELAY);
+	}
+
+	// Clean up timer on destroy
+	onDestroy(() => {
+		if (debounceTimer) {
+			clearTimeout(debounceTimer);
+		}
+	});
 
 	// Results are already filtered from parent
 	$: filteredResults = results;
@@ -35,7 +77,8 @@
 				type="text"
 				placeholder="Filter by name..."
 				class="mb-4 w-full rounded border border-gray-700 bg-gray-800 text-white px-3 py-2 focus:ring-2 focus:ring-blue-600 focus:outline-none"
-				bind:value={modalSearch}
+				bind:value={inputValue}
+				on:input={handleInput}
 			/>
 			<div class="flex-1 overflow-y-auto">
 				{#if loading}
