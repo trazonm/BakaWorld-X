@@ -12,6 +12,7 @@ export interface SearchResult {
 export interface RowStatus {
 	state: 'idle' | 'adding' | 'progress' | 'done' | 'error';
 	guid: string;
+	progress?: number; // Progress from database (updated by worker)
 	error?: string;
 }
 

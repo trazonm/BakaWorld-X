@@ -2,7 +2,7 @@
 import type { RequestHandler } from '@sveltejs/kit';
 import { getSessionUser } from '$lib/server/session';
 import { findUserByUsername, updateUserDownloads } from '$lib/server/userModel';
-import { createRealDebridService, RealDebridService } from '$lib/services/realDebridService';
+import { createRealDebridService, RealDebridService, UnknownResourceError } from '$lib/services/realDebridService';
 import { env } from '$env/dynamic/private';
 import type { JwtPayload } from 'jsonwebtoken';
 import { Buffer } from 'node:buffer';
@@ -114,10 +114,10 @@ export const POST: RequestHandler = async ({ request }) => {
 		}
 
 		// Immediately save to database
-		const downloads = Array.isArray(user.downloads) ? [...user.downloads] : [];
+		let downloads = Array.isArray(user.downloads) ? [...user.downloads] : [];
 		const existingIndex = downloads.findIndex((d: any) => d.id === torrentId);
 		
-		const downloadEntry = {
+		let downloadEntry = {
 			id: torrentId,
 			filename: torrentInfo.filename || title || 'Unknown',
 			progress: torrentInfo.progress || 0,
@@ -135,6 +135,85 @@ export const POST: RequestHandler = async ({ request }) => {
 		}
 
 		await updateUserDownloads(user.username, downloads);
+
+		// Send database notification to trigger immediate worker poll (real-time trigger)
+		try {
+			const { query } = await import('$lib/server/db');
+			// Send notification with username as payload for potential future filtering
+			await query(`SELECT pg_notify('new_download', $1)`, [user.username]);
+		} catch (notifyError) {
+			// Don't fail the request if notification fails - worker will still poll
+			console.warn('Failed to send database notification:', notifyError);
+		}
+
+		// Immediately poll this download to update its status (handles edge case where browser closes)
+		// This ensures the worker picks it up even if the user exits immediately
+		try {
+			// Only poll if it's a new torrent (not already complete)
+			if (!existingTorrent || torrentInfo.progress < 100) {
+				// Give Real-Debrid a moment to process the new torrent (500ms)
+				await new Promise(resolve => setTimeout(resolve, 500));
+				
+				try {
+					const currentInfo = await realDebridService.getTorrentInfo(torrentId);
+					
+					// Update if there are changes
+					if (
+						currentInfo.progress !== downloadEntry.progress ||
+						currentInfo.status !== downloadEntry.status ||
+						currentInfo.filename !== downloadEntry.filename ||
+						(currentInfo.links?.[0] && currentInfo.links[0] !== downloadEntry.link)
+					) {
+						downloads = [...downloads];
+						const downloadIndex = downloads.findIndex((d: any) => d.id === torrentId);
+						
+						if (downloadIndex !== -1) {
+							const updatedDownload = {
+								...downloads[downloadIndex],
+								progress: currentInfo.progress || downloads[downloadIndex].progress,
+								status: currentInfo.status || downloads[downloadIndex].status,
+								filename: currentInfo.filename || downloads[downloadIndex].filename,
+								link: currentInfo.links?.[0] || downloads[downloadIndex].link || '',
+								speed: currentInfo.speed,
+								seeders: currentInfo.seeders
+							};
+
+							// If completed, unrestrict the link immediately
+							if (
+								currentInfo.progress >= 100 &&
+								currentInfo.links &&
+								currentInfo.links[0] &&
+								!updatedDownload.link.includes('real-debrid.com')
+							) {
+								try {
+									const unrestricted = await realDebridService.unrestrictLink(currentInfo.links[0]);
+									updatedDownload.link = unrestricted.download || unrestricted.link;
+								} catch (unrestrictError) {
+									console.warn(`Failed to unrestrict link for ${torrentId}:`, unrestrictError);
+								}
+							}
+
+							downloads[downloadIndex] = updatedDownload;
+							await updateUserDownloads(user.username, downloads);
+							
+							// Update for response
+							torrentInfo = currentInfo;
+							downloadEntry = updatedDownload;
+						}
+					}
+				} catch (pollError) {
+					// If torrent doesn't exist yet (too soon after adding), that's OK
+					// The worker will pick it up on the next cycle
+					if (!(pollError instanceof UnknownResourceError)) {
+						console.warn(`Initial poll failed for ${torrentId}:`, pollError);
+					}
+				}
+			}
+		} catch (immediatePollError) {
+			// Don't fail the request if immediate polling fails
+			// The worker will pick it up on the next cycle
+			console.warn(`Immediate poll error for ${torrentId}:`, immediatePollError);
+		}
 
 		return new Response(JSON.stringify({
 			success: true,

@@ -37,11 +37,17 @@
 	<span class="animate-pulse text-blue-400">Processing</span>
 {:else if rowState.state === 'progress'}
 	{#if result.id}
-		{#await getTorrentInfo(result.id)}
-			<span class="animate-pulse text-blue-400">Uploading</span>
-		{:then torrentInfo}
-			<span class="animate-pulse text-blue-400 text-sm md:text-base">Progress: {torrentInfo.progress || 0}%</span>
-		{/await}
+		{#if rowState.progress !== undefined}
+			<!-- Use progress from status store (updated from database) -->
+			<span class="animate-pulse text-blue-400 text-sm md:text-base">Progress: {rowState.progress}%</span>
+		{:else}
+			<!-- Fallback: fetch from API if not in status store yet -->
+			{#await getTorrentInfo(result.id)}
+				<span class="animate-pulse text-blue-400">Uploading</span>
+			{:then torrentInfo}
+				<span class="animate-pulse text-blue-400 text-sm md:text-base">Progress: {torrentInfo.progress || 0}%</span>
+			{/await}
+		{/if}
 	{:else}
 		<span class="animate-pulse text-blue-400 text-sm md:text-base">Uploading</span>
 	{/if}

@@ -401,10 +401,31 @@
 					.catch(err => console.error('Background polling error:', err));
 			}, 5000);
 
+			// Periodically refresh downloads to sync progress and detect deletions (every 5 seconds)
+			// This ensures user sees the same progress as admin (from database updated by worker)
+			const downloadRefreshInterval = setInterval(async () => {
+				if (searchResults.length > 0) {
+					// Refresh downloads and update search results (also updates progress in status store)
+					const downloads = await torrentManager.initializeRowStatusFromDownloads();
+					const updatedResults = await torrentManager.updateSearchResultsWithBackendIds(searchResults, downloads);
+					// Only update if results actually changed (prevent unnecessary re-renders)
+					// Note: Progress updates in status store will trigger re-renders automatically via reactivity
+					if (JSON.stringify(updatedResults.map(r => r.id)) !== JSON.stringify(searchResults.map(r => r.id))) {
+						searchResults = updatedResults;
+					}
+				}
+			}, 5000);
+
 			// Refresh state when page becomes visible
 			const handleVisibilityChange = async () => {
 				if (!document.hidden) {
 					await torrentManager.initializeRowStatusFromDownloads();
+					// Update search results if they exist
+					if (searchResults.length > 0) {
+						const downloads = await torrentManager.initializeRowStatusFromDownloads();
+						const updatedResults = await torrentManager.updateSearchResultsWithBackendIds(searchResults, downloads);
+						searchResults = updatedResults;
+					}
 					// Trigger immediate background poll on visibility
 					fetch('/api/torrents/poll-progress', { method: 'POST' })
 						.catch(err => console.error('Background polling error:', err));
@@ -414,6 +435,7 @@
 
 			return () => {
 				clearInterval(backgroundPollInterval);
+				clearInterval(downloadRefreshInterval);
 				document.removeEventListener('visibilitychange', handleVisibilityChange);
 			};
 		};
@@ -488,13 +510,28 @@
 	async function handleAddToQueue(result: SearchResult) {
 		const backendId = await torrentManager.handleAddToQueue(result);
 		
-		// Update the search results with the new backend ID
+		// Immediately refresh downloads and update search results to show the new ID
+		// This ensures queued downloads (0% progress) are immediately recognized
 		if (backendId) {
+			// Update the search results immediately with the backend ID
 			const idx = searchResults.findIndex(r => r.Guid === result.Guid && r.Title === result.Title);
 			if (idx !== -1) {
 				searchResults[idx] = { ...searchResults[idx], id: backendId };
 				searchResults = [...searchResults]; // Trigger reactivity
 			}
+			
+			// Refresh downloads and update search results to ensure GUID matching works
+			// Single refresh after a short delay should be sufficient now that we're more conservative
+			setTimeout(async () => {
+				const downloads = await torrentManager.initializeRowStatusFromDownloads();
+				const updatedResults = await torrentManager.updateSearchResultsWithBackendIds(searchResults, downloads);
+				// Only update if we actually found the download with the backend ID
+				// This prevents unnecessary updates that could cause cycling
+				const targetResult = updatedResults.find(r => r.Guid === result.Guid);
+				if (targetResult && targetResult.id === backendId) {
+					searchResults = updatedResults;
+				}
+			}, 500);
 		}
 	}
 </script>

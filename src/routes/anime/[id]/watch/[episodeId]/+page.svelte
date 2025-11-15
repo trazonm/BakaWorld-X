@@ -27,11 +27,56 @@
 	} = data);
 
 	let selectedLanguage = 'sub';
+	
+	// Update selectedLanguage when data.language changes
+	// If there was a fallback, we want to show the actual language that was loaded
+	// This ensures the dropdown reflects what's actually playing
+	$: {
+		if (data.language) {
+			// Always update to the actual language that was loaded
+			// This handles both normal cases and fallback cases
+			selectedLanguage = data.language;
+		}
+	}
 	let loading = false;
 	let error = '';
+	let languageFallbackMessage = '';
+	
+	// Update fallback message reactively when data changes (e.g., navigating between episodes)
+	// This ensures the message stays visible and updates correctly when navigating
+	$: {
+		if (data.languageFallback && data.requestedLanguage) {
+			const requestedLabel = data.requestedLanguage === 'dub' ? 'Dubbed' : 'Subbed';
+			const actualLabel = data.language === 'dub' ? 'Dubbed' : 'Subbed';
+			languageFallbackMessage = `${requestedLabel} is not available for this episode. Showing ${actualLabel} instead.`;
+		} else if (data.language && data.requestedLanguage && data.language === data.requestedLanguage) {
+			// Clear message if there's no fallback (requested matches actual)
+			languageFallbackMessage = '';
+		}
+	}
 
 	// Language preference state
 	const LANGUAGE_STORAGE_KEY = 'bakaworld-language-preference';
+	
+	// Track which languages we've successfully loaded
+	let loadedSub = false;
+	let loadedDub = false;
+	
+	// Mark languages as loaded when video successfully loads
+	$: {
+		if (embedUrl && selectedLanguage === 'sub') {
+			loadedSub = true;
+		}
+		if (embedUrl && selectedLanguage === 'dub') {
+			loadedDub = true;
+		}
+	}
+	
+	// Check language availability from anime data
+	// Check both boolean (hasSub/hasDub) and number (sub/dub) formats
+	// Also check if we've successfully loaded the language before
+	$: hasSub = anime?.hasSub === true || (anime?.sub ?? 0) > 0 || loadedSub;
+	$: hasDub = anime?.hasDub === true || (anime?.dub ?? 0) > 0 || loadedDub;
 	
 	// Skip Filler toggle state
 	const SKIP_FILLER_STORAGE_KEY = 'bakaworld-skip-filler';
@@ -604,15 +649,26 @@
 
 		// Load preferences from localStorage
 		if (browser) {
-			// Initialize language preference from data (query param) or localStorage
-			const storedLanguage = localStorage.getItem(LANGUAGE_STORAGE_KEY);
-			if (data.language) {
-				// Use the language from the URL query param (which comes from server)
+			// Check URL parameter first (user's explicit choice)
+			const urlParams = new URLSearchParams(window.location.search);
+			const urlLanguage = urlParams.get('language');
+			
+			if (urlLanguage) {
+				// Use the language from URL (user's explicit choice)
+				selectedLanguage = urlLanguage;
+			} else if (data.language) {
+				// Use data.language (the actual language that was loaded, may be different from requested if fallback occurred)
 				selectedLanguage = data.language;
-			} else if (storedLanguage) {
-				// If no query param, use stored preference
-				selectedLanguage = storedLanguage;
+			} else {
+				// Fall back to stored preference
+				const storedLanguage = localStorage.getItem(LANGUAGE_STORAGE_KEY);
+				if (storedLanguage) {
+					selectedLanguage = storedLanguage;
+				}
 			}
+			
+			// The fallback message is now handled reactively above
+			// This ensures it updates correctly when navigating between episodes
 			
 			const storedSkipFiller = localStorage.getItem(SKIP_FILLER_STORAGE_KEY);
 			skipFiller = storedSkipFiller === 'true';
@@ -671,8 +727,17 @@ onDestroy(() => {
 		if (!episode) return;
 		const episodeId = episode.id.replace(/\$/g, '-');
 		isNavigating = true; // Mark that we're navigating
-		// Use the current selectedLanguage (which is either from user selection or stored preference)
-		goto(`/anime/${animeId}/watch/${episodeId}?language=${selectedLanguage}`);
+		// Use the stored preference (not selectedLanguage which might be a fallback)
+		// This ensures we try the user's preferred language for each episode
+		// The server will auto-fallback if that language isn't available for this episode
+		let languageToUse = selectedLanguage;
+		if (browser) {
+			const storedLanguage = localStorage.getItem(LANGUAGE_STORAGE_KEY);
+			if (storedLanguage) {
+				languageToUse = storedLanguage;
+			}
+		}
+		goto(`/anime/${animeId}/watch/${episodeId}?language=${languageToUse}`);
 	}
 
 	function findNextNonFillerEpisode(currentIndex: number, direction: 'next' | 'prev'): any {
@@ -748,11 +813,15 @@ onDestroy(() => {
 	}
 
 	function changeLanguage(newLanguage: string) {
+		// Always allow switching - let the server handle fallback if needed
+		// The server will check availability and fall back if necessary
 		selectedLanguage = newLanguage;
 		// Save language preference to localStorage
 		if (browser) {
 			localStorage.setItem(LANGUAGE_STORAGE_KEY, newLanguage);
 		}
+		// Clear any existing fallback message
+		languageFallbackMessage = '';
 		goto(`/anime/${animeId}/watch/${episodeId}?language=${newLanguage}`);
 	}
 
@@ -859,10 +928,24 @@ onDestroy(() => {
 					class="select-dropdown rounded-lg border border-gray-600 bg-gray-700 px-3 py-2 pr-10 text-sm text-white focus:border-blue-500 focus:outline-none"
 				>
 					{#each languages as langOption}
-						<option value={langOption.name}>{langOption.label}</option>
+						<option 
+							value={langOption.name}
+							disabled={langOption.name === 'dub' && !hasDub || langOption.name === 'sub' && !hasSub}
+						>
+							{langOption.label}{langOption.name === 'dub' && !hasDub ? ' (Not Available)' : langOption.name === 'sub' && !hasSub ? ' (Not Available)' : ''}
+						</option>
 					{/each}
 				</select>
 			</div>
+			
+			{#if languageFallbackMessage}
+				<div class="flex items-center gap-2 rounded-lg bg-yellow-600 bg-opacity-20 border border-yellow-500 px-3 py-2 text-sm text-yellow-300">
+					<svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+						<path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+					</svg>
+					{languageFallbackMessage}
+				</div>
+			{/if}
 
 			<!-- Skip Filler Dropdown -->
 			<div class="flex items-center gap-2">

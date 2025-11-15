@@ -1,11 +1,12 @@
 version: '3.8'
 
 services:
-  app:
+  # Frontend service - SvelteKit application
+  frontend:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: bakaworld-app
+    container_name: bakaworld-frontend
     restart: unless-stopped
     ports:
       - "${PORT:-5002}:${PORT:-5002}"
@@ -26,4 +27,32 @@ services:
       IP_INFO_TOKEN: ${IP_INFO_TOKEN}
     volumes:
       - ./static:/app/static:ro
+    depends_on:
+      - backend
+    networks:
+      - bakaworld-network
+
+  # Backend worker service - continuously polls downloads
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    container_name: bakaworld-backend
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      DB_HOST: ${DB_HOST}
+      DB_PORT: ${DB_PORT:-5432}
+      DB_NAME: ${DB_NAME}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      REAL_DEBRID_AUTH: ${REAL_DEBRID_AUTH}
+      # Poll interval in milliseconds (default: 30 seconds)
+      POLL_INTERVAL: ${POLL_INTERVAL:-30000}
+    networks:
+      - bakaworld-network
+
+networks:
+  bakaworld-network:
+    driver: bridge
 

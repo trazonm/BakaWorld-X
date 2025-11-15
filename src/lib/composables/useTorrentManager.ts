@@ -11,6 +11,7 @@ export function useTorrentManager() {
 	function startProgressPolling() {
 		const status = get(rowStatusStore);
 		Object.keys(status).forEach(id => {
+			// Start polling for any download in 'progress' state (including queued with 0%)
 			if (status[id].state === 'progress' && !progressIntervals[id]) {
 				progressIntervals[id] = setInterval(() => pollProgress(id), 2000);
 			}
@@ -25,6 +26,19 @@ export function useTorrentManager() {
 	async function pollProgress(id: string) {
 		try {
 			const data = await torrentService.getTorrentInfo(id);
+			
+			// If getTorrentInfo returns empty object, it might be deleted
+			if (!data || Object.keys(data).length === 0) {
+				// Try to verify by checking if download still exists
+				const downloads = await torrentService.getDownloads();
+				const downloadExists = downloads.some((d: any) => d.id === id);
+				if (!downloadExists) {
+					// Download was deleted - clear state
+					clearTorrentState(id);
+					return;
+				}
+			}
+			
 			const progress = data.progress;
 			
 			// Save progress to database if we have filename
@@ -47,17 +61,24 @@ export function useTorrentManager() {
 						finalizeDownload(id, data.filename, data.links[0]);
 						clearInterval(progressIntervals[id]);
 						delete progressIntervals[id];
-						status[id] = { ...status[id], state: 'done' };
+						status[id] = { ...status[id], state: 'done', progress: progress };
 					} else {
-						status[id] = { ...status[id], state: 'progress' };
+						status[id] = { ...status[id], state: 'progress', progress: progress };
 					}
 				}
 				return { ...status };
 			});
-		} catch (error) {
-			console.error('Error polling progress for', id, error);
-			clearInterval(progressIntervals[id]);
-			delete progressIntervals[id];
+		} catch (error: any) {
+			// Check if torrent was deleted (404 or unknown_ressource)
+			const errorMsg = error?.message?.toLowerCase() || '';
+			if (errorMsg.includes('404') || errorMsg.includes('unknown_ressource') || errorMsg.includes('not found')) {
+				// Download was deleted - clear state
+				clearTorrentState(id);
+			} else {
+				console.error('Error polling progress for', id, error);
+				clearInterval(progressIntervals[id]);
+				delete progressIntervals[id];
+			}
 		}
 	}
 
@@ -75,18 +96,34 @@ export function useTorrentManager() {
 				const newStatus: Record<string, any> = {};
 				
 				// Only create status entries for downloads that still exist
+				// Include ALL downloads, even those with 0% progress (queued), so they can be matched by GUID
 				downloads.forEach((download) => {
 					if (download.id) {
 						const existingStatus = status[download.id];
+						// Get GUID from existing status or from download object itself
+						const guid = existingStatus?.guid || download.guid || '';
+						
+						// Store progress from database so UI can display it without calling API
+						const progress = download.progress || 0;
+						
 						if (download.progress >= 100 && download.link) {
 							newStatus[download.id] = {
 								state: 'done',
-								guid: existingStatus?.guid || ''
+								guid: guid,
+								progress: progress
 							};
 						} else if (download.progress > 0) {
 							newStatus[download.id] = {
 								state: 'progress',
-								guid: existingStatus?.guid || ''
+								guid: guid,
+								progress: progress
+							};
+						} else {
+							// Include queued downloads (0% progress) so they can be matched by GUID
+							newStatus[download.id] = {
+								state: 'progress', // Use 'progress' state even for queued
+								guid: guid,
+								progress: progress
 							};
 						}
 					}
@@ -122,30 +159,37 @@ export function useTorrentManager() {
 		const statusStore = get(rowStatusStore);
 		
 		// Map downloads to GUIDs (supporting multiple matches per GUID)
+		// Include ALL downloads, even those with empty or missing GUIDs initially
 		downloads.forEach((download: any) => {
-			if (download.guid && download.id) {
-				// Skip if ID looks like a GUID (not a Real-Debrid torrent ID)
-				// Real-Debrid IDs are typically short alphanumeric strings, not URLs
-				if (download.id.startsWith('http://') || download.id.startsWith('https://')) {
-					console.warn(`Skipping invalid download ID (looks like GUID): ${download.id}`);
-					return;
+			if (!download.id) return; // Skip downloads without ID
+			
+			// Skip if ID looks like a GUID (not a Real-Debrid torrent ID)
+			if (download.id.startsWith('http://') || download.id.startsWith('https://')) {
+				console.warn(`Skipping invalid download ID (looks like GUID): ${download.id}`);
+				return;
+			}
+			
+			// Get GUID from download object or status store
+			const guid = (download.guid || statusStore[download.id]?.guid || '').trim();
+			
+			// Only map if we have a GUID (empty string won't match, but that's OK)
+			if (guid) {
+				if (!guidToIdsMap.has(guid)) {
+					guidToIdsMap.set(guid, []);
 				}
-				
-				if (!guidToIdsMap.has(download.guid)) {
-					guidToIdsMap.set(download.guid, []);
-				}
-				guidToIdsMap.get(download.guid)!.push(download.id);
+				guidToIdsMap.get(guid)!.push(download.id);
 			}
 		});
 		
-		// Also check status store
+		// Also check status store (normalize GUIDs here too)
 		Object.entries(statusStore).forEach(([key, status]) => {
-			if (status.guid) {
-				if (!guidToIdsMap.has(status.guid)) {
-					guidToIdsMap.set(status.guid, []);
+			const statusGuid = (status.guid || '').trim();
+			if (statusGuid) {
+				if (!guidToIdsMap.has(statusGuid)) {
+					guidToIdsMap.set(statusGuid, []);
 				}
-				if (!guidToIdsMap.get(status.guid)!.includes(key)) {
-					guidToIdsMap.get(status.guid)!.push(key);
+				if (!guidToIdsMap.get(statusGuid)!.includes(key)) {
+					guidToIdsMap.get(statusGuid)!.push(key);
 				}
 			}
 		});
@@ -176,6 +220,7 @@ export function useTorrentManager() {
 		}
 		
 		// Create a Set of all valid download IDs for quick lookup
+		// Include ALL downloads regardless of progress - even queued (0%) downloads are valid
 		const validIds = new Set<string>();
 		downloads.forEach((download: any) => {
 			if (download.id && !download.id.startsWith('http://') && !download.id.startsWith('https://')) {
@@ -188,26 +233,63 @@ export function useTorrentManager() {
 			// First, check if result has an existing id - verify it's still valid
 			let hasValidId = false;
 			if (result.id && validIds.has(result.id)) {
-				// ID exists and is valid, keep it
+				// ID exists and is valid, keep it (even if progress is 0%)
 				hasValidId = true;
 			}
 			
-			// Check if we have matches by GUID
-			if (result.Guid && guidToIdsMap.has(result.Guid)) {
-				const allIds = guidToIdsMap.get(result.Guid)!;
+			// Check if we have matches by GUID (this handles newly added queued downloads)
+			// Normalize GUID comparison (handle empty strings, whitespace, etc.)
+			const resultGuid = result.Guid?.trim() || '';
+			if (resultGuid && guidToIdsMap.has(resultGuid)) {
+				const allIds = guidToIdsMap.get(resultGuid)!;
 				const bestId = selectBestId(allIds);
-				// Only set id if it's still valid
+				// Set id if it's valid - this includes queued downloads with 0% progress
 				if (validIds.has(bestId)) {
 					return { ...result, id: bestId };
 				}
+				// Even if bestId isn't in validIds yet (race condition), if it's in guidToIdsMap,
+				// it means we have a download with this GUID - use the first available ID
+				if (allIds.length > 0 && allIds[0]) {
+					// Double-check the download exists (match by GUID or ID)
+					const downloadExists = downloads.some((d: any) => {
+						const downloadGuid = (d.guid || '').trim();
+						return d.id === allIds[0] && (downloadGuid === resultGuid || !downloadGuid);
+					});
+					if (downloadExists) {
+						return { ...result, id: allIds[0] };
+					}
+				}
 			}
 			
-			// If result had a valid id, keep it; otherwise remove it
-			if (hasValidId) {
+			// If result had a valid id, keep it (including queued downloads with 0% progress)
+			// Also, if result has an ID but it's not in validIds, check if it's in the status store
+			// This handles cases where the download might be in a transitional state
+			if (result.id) {
+				if (hasValidId) {
+					return result;
+				}
+				// If ID exists in status store, keep it (might be queued or in transition)
+				// Only remove ID if it's definitively not in downloads AND not in status store
+				if (statusStore[result.id]) {
+					// ID is in status store - keep it even if not in downloads yet (race condition)
+					return result;
+				}
+				// Check if GUID matches any download (might be same download with different ID)
+				if (resultGuid && guidToIdsMap.has(resultGuid)) {
+					// We have a GUID match, so keep the current ID if it exists
+					// Don't remove it - the GUID match will handle updating it if needed
+					return result;
+				}
+			}
+			
+			// Only remove ID if we're certain there's no match (no valid ID, no GUID match, not in status)
+			// This prevents cycling between states
+			if (!result.id) {
+				// No ID to begin with, return as-is
 				return result;
 			}
 			
-			// Return result without id if no valid match found
+			// Return result without id only if we're certain it's invalid
 			const { id, ...resultWithoutId } = result;
 			return resultWithoutId as SearchResult;
 		});

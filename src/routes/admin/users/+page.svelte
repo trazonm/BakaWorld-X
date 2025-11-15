@@ -81,96 +81,136 @@
 	<title>User Management - Admin Console</title>
 </svelte:head>
 
-<div class="min-h-screen py-8 px-4" style="background: linear-gradient(to bottom right, var(--theme-bg-primary), var(--theme-bg-secondary), var(--theme-bg-primary));">
+<div class="min-h-screen py-4 md:py-8 px-2 md:px-4" style="background: linear-gradient(to bottom right, var(--theme-bg-primary), var(--theme-bg-secondary), var(--theme-bg-primary));">
 	<div class="mx-auto max-w-6xl">
 		<!-- Header -->
-		<div class="mb-8">
-			<div class="flex items-center justify-between mb-4">
-				<div>
-					<h1 class="text-4xl font-bold text-white mb-2">
+		<div class="mb-4 md:mb-8">
+			<div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-4">
+				<div class="flex-1">
+					<h1 class="text-2xl md:text-4xl font-bold text-white mb-2">
 						👥 User Management
 					</h1>
-					<p class="text-gray-400">Logged in as <span class="text-blue-400 font-semibold">{adminUsername}</span></p>
+					<p class="text-sm md:text-base text-gray-400">Logged in as <span class="text-blue-400 font-semibold">{adminUsername}</span></p>
 				</div>
-				<div class="flex gap-3">
-					<a href="/admin" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors">
+				<div class="flex flex-col sm:flex-row gap-2">
+					<a href="/admin" class="px-3 md:px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors text-sm md:text-base text-center">
 						Admin Dashboard
 					</a>
-					<a href="/home" class="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors">
+					<a href="/home" class="px-3 md:px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors text-sm md:text-base text-center">
 						← Home
 					</a>
 				</div>
 			</div>
 
 			<!-- Stats Card -->
-			<div class="bg-gradient-to-br from-purple-600 to-purple-700 rounded-lg p-6 shadow-lg mb-6">
-				<div class="text-purple-100 text-sm font-medium mb-1">Total Users</div>
-				<div class="text-white text-3xl font-bold">{users.length}</div>
+			<div class="bg-gradient-to-br from-purple-600 to-purple-700 rounded-lg p-4 md:p-6 shadow-lg mb-4 md:mb-6">
+				<div class="text-purple-100 text-xs md:text-sm font-medium mb-1">Total Users</div>
+				<div class="text-white text-2xl md:text-3xl font-bold">{users.length}</div>
 			</div>
 
 			<!-- Success/Error Messages -->
 			{#if form?.success}
-				<div class="mb-6 rounded-lg bg-green-900/50 border border-green-700 px-4 py-3 text-green-200">
+				<div class="mb-4 md:mb-6 rounded-lg bg-green-900/50 border border-green-700 px-3 md:px-4 py-2 md:py-3 text-green-200 text-sm">
 					✓ {form.message}
 				</div>
 			{/if}
 			{#if form?.error}
-				<div class="mb-6 rounded-lg bg-red-900/50 border border-red-700 px-4 py-3 text-red-200">
+				<div class="mb-4 md:mb-6 rounded-lg bg-red-900/50 border border-red-700 px-3 md:px-4 py-2 md:py-3 text-red-200 text-sm">
 					✗ {form.error}
 				</div>
 			{/if}
 
 			<!-- Search -->
-			<div class="backdrop-blur-sm rounded-lg p-4 shadow-lg border" style="background-color: var(--theme-bg-secondary); border-color: var(--theme-border);">
-				<label class="block text-sm font-medium text-gray-300 mb-2">
+			<div class="backdrop-blur-sm rounded-lg p-3 md:p-4 shadow-lg border" style="background-color: var(--theme-bg-secondary); border-color: var(--theme-border);">
+				<label class="block text-xs md:text-sm font-medium text-gray-300 mb-2">
 					🔍 Search Users
 				</label>
 				<input
 					type="text"
 					bind:value={searchQuery}
 					placeholder="Search by username..."
-					class="w-full bg-gray-900 text-white px-4 py-2 rounded-lg border border-gray-700 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+					class="w-full bg-gray-900 text-white px-3 md:px-4 py-2 rounded-lg border border-gray-700 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm md:text-base"
 				/>
 			</div>
 		</div>
 
-		<!-- Users Table -->
-		<div class="backdrop-blur-sm rounded-lg shadow-lg border overflow-hidden" style="background-color: var(--theme-bg-secondary); border-color: var(--theme-border);">
+		<!-- Mobile: Card View -->
+		<div class="md:hidden space-y-3">
+			{#each filteredUsers as user (user.id)}
+				<div class="backdrop-blur-sm rounded-lg border p-4 shadow-lg" style="background-color: var(--theme-bg-secondary); border-color: var(--theme-border);">
+					<div class="flex items-start justify-between mb-3">
+						<div class="flex-1 min-w-0">
+							<div class="text-xs text-gray-400 mb-1">ID</div>
+							<div class="text-sm text-gray-400 mb-2">#{user.id}</div>
+							<div class="flex items-center gap-2">
+								<span class="text-sm font-semibold text-white">{user.username}</span>
+								{#if user.username.toLowerCase() === adminUsername}
+									<span class="px-2 py-1 bg-blue-600 text-xs text-white rounded-full">Admin</span>
+								{/if}
+							</div>
+						</div>
+					</div>
+					<div class="flex flex-col gap-2">
+						<button
+							on:click={() => openResetModal(user.username)}
+							class="w-full px-3 py-2 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg transition-colors text-sm font-medium"
+						>
+							🔑 Reset Password
+						</button>
+						{#if user.username.toLowerCase() !== adminUsername}
+							<button
+								on:click={() => openDeleteModal(user.username)}
+								class="w-full px-3 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors text-sm font-medium"
+							>
+								🗑️ Delete
+							</button>
+						{/if}
+					</div>
+				</div>
+			{:else}
+				<div class="backdrop-blur-sm rounded-lg border p-8 text-center" style="background-color: var(--theme-bg-secondary); border-color: var(--theme-border);">
+					<p style="color: var(--theme-text-secondary);">No users found.</p>
+				</div>
+			{/each}
+		</div>
+
+		<!-- Desktop: Table View -->
+		<div class="hidden md:block backdrop-blur-sm rounded-lg shadow-lg border overflow-hidden" style="background-color: var(--theme-bg-secondary); border-color: var(--theme-border);">
 			<div class="overflow-x-auto">
 				<table class="w-full">
 					<thead class="border-b" style="background-color: var(--theme-bg-primary); border-color: var(--theme-border);">
 						<tr>
-							<th class="px-6 py-4 text-left text-sm font-semibold text-gray-300">ID</th>
-							<th class="px-6 py-4 text-left text-sm font-semibold text-gray-300">Username</th>
-							<th class="px-6 py-4 text-right text-sm font-semibold text-gray-300">Actions</th>
+							<th class="px-4 lg:px-6 py-3 md:py-4 text-left text-xs md:text-sm font-semibold text-gray-300">ID</th>
+							<th class="px-4 lg:px-6 py-3 md:py-4 text-left text-xs md:text-sm font-semibold text-gray-300">Username</th>
+							<th class="px-4 lg:px-6 py-3 md:py-4 text-right text-xs md:text-sm font-semibold text-gray-300">Actions</th>
 						</tr>
 					</thead>
 					<tbody class="divide-y" style="border-color: var(--theme-border);">
 						{#each filteredUsers as user (user.id)}
 							<tr class="admin-table-row transition-colors">
-								<td class="px-6 py-4">
-									<div class="text-sm text-gray-400">#{user.id}</div>
+								<td class="px-4 lg:px-6 py-3 md:py-4">
+									<div class="text-xs md:text-sm text-gray-400">#{user.id}</div>
 								</td>
-								<td class="px-6 py-4">
+								<td class="px-4 lg:px-6 py-3 md:py-4">
 									<div class="flex items-center gap-2">
-										<span class="font-semibold text-white">{user.username}</span>
+										<span class="text-xs md:text-sm font-semibold text-white">{user.username}</span>
 										{#if user.username.toLowerCase() === adminUsername}
 											<span class="px-2 py-1 bg-blue-600 text-xs text-white rounded-full">Admin</span>
 										{/if}
 									</div>
 								</td>
-								<td class="px-6 py-4">
+								<td class="px-4 lg:px-6 py-3 md:py-4">
 									<div class="flex gap-2 justify-end">
 										<button
 											on:click={() => openResetModal(user.username)}
-											class="px-3 py-1 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg transition-colors text-sm font-medium"
+											class="px-2 md:px-3 py-1 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg transition-colors text-xs md:text-sm font-medium"
 										>
 											🔑 Reset Password
 										</button>
 										{#if user.username.toLowerCase() !== adminUsername}
 											<button
 												on:click={() => openDeleteModal(user.username)}
-												class="px-3 py-1 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors text-sm font-medium"
+												class="px-2 md:px-3 py-1 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors text-xs md:text-sm font-medium"
 											>
 												🗑️ Delete
 											</button>
@@ -194,8 +234,8 @@
 
 <!-- Reset Password Modal -->
 {#if showResetModal}
-	<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-		<div class="relative w-full max-w-md rounded-lg border p-6 shadow-2xl" style="background-color: var(--theme-bg-primary); border-color: var(--theme-border);">
+	<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+		<div class="relative w-full max-w-md rounded-lg border p-4 md:p-6 shadow-2xl" style="background-color: var(--theme-bg-primary); border-color: var(--theme-border);">
 			<button
 				class="absolute top-2 right-2 text-2xl text-gray-400 hover:text-white"
 				on:click={closeModals}>&times;</button
@@ -301,8 +341,8 @@
 
 <!-- Delete User Modal -->
 {#if showDeleteModal}
-	<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-		<div class="relative w-full max-w-md rounded-lg border border-red-700 p-6 shadow-2xl" style="background-color: var(--theme-bg-primary);">
+	<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+		<div class="relative w-full max-w-md rounded-lg border border-red-700 p-4 md:p-6 shadow-2xl" style="background-color: var(--theme-bg-primary);">
 			<button
 				class="absolute top-2 right-2 text-2xl text-gray-400 hover:text-white"
 				on:click={closeModals}>&times;</button

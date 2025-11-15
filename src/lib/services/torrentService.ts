@@ -14,6 +14,11 @@ class TorrentService {
 			this.torrentInfoCache[id] = info;
 			return info;
 		}
+		// If 404, the torrent was deleted - clear cache and throw
+		if (res.status === 404) {
+			delete this.torrentInfoCache[id];
+			throw new Error('Torrent not found (404)');
+		}
 		return this.torrentInfoCache[id] || {} as TorrentInfo;
 	}
 

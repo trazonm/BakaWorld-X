@@ -20,6 +20,13 @@
 			href: '/admin/iplogs',
 			color: 'from-blue-600 to-blue-700',
 			icon: '🌍'
+		},
+		{
+			title: '📥 All User Downloads',
+			description: 'View and manage all torrent downloads from all users',
+			href: '/admin/downloads',
+			color: 'from-green-600 to-green-700',
+			icon: '📥'
 		}
 	];
 </script>
