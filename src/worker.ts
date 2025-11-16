@@ -3,6 +3,7 @@
 import { config } from 'dotenv';
 import { Pool } from 'pg';
 import { createRealDebridService, UnknownResourceError } from './lib/services/realDebridService';
+import { cleanupTempFiles } from './lib/server/tempCleanup';
 
 // Load environment variables from .env file (for local development)
 config();
@@ -453,11 +454,35 @@ async function startWorker() {
 		await pollAllDownloads();
 	}, POLL_INTERVAL);
 
+	// Set up temp file cleanup - runs every hour
+	const cleanupIntervalId = setInterval(() => {
+		if (isShuttingDown) {
+			clearInterval(cleanupIntervalId);
+			return;
+		}
+		try {
+			cleanupTempFiles();
+		} catch (error) {
+			logWithTimestamp(`⚠️ Error during temp file cleanup: ${error}`, 'warn');
+		}
+	}, 60 * 60 * 1000); // Every hour
+
+	// Run initial cleanup on startup
+	try {
+		const stats = cleanupTempFiles();
+		if (stats.deleted > 0) {
+			logWithTimestamp(`🧹 Initial cleanup: Deleted ${stats.deleted} file(s), freed ${(stats.bytesFreed / (1024 * 1024)).toFixed(2)} MB`);
+		}
+	} catch (error) {
+		logWithTimestamp(`⚠️ Error during initial cleanup: ${error}`, 'warn');
+	}
+
 	// Handle graceful shutdown
 	const gracefulShutdown = async (signal: string) => {
 		logWithTimestamp(`📴 Received ${signal}, shutting down gracefully...`);
 		isShuttingDown = true;
 		clearInterval(intervalId);
+		clearInterval(cleanupIntervalId);
 		
 		// Clear immediate poll timeout
 		if (immediatePollTimeout) {

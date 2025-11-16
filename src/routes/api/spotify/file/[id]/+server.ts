@@ -41,11 +41,24 @@ export const GET: RequestHandler = async ({ params, url }) => {
 		const fileBuffer = fs.readFileSync(filePath);
 		const stats = fs.statSync(filePath);
 
+		// Clean up after 1 hour (same as YouTube files)
+		setTimeout(() => {
+			try {
+				if (fs.existsSync(filePath)) {
+					fs.unlinkSync(filePath);
+				}
+			} catch (err) {
+				console.error('Cleanup error:', err);
+			}
+		}, 60 * 60 * 1000);
+
 		return new Response(fileBuffer, {
 			headers: {
-				'Content-Type': 'audio/flac',
+				'Content-Type': filePath.endsWith('.mp3') ? 'audio/mpeg' : 'audio/flac',
 				'Content-Length': stats.size.toString(),
-				'Content-Disposition': `attachment; filename="${requestedName}"`
+				'Content-Disposition': `attachment; filename="${requestedName}"`,
+				'Accept-Ranges': 'bytes',
+				'Cache-Control': 'public, max-age=3600'
 			}
 		});
 	} catch (error) {
