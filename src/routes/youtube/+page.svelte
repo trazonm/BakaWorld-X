@@ -1,29 +1,54 @@
-<!-- YouTube Downloader Page -->
+<!-- Premiumizer Page - YouTube & Spotify -->
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { get } from 'svelte/store';
 	import { auth, refreshAuth } from '$lib/stores/auth';
 	import type { YouTubeVideoInfo } from '$lib/types/youtube';
+	import type { SpotifyTrackInfo } from '$lib/types/spotify';
 
+	type MediaType = 'youtube' | 'spotify';
+	
+	let mediaType: MediaType = 'youtube';
 	let url = '';
 	let loading = false;
 	let error = '';
 	let videoInfo: YouTubeVideoInfo | null = null;
+	let trackInfo: SpotifyTrackInfo | null = null;
 	let selectedFormat: 'video' | 'audio' = 'video';
 	let selectedQuality = '1080p';
 	let selectedAudioFormat: 'mp3' | 'wav' | 'flac' = 'mp3';
 	let audioBitrate = 320;
+	let selectedSpotifyFormat: 'flac' | 'mp3' = 'flac';
 	let downloading = false;
 	let downloadProgress = 0;
 	let downloadStage = '';
 	let eventSource: EventSource | null = null;
 
-function getSafeFileName(title: string | undefined, extension: string): string {
-	const invalidChars = /[<>:"/\\|?*\u0000-\u001F]/g;
-	const base = (title || 'youtube_download').replace(invalidChars, '').trim() || 'youtube_download';
-	return `${base}${extension}`;
-}
+	function getSafeFileName(title: string | undefined, extension: string, artist?: string): string {
+		const invalidChars = /[<>:"/\\|?*\u0000-\u001F]/g;
+		if (mediaType === 'spotify' && artist) {
+			const base = `${artist} - ${title || 'spotify_track'}`.replace(invalidChars, '').trim() || 'spotify_track';
+			return `${base}${extension}`;
+		}
+		const base = (title || 'download').replace(invalidChars, '').trim() || 'download';
+		return `${base}${extension}`;
+	}
+
+	function resetForm() {
+		url = '';
+		error = '';
+		videoInfo = null;
+		trackInfo = null;
+		loading = false;
+		downloading = false;
+		downloadProgress = 0;
+		downloadStage = '';
+		if (eventSource) {
+			eventSource.close();
+			eventSource = null;
+		}
+	}
 
 	onMount(async () => {
 		await refreshAuth();
@@ -39,27 +64,44 @@ function getSafeFileName(title: string | undefined, extension: string): string {
 		}
 		
 		if (!url.trim()) {
-			error = 'Please enter a YouTube URL';
+			error = `Please enter a ${mediaType === 'youtube' ? 'YouTube' : 'Spotify'} URL`;
 			return;
 		}
 
 		loading = true;
 		error = '';
 		videoInfo = null;
+		trackInfo = null;
 
 		try {
-			const res = await fetch('/api/youtube/info', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ url: url.trim() })
-			});
+			if (mediaType === 'youtube') {
+				const res = await fetch('/api/youtube/info', {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ url: url.trim() })
+				});
 
-			const data = await res.json();
+				const data = await res.json();
 
-			if (res.ok) {
-				videoInfo = data;
+				if (res.ok) {
+					videoInfo = data;
+				} else {
+					error = data.error || 'Failed to get video information';
+				}
 			} else {
-				error = data.error || 'Failed to get video information';
+				const res = await fetch('/api/spotify/info', {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ url: url.trim() })
+				});
+
+				const data = await res.json();
+
+				if (res.ok) {
+					trackInfo = data;
+				} else {
+					error = data.error || 'Failed to get track information';
+				}
 			}
 		} catch (err) {
 			error = err instanceof Error ? err.message : 'Network error';
@@ -69,7 +111,7 @@ function getSafeFileName(title: string | undefined, extension: string): string {
 	}
 
 	async function handleDownload() {
-		if (!videoInfo || downloading) return;
+		if (mediaType === 'youtube' && !videoInfo || mediaType === 'spotify' && !trackInfo || downloading) return;
 
 		downloading = true;
 		error = '';
@@ -80,7 +122,11 @@ function getSafeFileName(title: string | undefined, extension: string): string {
 		const progressId = `${Date.now()}-${Math.random().toString(36).substring(7)}`;
 
 		// Set up SSE for progress updates
-		eventSource = new EventSource(`/api/youtube/download-progress?id=${progressId}`);
+		const progressEndpoint = mediaType === 'youtube' 
+			? `/api/youtube/download-progress?id=${progressId}`
+			: `/api/spotify/download-progress?id=${progressId}`;
+		
+		eventSource = new EventSource(progressEndpoint);
 		
 		eventSource.onopen = () => {
 			console.log('SSE connection opened for progress tracking');
@@ -105,29 +151,41 @@ function getSafeFileName(title: string | undefined, extension: string): string {
 
 		eventSource.onerror = (error) => {
 			console.error('SSE connection error:', error);
-			// Don't close immediately - might be a temporary error
-			// The server will clean up when download completes
 		};
 
 		try {
-			const body: any = {
-				url: url.trim(),
-				format: selectedFormat,
-				progressId,
-				title: videoInfo?.title
-			};
+			let body: any;
+			let endpoint: string;
 
-			if (selectedFormat === 'video') {
-				body.quality = selectedQuality;
-			} else {
-				body.audioFormat = selectedAudioFormat;
-				if (selectedAudioFormat === 'mp3') {
-					body.audioBitrate = audioBitrate;
+			if (mediaType === 'youtube') {
+				endpoint = '/api/youtube/download-link';
+				body = {
+					url: url.trim(),
+					format: selectedFormat,
+					progressId,
+					title: videoInfo?.title
+				};
+
+				if (selectedFormat === 'video') {
+					body.quality = selectedQuality;
+				} else {
+					body.audioFormat = selectedAudioFormat;
+					if (selectedAudioFormat === 'mp3') {
+						body.audioBitrate = audioBitrate;
+					}
 				}
+			} else {
+				endpoint = '/api/spotify/download-link';
+				body = {
+					url: url.trim(),
+					format: selectedSpotifyFormat,
+					progressId,
+					title: trackInfo?.title,
+					artist: trackInfo?.artist
+				};
 			}
 
-			// Step 1: Generate download link (downloads and processes video)
-			const res = await fetch('/api/youtube/download-link', {
+			const res = await fetch(endpoint, {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify(body)
@@ -153,24 +211,19 @@ function getSafeFileName(title: string | undefined, extension: string): string {
 			}
 
 			// Step 2: Trigger browser download with the direct link
-			// This shows native browser download progress!
 			downloadStage = 'Starting download...';
-			downloadProgress = 100; // Processing is done, now downloading
+			downloadProgress = 100;
 			
-			let extension = '.mp4';
-			if (selectedFormat === 'audio') {
-				if (selectedAudioFormat === 'mp3') {
-					extension = '.mp3';
-				} else if (selectedAudioFormat === 'wav') {
-					extension = '.wav';
-				} else if (selectedAudioFormat === 'flac') {
-					extension = '.flac';
-				}
-			}
+			let extension = mediaType === 'youtube' ? (selectedFormat === 'video' ? '.mp4' : selectedAudioFormat === 'mp3' ? '.mp3' : selectedAudioFormat === 'wav' ? '.wav' : '.flac') : `.${selectedSpotifyFormat}`;
 
-			const filename = data.filename || getSafeFileName(videoInfo.title, extension);
+			let filename: string;
+			if (mediaType === 'youtube') {
+				filename = data.filename || getSafeFileName(videoInfo?.title, extension);
+			} else {
+				filename = data.filename || getSafeFileName(trackInfo?.title, extension, trackInfo?.artist);
+			}
 			
-			// Create download link - browser will handle the download with native progress
+			// Create download link
 			const a = document.createElement('a');
 			a.href = data.downloadUrl;
 			a.download = filename;
@@ -220,18 +273,53 @@ function getSafeFileName(title: string | undefined, extension: string): string {
 		}
 		return views.toString();
 	}
+
+	function handleMediaTypeChange(newType: MediaType) {
+		if (mediaType !== newType) {
+			mediaType = newType;
+			resetForm();
+		}
+	}
 </script>
 
 <svelte:head>
-	<title>BakaWorld χ - YouTube Downloader</title>
+	<title>BakaWorld χ - Premiumizer</title>
 </svelte:head>
 
 <main class="text-white">
 	<div class="container mx-auto px-4 py-4 md:py-8 max-w-4xl">
 		<!-- Header -->
-		<div class="mb-6 md:mb-8">
-			<h1 class="text-2xl md:text-3xl font-bold text-white mb-2">YouTube Downloader</h1>
-			<p class="text-gray-400 text-sm md:text-base">Download YouTube videos and audio in various formats</p>
+		<div class="text-center mb-8">
+			<h1 class="text-4xl md:text-5xl font-extrabold text-white drop-shadow-lg mb-4">
+				<span class="bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">
+					Media Downloader
+				</span>
+			</h1>
+			<p class="text-gray-400 text-lg">Download YouTube videos/audio and Spotify tracks in FLAC quality</p>
+		</div>
+
+		<!-- Media Type Tabs -->
+		<div class="bg-gray-900 rounded-lg border border-gray-700 p-1 mb-6 flex gap-2">
+			<button
+				type="button"
+				on:click={() => handleMediaTypeChange('youtube')}
+				class="flex-1 rounded-lg px-4 py-3 font-semibold transition-colors {mediaType === 'youtube' 
+					? 'bg-blue-600 text-white' 
+					: 'text-gray-300 hover:bg-gray-800'}"
+				disabled={loading || downloading}
+			>
+				YouTube
+			</button>
+			<button
+				type="button"
+				on:click={() => handleMediaTypeChange('spotify')}
+				class="flex-1 rounded-lg px-4 py-3 font-semibold transition-colors {mediaType === 'spotify' 
+					? 'bg-green-600 text-white' 
+					: 'text-gray-300 hover:bg-gray-800'}"
+				disabled={loading || downloading}
+			>
+				Spotify
+			</button>
 		</div>
 
 		<!-- URL Input Form -->
@@ -242,14 +330,16 @@ function getSafeFileName(title: string | undefined, extension: string): string {
 			>
 				<div>
 					<label for="url" class="block text-sm font-medium text-gray-300 mb-2">
-						YouTube URL
+						{mediaType === 'youtube' ? 'YouTube' : 'Spotify'} URL
 					</label>
 					<div class="flex gap-2">
 						<input
 							id="url"
 							type="url"
 							bind:value={url}
-							placeholder="https://www.youtube.com/watch?v=..."
+							placeholder={mediaType === 'youtube' 
+								? 'https://www.youtube.com/watch?v=...' 
+								: 'https://open.spotify.com/track/...'}
 							class="flex-1 rounded-lg bg-gray-800 text-white px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 border border-gray-700 placeholder-gray-400"
 							required
 							disabled={loading || downloading}
@@ -278,8 +368,8 @@ function getSafeFileName(title: string | undefined, extension: string): string {
 			</div>
 		{/if}
 
-		<!-- Video Info and Download Options -->
-		{#if videoInfo}
+		<!-- YouTube Video Info and Download Options -->
+		{#if mediaType === 'youtube' && videoInfo}
 			<div class="bg-gray-900 rounded-lg border border-gray-700 p-6 mb-6">
 				<!-- Video Info -->
 				<div class="flex flex-col md:flex-row gap-4 mb-6">
@@ -394,7 +484,7 @@ function getSafeFileName(title: string | undefined, extension: string): string {
 						</div>
 					{/if}
 
-					<!-- Progress Bar - Always show when downloading -->
+					<!-- Progress Bar -->
 					{#if downloading}
 						<div class="w-full mb-6 p-4 bg-gray-800 rounded-lg border border-gray-700">
 							<div class="flex justify-between items-center mb-3">
@@ -440,6 +530,116 @@ function getSafeFileName(title: string | undefined, extension: string): string {
 				</div>
 			</div>
 		{/if}
+
+		<!-- Spotify Track Info and Download Options -->
+		{#if mediaType === 'spotify' && trackInfo}
+			<div class="bg-gray-900 rounded-lg border border-gray-700 p-6 mb-6">
+				<!-- Track Info -->
+				<div class="flex flex-col md:flex-row gap-4 mb-6">
+					{#if trackInfo.albumArt}
+						<img
+							src={trackInfo.albumArt}
+							alt={trackInfo.title}
+							class="w-full md:w-48 h-auto rounded-lg object-cover"
+						/>
+					{/if}
+					<div class="flex-1">
+						<h2 class="text-xl font-bold text-white mb-2">{trackInfo.title}</h2>
+						<p class="text-gray-400 mb-2">
+							Artist: <span class="text-gray-300">{trackInfo.artist}</span>
+						</p>
+						{#if trackInfo.album}
+							<p class="text-gray-400 mb-2">
+								Album: <span class="text-gray-300">{trackInfo.album}</span>
+							</p>
+						{/if}
+						<div class="flex flex-wrap gap-4 text-sm text-gray-400">
+							{#if trackInfo.duration}
+								<span>Duration: {formatDuration(trackInfo.duration)}</span>
+							{/if}
+							{#if trackInfo.releaseDate}
+								<span>Released: {trackInfo.releaseDate}</span>
+							{/if}
+						</div>
+					</div>
+				</div>
+
+				<!-- Format Selection -->
+				<div class="space-y-4">
+					<div>
+						<label for="spotifyFormat" class="block text-sm font-medium text-gray-300 mb-2">
+							Audio Format
+						</label>
+						<select
+							id="spotifyFormat"
+							bind:value={selectedSpotifyFormat}
+							class="w-full rounded-lg bg-gray-800 text-white px-4 py-3 focus:outline-none focus:ring-2 focus:ring-green-500 border border-gray-700"
+							disabled={downloading}
+						>
+							<option value="flac">FLAC (Lossless)</option>
+							<option value="mp3">MP3 (320kbps)</option>
+						</select>
+					</div>
+
+					<div class="p-4 bg-blue-900/20 border border-blue-700/50 rounded-lg">
+						<p class="text-sm text-blue-300">
+							<strong>Note:</strong> This downloads tracks from Spotify using spotdl, which uses YouTube Music as the audio source. 
+							Requires spotdl to be installed on the server (<code class="text-xs bg-gray-800 px-1 py-0.5 rounded">pip install spotdl</code>).
+						</p>
+						<p class="text-sm text-green-300 mt-2">
+							✓ Downloads from YouTube Music (no DRM issues)
+							<br />
+							✓ Embeds Spotify metadata and album art
+							<br />
+							✓ Supports FLAC (lossless) and MP3 (320kbps)
+						</p>
+					</div>
+
+					<!-- Progress Bar -->
+					{#if downloading}
+						<div class="w-full mb-6 p-4 bg-gray-800 rounded-lg border border-gray-700">
+							<div class="flex justify-between items-center mb-3">
+								<div class="flex items-center gap-2">
+									<span class="text-base font-medium text-white">{downloadStage || 'Starting download...'}</span>
+									{#if downloadProgress > 0 && downloadProgress < 100}
+										<span class="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-green-900/50 text-green-300">
+											In Progress
+										</span>
+									{/if}
+								</div>
+								<span class="text-base font-semibold text-green-400">{downloadProgress.toFixed(0)}%</span>
+							</div>
+							<div class="w-full bg-gray-700 rounded-full h-3 mb-2 overflow-hidden">
+								<div
+									class="bg-gradient-to-r from-green-600 to-green-500 h-3 rounded-full transition-all duration-500 ease-out shadow-lg"
+									style="width: {Math.max(downloadProgress, 1)}%"
+								></div>
+							</div>
+							{#if downloadProgress > 0 && downloadProgress < 100}
+								<div class="text-xs text-gray-400 mt-1">
+									Downloading from YouTube Music via spotdl...
+								</div>
+							{/if}
+						</div>
+					{/if}
+
+					<button
+						on:click={handleDownload}
+						disabled={downloading}
+						class="w-full rounded-lg bg-green-600 px-6 py-3 font-semibold text-white hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+					>
+						{#if downloading}
+							<span class="animate-spin inline-block w-5 h-5 border-2 border-white border-t-transparent rounded-full mr-2"></span>
+							{downloadStage || 'Downloading...'}
+						{:else}
+							<svg class="w-5 h-5 inline-block mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+							</svg>
+							Download {selectedSpotifyFormat.toUpperCase()}
+						{/if}
+					</button>
+				</div>
+			</div>
+		{/if}
 	</div>
 </main>
-
