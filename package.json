@@ -57,6 +57,7 @@
 		"hls.js": "^1.6.7",
 		"jsonwebtoken": "^9.0.2",
 		"pg": "^8.16.3",
+		"play-dl": "^9.1.5",
 		"plyr": "^3.7.8",
 		"video.js": "^8.23.3",
 		"videojs-contrib-quality-levels": "^4.1.0",

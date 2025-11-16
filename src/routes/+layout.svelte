@@ -20,6 +20,7 @@
 	let navLinks = $derived([
 		{ href: '/home', label: 'Home' },
 		{ href: '/downloads', label: 'Downloads' },
+		{ href: '/youtube', label: 'YouTube' },
 		{ href: '/anime', label: 'Anime' },
 		{ href: '/manga', label: 'Manga' },
 		{ href: '/comics', label: 'Comics' },
