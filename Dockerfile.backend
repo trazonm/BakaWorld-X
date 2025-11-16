@@ -4,7 +4,8 @@ FROM node:20-alpine
 WORKDIR /app
 
 # Install system dependencies
-RUN apk add --no-cache ffmpeg yt-dlp
+# Install Python and pip for spotdl (Spotify downloads)
+RUN apk add --no-cache ffmpeg yt-dlp python3 py3-pip
 
 # Install pnpm and tsx globally for running TypeScript directly
 RUN npm install -g pnpm tsx
@@ -23,6 +24,10 @@ COPY src/ ./src/
 COPY tsconfig.json ./
 COPY svelte.config.js ./
 COPY vite.config.ts ./
+
+# Copy Python script and install spotdl for Spotify downloads
+COPY scripts/ ./scripts/
+RUN pip3 install --no-cache-dir spotdl requests beautifulsoup4 python-dotenv spotipy
 
 # Set environment to production
 ENV NODE_ENV=production

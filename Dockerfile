@@ -5,7 +5,8 @@ FROM node:20-alpine AS builder
 WORKDIR /app
 
 # System deps needed during build for yt-dlp/ffmpeg usage (even if mainly runtime)
-RUN apk add --no-cache ffmpeg yt-dlp
+# Install Python and pip for spotdl (Spotify downloads)
+RUN apk add --no-cache ffmpeg yt-dlp python3 py3-pip
 
 # Copy package files
 COPY package*.json ./
@@ -26,7 +27,8 @@ FROM node:20-alpine
 WORKDIR /app
 
 # Install runtime system deps (yt-dlp + ffmpeg) for YouTube downloading
-RUN apk add --no-cache ffmpeg yt-dlp
+# Install Python and pip for spotdl (Spotify downloads)
+RUN apk add --no-cache ffmpeg yt-dlp python3 py3-pip
 
 # Install pnpm
 RUN npm install -g pnpm
@@ -42,6 +44,10 @@ RUN pnpm install --prod --frozen-lockfile
 COPY --from=builder /app/build ./build
 COPY --from=builder /app/static ./static
 COPY --from=builder /app/package.json ./
+
+# Copy Python script and install spotdl for Spotify downloads
+COPY scripts/ ./scripts/
+RUN pip3 install --no-cache-dir spotdl requests beautifulsoup4 python-dotenv spotipy
 
 # Expose port (default, can be overridden by env var)
 EXPOSE 5002

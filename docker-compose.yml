@@ -25,6 +25,8 @@ services:
       RECAPTCHA_SITE_KEY: ${RECAPTCHA_SITE_KEY}
       RECAPTCHA_SECRET_KEY: ${RECAPTCHA_SECRET_KEY}
       IP_INFO_TOKEN: ${IP_INFO_TOKEN}
+      SPOTIPY_CLIENT_ID: ${SPOTIPY_CLIENT_ID:-}
+      SPOTIPY_CLIENT_SECRET: ${SPOTIPY_CLIENT_SECRET:-}
     volumes:
       - ./static:/app/static:ro
     depends_on:

@@ -304,7 +304,7 @@
 				type="button"
 				on:click={() => handleMediaTypeChange('youtube')}
 				class="flex-1 rounded-lg px-4 py-3 font-semibold transition-colors {mediaType === 'youtube' 
-					? 'bg-blue-600 text-white' 
+					? 'bg-red-600 text-white' 
 					: 'text-gray-300 hover:bg-gray-800'}"
 				disabled={loading || downloading}
 			>
@@ -346,7 +346,7 @@
 						/>
 						<button
 							type="submit"
-							class="rounded-lg bg-blue-600 px-6 py-3 font-semibold text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+							class="rounded-lg bg-red-600 px-6 py-3 font-semibold text-white hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
 							disabled={loading || downloading || !url.trim()}
 						>
 							{#if loading}
@@ -491,16 +491,16 @@
 								<div class="flex items-center gap-2">
 									<span class="text-base font-medium text-white">{downloadStage || 'Starting download...'}</span>
 									{#if downloadProgress > 0 && downloadProgress < 100}
-										<span class="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-blue-900/50 text-blue-300">
+										<span class="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-red-900/50 text-red-300">
 											In Progress
 										</span>
 									{/if}
 								</div>
-								<span class="text-base font-semibold text-blue-400">{downloadProgress.toFixed(0)}%</span>
+								<span class="text-base font-semibold text-red-400">{downloadProgress.toFixed(0)}%</span>
 							</div>
 							<div class="w-full bg-gray-700 rounded-full h-3 mb-2 overflow-hidden">
 								<div
-									class="bg-gradient-to-r from-blue-600 to-blue-500 h-3 rounded-full transition-all duration-500 ease-out shadow-lg"
+									class="bg-gradient-to-r from-red-600 to-red-500 h-3 rounded-full transition-all duration-500 ease-out shadow-lg"
 									style="width: {Math.max(downloadProgress, 1)}%"
 								></div>
 							</div>
@@ -515,7 +515,7 @@
 					<button
 						on:click={handleDownload}
 						disabled={downloading}
-						class="w-full rounded-lg bg-green-600 px-6 py-3 font-semibold text-white hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+						class="w-full rounded-lg bg-red-600 px-6 py-3 font-semibold text-white hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
 					>
 						{#if downloading}
 							<span class="animate-spin inline-block w-5 h-5 border-2 border-white border-t-transparent rounded-full mr-2"></span>
