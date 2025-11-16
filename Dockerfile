@@ -47,7 +47,7 @@ COPY --from=builder /app/package.json ./
 
 # Copy Python script and install spotdl for Spotify downloads
 COPY scripts/ ./scripts/
-RUN pip3 install --no-cache-dir spotdl requests beautifulsoup4 python-dotenv spotipy
+RUN pip3 install --no-cache-dir --break-system-packages spotdl requests beautifulsoup4 python-dotenv spotipy
 
 # Expose port (default, can be overridden by env var)
 EXPOSE 5002

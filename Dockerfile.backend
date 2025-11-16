@@ -27,7 +27,7 @@ COPY vite.config.ts ./
 
 # Copy Python script and install spotdl for Spotify downloads
 COPY scripts/ ./scripts/
-RUN pip3 install --no-cache-dir spotdl requests beautifulsoup4 python-dotenv spotipy
+RUN pip3 install --no-cache-dir --break-system-packages spotdl requests beautifulsoup4 python-dotenv spotipy
 
 # Set environment to production
 ENV NODE_ENV=production
