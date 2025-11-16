@@ -40,6 +40,8 @@
 	}
 	let loading = false;
 	let error = '';
+	let iframeError = false;
+	let iframeErrorMessage = '';
 	let languageFallbackMessage = '';
 	
 	// Update fallback message reactively when data changes (e.g., navigating between episodes)
@@ -246,6 +248,35 @@
 			return;
 		}
 		
+		// Check if iframe actually loaded successfully
+		// If the iframe src is blocked by X-Frame-Options, it won't load properly
+		// We'll check after a delay to see if the iframe is actually displaying content
+		setTimeout(() => {
+			try {
+				// Try to access iframe content - cross-origin restrictions are normal
+				// but if we can't access it AND the iframe appears empty, it might be blocked
+				const iframeDoc = iframeElement.contentDocument || iframeElement.contentWindow?.document;
+				
+				// For cross-origin iframes, we can't access the document
+				// But we can check if the iframe's contentWindow is accessible
+				if (iframeElement.contentWindow) {
+					try {
+						// Try to access location - this will throw for cross-origin iframes
+						const location = iframeElement.contentWindow.location;
+						// If we get here and location is accessible, the iframe loaded
+					} catch (e) {
+						// Cross-origin restriction is normal - iframe is likely loaded
+						// The error detection will catch X-Frame-Options errors via console
+					}
+				}
+			} catch (e) {
+				// Cross-origin restriction is normal, but if we get other errors, log them
+				if (e instanceof TypeError && !e.message.includes('cross-origin') && !e.message.includes('Blocked a frame')) {
+					console.error('Iframe load error:', e);
+				}
+			}
+		}, 3000); // Wait 3 seconds to check if iframe loaded
+		
 	// Prevent auto-scroll when iframe receives focus - more aggressive approach
 	let scrollPosition = window.pageYOffset || document.documentElement.scrollTop;
 	let isPreventingScroll = false;
@@ -388,11 +419,15 @@
 		});
 		
 	// Observe body for attribute changes that might indicate scroll
-	if (document.body) {
-		scrollMutationObserver.observe(document.body, {
-			attributes: true,
-			attributeFilter: ['style']
-		});
+	if (document.body && document.body instanceof Node) {
+		try {
+			scrollMutationObserver.observe(document.body, {
+				attributes: true,
+				attributeFilter: ['style']
+			});
+		} catch (e) {
+			console.warn('Failed to observe document.body for scroll changes:', e);
+		}
 	}
 	
 	setupPopupBlocker();
@@ -599,14 +634,19 @@
 			// Monitor iframe with MutationObserver
 			if (iframeElement && iframeElement.isConnected) {
 				try {
-					iframeObserver = new MutationObserver(() => {
-						monitorIframe();
-					});
+					// Ensure iframeElement is a valid Node before observing
+					if (iframeElement instanceof Node) {
+						iframeObserver = new MutationObserver(() => {
+							monitorIframe();
+						});
 
-					iframeObserver.observe(iframeElement, {
-						attributes: true,
-						attributeFilter: ['src']
-					});
+						iframeObserver.observe(iframeElement, {
+							attributes: true,
+							attributeFilter: ['src']
+						});
+					} else {
+						console.warn('Iframe element is not a valid Node, skipping MutationObserver');
+					}
 				} catch (e) {
 					console.warn('Failed to observe iframe:', e);
 					// Clean up observer if it failed
@@ -634,6 +674,61 @@
 		videoEndedListenerAdded = false;
 	}
 
+	// Listen for errors that might indicate iframe blocking or network issues
+	function setupErrorDetection() {
+		if (!browser) return;
+		
+		// Listen for window errors (including X-Frame-Options and network errors)
+		const errorHandler = (event: ErrorEvent | Event) => {
+			// Handle iframe-specific errors
+			if (event.target && (event.target as HTMLElement).tagName === 'IFRAME') {
+				const target = event.target as HTMLIFrameElement;
+				if (target === iframeElement) {
+					iframeError = true;
+					iframeErrorMessage = 'Failed to load the video player. The source may be unavailable or blocking embedding.';
+					return;
+				}
+			}
+			
+			// Handle general errors
+			if (event instanceof ErrorEvent) {
+				const errorMessage = (event.message || '').toLowerCase();
+				const errorSource = (event.filename || '').toLowerCase();
+				
+				// Check for X-Frame-Options related errors
+				if (errorMessage.includes('x-frame-options') || 
+				    errorMessage.includes('refused to display') ||
+				    errorMessage.includes('frame-ancestors') ||
+				    errorMessage.includes('because it set') ||
+				    (errorSource.includes('megaplay.buzz') && errorMessage.includes('frame'))) {
+					iframeError = true;
+					iframeErrorMessage = 'The video source has blocked embedding in iframes (X-Frame-Options). Please use "Open in New Tab" to watch.';
+					return;
+				}
+				
+				// Check for network errors (522, 503, etc.)
+				if (errorMessage.includes('522') || 
+				    errorMessage.includes('failed to load resource') ||
+				    errorMessage.includes('network error')) {
+					iframeError = true;
+					iframeErrorMessage = 'Failed to load the video player. The server may be temporarily unavailable (Error 522). Please try again or use "Open in New Tab".';
+					return;
+				}
+			}
+		};
+		
+		window.addEventListener('error', errorHandler, true);
+		
+		// Also listen for unhandled promise rejections (network errors often appear here)
+		window.addEventListener('unhandledrejection', (event) => {
+			const reason = String(event.reason || '').toLowerCase();
+			if (reason.includes('522') || reason.includes('failed to fetch') || reason.includes('network')) {
+				iframeError = true;
+				iframeErrorMessage = 'Network error while loading the video player. Please try again or use "Open in New Tab".';
+			}
+		});
+	}
+
 	onMount(() => {
 		// Load user interaction status from localStorage
 		if (browser) {
@@ -643,6 +738,9 @@
 
 		// Save original window.open
 		originalWindowOpen = window.open;
+		
+		// Set up error detection for iframe blocking
+		setupErrorDetection();
 		
 		// Set up comprehensive popup blocking
 		setupPopupBlocker();
@@ -874,19 +972,62 @@ onDestroy(() => {
 				</div>
 			</div>
 		{:else if embedUrl}
-			<iframe
-				bind:this={iframeElement}
-				src={embedUrl}
-				class="absolute top-0 left-0 w-full h-full"
-				frameborder="0"
-				scrolling="no"
-				allowfullscreen
-				title="Video Player"
-				onload={handleIframeLoad}
-				referrerpolicy="no-referrer-when-downgrade"
-				sandbox="allow-scripts allow-same-origin"
-				tabindex="-1"
-			></iframe>
+			{#if iframeError}
+				<!-- Error State -->
+				<div class="absolute top-0 left-0 w-full h-full flex items-center justify-center bg-gray-900">
+					<div class="max-w-lg text-center p-8">
+						<div class="mb-4 text-xl text-red-400">
+							Unable to load video player
+						</div>
+						<p class="text-gray-400 mb-2">
+							{iframeErrorMessage || 'The video player could not be embedded. This may be due to security restrictions.'}
+						</p>
+						<p class="text-gray-500 text-sm mb-4">
+							The video source may have blocked embedding in iframes.
+						</p>
+						<div class="flex gap-3 justify-center">
+							<button
+								class="rounded-lg bg-blue-600 px-6 py-3 text-white transition-colors hover:bg-blue-700"
+								onclick={() => {
+									iframeError = false;
+									iframeErrorMessage = '';
+									if (iframeElement) {
+										iframeElement.src = embedUrl;
+									}
+								}}
+							>
+								Retry
+							</button>
+							<a
+								href={embedUrl}
+								target="_blank"
+								rel="noopener noreferrer"
+								class="rounded-lg bg-gray-700 px-6 py-3 text-white transition-colors hover:bg-gray-600"
+							>
+								Open in New Tab
+							</a>
+						</div>
+					</div>
+				</div>
+			{:else}
+				<iframe
+					bind:this={iframeElement}
+					src={embedUrl}
+					class="absolute top-0 left-0 w-full h-full"
+					frameborder="0"
+					scrolling="no"
+					allowfullscreen
+					title="Video Player"
+					onload={handleIframeLoad}
+					onerror={() => {
+						iframeError = true;
+						iframeErrorMessage = 'Failed to load the video player. The source may be unavailable or blocking embedding.';
+					}}
+					referrerpolicy="no-referrer-when-downgrade"
+					sandbox="allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox"
+					tabindex="-1"
+				></iframe>
+			{/if}
 		{:else}
 			<div class="absolute top-0 left-0 w-full h-full flex items-center justify-center bg-gray-900">
 				<div class="max-w-lg text-center p-8">
