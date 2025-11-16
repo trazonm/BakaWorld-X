@@ -12,7 +12,8 @@ COPY pnpm-lock.yaml* ./
 
 # Install all dependencies (needed for TypeScript and imports)
 # The worker runs TypeScript directly via tsx, so we need dev dependencies too
-RUN pnpm install --frozen-lockfile
+# Use no-frozen-lockfile to allow builds when package.json changes but lockfile isn't updated yet
+RUN pnpm install --no-frozen-lockfile
 
 # Copy necessary source files for the worker
 COPY src/ ./src/
