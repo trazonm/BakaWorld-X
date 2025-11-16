@@ -1,4 +1,11 @@
-# Frontend Dockerfile (SvelteKit application)
+# SvelteKit Application Dockerfile
+# This builds and runs the full SvelteKit application including:
+# - Frontend (Svelte components and pages)
+# - API routes (server-side endpoints)
+# - Server-side rendering
+#
+# This is the standard SvelteKit deployment pattern where API routes
+# are part of the same application as the frontend
 # Build stage
 FROM node:20-alpine AS builder
 

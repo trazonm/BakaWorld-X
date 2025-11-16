@@ -1,12 +1,14 @@
 version: '3.8'
 
 services:
-  # Frontend service - SvelteKit application
-  frontend:
+  # SvelteKit application - Full-stack app (frontend + API routes)
+  # This is the standard SvelteKit deployment pattern where API routes
+  # are part of the same application as the frontend
+  app:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: bakaworld-frontend
+    container_name: bakaworld-app
     restart: unless-stopped
     ports:
       - "${PORT:-5002}:${PORT:-5002}"
@@ -29,17 +31,16 @@ services:
       SPOTIPY_CLIENT_SECRET: ${SPOTIPY_CLIENT_SECRET:-}
     volumes:
       - ./static:/app/static:ro
-    depends_on:
-      - backend
     networks:
       - bakaworld-network
 
-  # Backend worker service - continuously polls downloads
-  backend:
+  # Background worker service - Polls download progress and updates database
+  # This is a separate service that runs independently from the main app
+  worker:
     build:
       context: .
       dockerfile: Dockerfile.backend
-    container_name: bakaworld-backend
+    container_name: bakaworld-worker
     restart: unless-stopped
     environment:
       NODE_ENV: production

@@ -1,4 +1,10 @@
-# Backend worker Dockerfile
+# Background Worker Dockerfile
+# This runs a separate background worker service that:
+# - Polls Real-Debrid for download progress
+# - Updates the database with download status
+# - Performs temp file cleanup
+#
+# This worker runs independently from the main SvelteKit application
 FROM node:20-alpine
 
 WORKDIR /app
