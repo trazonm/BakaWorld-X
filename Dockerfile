@@ -4,6 +4,9 @@ FROM node:20-alpine AS builder
 
 WORKDIR /app
 
+# System deps needed during build for yt-dlp/ffmpeg usage (even if mainly runtime)
+RUN apk add --no-cache ffmpeg yt-dlp
+
 # Copy package files
 COPY package*.json ./
 COPY pnpm-lock.yaml* ./
@@ -21,6 +24,9 @@ RUN pnpm build
 FROM node:20-alpine
 
 WORKDIR /app
+
+# Install runtime system deps (yt-dlp + ffmpeg) for YouTube downloading
+RUN apk add --no-cache ffmpeg yt-dlp
 
 # Install pnpm
 RUN npm install -g pnpm
