@@ -15,6 +15,7 @@
 	let searchError = '';
 	let username = '';
 	let modalSearch = '';
+	let searchQuery = ''; // Bound to search input
 
 	let sortKey: 'Title' | 'Size' | 'Seeders' = 'Seeders';
 	let sortDirection: 'asc' | 'desc' = 'desc';
@@ -460,9 +461,7 @@
 
 	async function handleSearch(e: Event) {
 		e.preventDefault();
-		const form = e.target as HTMLFormElement;
-		const input = form.querySelector('input[type="text"]') as HTMLInputElement;
-		const query = input.value.trim();
+		const query = searchQuery.trim();
 		if (!query) return;
 
 		searchLoading = true;
@@ -1124,10 +1123,12 @@
 				<!-- Search Input with Energy Glow -->
 				<input
 					type="text"
+					bind:value={searchQuery}
 					placeholder="Search for torrents..."
 					class="flex-1 rounded-l-xl md:rounded-l-2xl bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 text-white px-6 py-4 md:py-5 focus:outline-none text-lg md:text-xl font-semibold search-glow border-2 backdrop-blur-sm search-input-border"
-					style="transition: all 0.3s ease;"
+					style="transition: border-color 0.3s ease, box-shadow 0.3s ease;"
 					required
+					disabled={searchLoading}
 				/>
 				
 				<!-- Power Button -->
