@@ -14,22 +14,15 @@
 	export let onSort: (key: 'Title' | 'Size' | 'Seeders') => void;
 	export let onAddToQueue: (result: SearchResult) => void;
 
-	// Local input value for immediate UI updates
+	// Local input value - completely independent, no reactive syncing
+	// This prevents any interference while typing
 	let inputValue = modalSearch;
 	
 	// Debounce timer
 	let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 	const DEBOUNCE_DELAY = 300;
-	
-	// Flag to track if we're updating modalSearch internally (to avoid reactive loop)
-	let isInternalUpdate = false;
 
-	// Update inputValue when modalSearch changes externally (e.g., when modal closes/resets)
-	$: if (!isInternalUpdate && modalSearch !== inputValue) {
-		inputValue = modalSearch;
-	}
-
-	// Debounced update of modalSearch
+	// Update modalSearch when inputValue changes (debounced)
 	function handleInput() {
 		// Clear existing timer
 		if (debounceTimer) {
@@ -38,14 +31,22 @@
 		
 		// Set new timer to update modalSearch after user stops typing
 		debounceTimer = setTimeout(() => {
-			isInternalUpdate = true;
 			modalSearch = inputValue;
 			debounceTimer = null;
-			// Reset flag after a tick to allow external updates
-			setTimeout(() => {
-				isInternalUpdate = false;
-			}, 0);
 		}, DEBOUNCE_DELAY);
+	}
+
+	// Reset input only when modal first opens (not while typing)
+	// Use a simple reactive statement that only runs when modal opens
+	let wasModalOpen = false;
+	$: {
+		const isModalOpen = $showResultsStore;
+		// Only sync when modal transitions from closed to open AND we're not typing
+		// Check debounceTimer to ensure we're not in the middle of typing
+		if (isModalOpen && !wasModalOpen && !debounceTimer) {
+			inputValue = modalSearch;
+		}
+		wasModalOpen = isModalOpen;
 	}
 
 	// Clean up timer on destroy
