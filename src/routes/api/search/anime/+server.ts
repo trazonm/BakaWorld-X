@@ -27,7 +27,7 @@ export const GET: RequestHandler = async ({ request }) => {
         console.log('Anime search - Query:', query, 'Page:', page);
         
         const consumetService = createConsumetService(baseUrl);
-        const result = await consumetService.searchAnime(query, 'zoro', page);
+        const result = await consumetService.searchAnime(query, 'hianime', page);
         
         return new Response(JSON.stringify(result), { 
             status: 200,

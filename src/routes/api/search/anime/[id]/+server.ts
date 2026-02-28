@@ -20,7 +20,7 @@ export const GET: RequestHandler = async ({ request, params }) => {
     try {
         const baseUrl = config.consumet.baseUrl;
         const consumetService = createConsumetService(baseUrl);
-        const data = await consumetService.getAnimeInfo(animeId, 'zoro');
+        const data = await consumetService.getAnimeInfo(animeId, 'hianime');
         
         return new Response(JSON.stringify(data), { 
             status: 200,

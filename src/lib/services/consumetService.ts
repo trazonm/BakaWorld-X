@@ -97,7 +97,7 @@ class ConsumetService {
 	/**
 	 * Search for anime
 	 */
-	async searchAnime(query: string, provider: string = 'zoro', page: number = 1): Promise<ConsumetSearchResponse<Anime>> {
+	async searchAnime(query: string, provider: string = 'hianime', page: number = 1): Promise<ConsumetSearchResponse<Anime>> {
 		const url = `${this.baseUrl}/anime/${provider}/${encodeURIComponent(query)}?page=${page}`;
 		console.log('ConsumetService - Anime search URL:', url);
 		
@@ -162,9 +162,9 @@ class ConsumetService {
 
 	/**
 	 * Get anime info by ID
-	 * Route: /anime/zoro/info?id={id}
+	 * Route: /anime/hianime/info?id={id}
 	 */
-	async getAnimeInfo(animeId: string, provider: string = 'zoro'): Promise<ConsumetAnimeInfo> {
+	async getAnimeInfo(animeId: string, provider: string = 'hianime'): Promise<ConsumetAnimeInfo> {
 		const url = `${this.baseUrl}/anime/${provider}/info?id=${encodeURIComponent(animeId)}`;
 		console.log('ConsumetService - Get anime info URL:', url);
 		
@@ -220,12 +220,12 @@ class ConsumetService {
 
 	/**
 	 * Get episode streaming links
-	 * Route: /anime/zoro/watch?episodeId={episodeId}&server={serverName}
+	 * Route: /anime/hianime/watch?episodeId={episodeId}&server={serverName}
 	 * Valid servers: "vidcloud", "streamsb", "vidstreaming", "streamtape"
 	 */
 	async getEpisodeStreamingLinks(
 		episodeId: string,
-		provider: string = 'zoro',
+		provider: string = 'hianime',
 		server: string = 'vidcloud'
 	): Promise<ConsumetWatchResponse> {
 		// Map old server names to Consumet server names if needed
@@ -237,7 +237,7 @@ class ConsumetService {
 		const mappedServer = serverMap[server] || server;
 		
 		// According to Consumet docs, episodeId should be a query parameter, not in the path
-		// Route: /anime/zoro/watch?episodeId={episodeId}&server={server}
+		// Route: /anime/hianime/watch?episodeId={episodeId}&server={server}
 		const url = `${this.baseUrl}/anime/${provider}/watch?episodeId=${encodeURIComponent(episodeId)}&server=${mappedServer}`;
 		console.log('ConsumetService - Get episode streaming links URL:', url);
 		
@@ -307,7 +307,7 @@ class ConsumetService {
 	/**
 	 * Get available servers for an episode
 	 */
-	async getEpisodeServers(episodeId: string, provider: string = 'zoro'): Promise<string[]> {
+	async getEpisodeServers(episodeId: string, provider: string = 'hianime'): Promise<string[]> {
 		const url = `${this.baseUrl}/anime/${provider}/servers/${encodeURIComponent(episodeId)}`;
 		console.log('ConsumetService - Get episode servers URL:', url);
 		

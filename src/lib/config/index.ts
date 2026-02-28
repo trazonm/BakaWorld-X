@@ -14,7 +14,7 @@ export const config = {
 	},
 	consumet: {
 		baseUrl: 'http://192.168.0.107:6000',
-		defaultAnimeProvider: 'zoro',
+		defaultAnimeProvider: 'hianime',
 		defaultMangaProvider: 'mangadex'
 	},
 	comicVine: {
