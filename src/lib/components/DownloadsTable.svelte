@@ -9,6 +9,7 @@
 	export let loading: boolean;
 	export let error: string;
 	export let onDelete: (id: string) => void;
+	export let onRefreshDownloads: () => void | Promise<void> = () => {};
 
 	const dispatch = createEventDispatcher();
 
@@ -53,7 +54,7 @@
 		<!-- Mobile: Card View -->
 		<div class="md:hidden p-4 space-y-3">
 			{#each downloads as download (download.id)}
-				<DownloadCard {download} {onDelete} on:toast={handleToast} />
+				<DownloadCard {download} {onDelete} {onRefreshDownloads} on:toast={handleToast} />
 			{/each}
 		</div>
 		
@@ -84,7 +85,7 @@
 				</thead>
 				<tbody class="bg-gray-900">
 					{#each downloads as download (download.id)}
-						<DownloadRow {download} {onDelete} on:toast={handleToast} />
+						<DownloadRow {download} {onDelete} {onRefreshDownloads} on:toast={handleToast} />
 					{/each}
 				</tbody>
 			</table>

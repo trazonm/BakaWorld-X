@@ -4,6 +4,7 @@ import { downloadService } from '$lib/services/downloadService';
 import { formatSpeed } from '$lib/utils';
 import type { Download } from '$lib/types';
 import { useTorrentManager } from './useTorrentManager';
+import { torrentDownloadLinkNeedsUnrestrict } from '$lib/services/realDebridService';
 
 export function useDownloadManager() {
 	const downloads = writable<Download[]>([]);
@@ -105,13 +106,13 @@ export function useDownloadManager() {
 				});
 			}
 
-			// Handle completion
+			// Handle completion (unrestrict when DB still has raw RD / hoster link)
 			if (
 				torrentInfo.progress >= 100 &&
 				torrentInfo.status === 'downloaded' &&
-				torrentInfo.links &&
-				torrentInfo.links[0] &&
-				download && !download.link
+				torrentInfo.links?.[0] &&
+				download &&
+				torrentDownloadLinkNeedsUnrestrict(download.link, torrentInfo.links[0])
 			) {
 				const unrestrictedLink = await downloadService.unrestrictLink(torrentInfo.links[0]);
 				

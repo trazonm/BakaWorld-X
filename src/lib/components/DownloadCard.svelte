@@ -3,11 +3,30 @@
 	import { formatSpeed, formatSize } from '$lib/utils';
 	import type { Download } from '$lib/types';
 	import { createEventDispatcher } from 'svelte';
+	import { downloadService } from '$lib/services/downloadService';
 
 	export let download: Download;
 	export let onDelete: (id: string) => void;
+	export let onRefreshDownloads: () => void | Promise<void> = () => {};
 
 	const dispatch = createEventDispatcher();
+
+	let renewing = false;
+
+	async function renewDirectLink() {
+		if (!download.id || renewing) return;
+		renewing = true;
+		try {
+			await downloadService.refreshDirectLink(download.id);
+			await onRefreshDownloads();
+			dispatch('toast', { message: 'Download link renewed' });
+		} catch (e) {
+			const msg = e instanceof Error ? e.message : 'Could not renew link';
+			dispatch('toast', { message: msg });
+		} finally {
+			renewing = false;
+		}
+	}
 
 	async function copyToClipboard() {
 		if (!download.link) return;
@@ -67,6 +86,15 @@
 			>
 				Download
 			</a>
+			<button
+				type="button"
+				on:click={renewDirectLink}
+				disabled={renewing}
+				class="inline-flex items-center justify-center px-2 py-2 rounded-md text-xs font-medium border border-amber-600/80 text-amber-200 hover:bg-amber-900/40 touch-manipulation disabled:opacity-50"
+				title="Fresh URL from Real-Debrid"
+			>
+				{renewing ? '…' : 'Renew'}
+			</button>
 			<button
 				on:click={copyToClipboard}
 				class="download-delete-button inline-flex items-center justify-center rounded text-xs font-bold bg-blue-600 text-white hover:bg-blue-700 transition-colors touch-manipulation leading-none"

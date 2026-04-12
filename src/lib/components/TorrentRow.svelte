@@ -33,11 +33,11 @@
 	})();
 </script>
 
-<tr class="border-b border-gray-800 hover:bg-gray-800">
-	<td class="px-4 py-2">{result.Title}</td>
-	<td class="px-4 py-2">{formatSize(result.Size)}</td>
-	<td class="px-4 py-2">{result.Seeders}</td>
-	<td class="px-4 py-2">
+<tr class="transition-colors hover:bg-zinc-900/80">
+	<td class="max-w-[min(28rem,55vw)] truncate px-4 py-2.5 md:max-w-md" title={result.Title}>{result.Title}</td>
+	<td class="whitespace-nowrap px-4 py-2.5 text-zinc-300">{formatSize(result.Size)}</td>
+	<td class="whitespace-nowrap px-4 py-2.5 text-zinc-300">{result.Seeders}</td>
+	<td class="px-4 py-2.5">
 		<TorrentActionButton 
 			{result} 
 			{rowState}

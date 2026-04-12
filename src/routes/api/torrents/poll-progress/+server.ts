@@ -2,7 +2,11 @@
 import type { RequestHandler } from '@sveltejs/kit';
 import { getSessionUser } from '$lib/server/session';
 import { findUserByUsername, updateUserDownloads } from '$lib/server/userModel';
-import { createRealDebridService, UnknownResourceError } from '$lib/services/realDebridService';
+import {
+	createRealDebridService,
+	UnknownResourceError,
+	torrentDownloadLinkNeedsUnrestrict
+} from '$lib/services/realDebridService';
 import { env } from '$env/dynamic/private';
 import { deleteDownloadById } from '$lib/server/userModel';
 import type { JwtPayload } from 'jsonwebtoken';
@@ -50,7 +54,11 @@ export const POST: RequestHandler = async ({ request }) => {
 					};
 
 					// If completed, unrestrict the link
-					if (torrentInfo.progress >= 100 && torrentInfo.links && torrentInfo.links[0] && !download.link.includes('real-debrid.com')) {
+					if (
+						torrentInfo.progress >= 100 &&
+						torrentInfo.links?.[0] &&
+						torrentDownloadLinkNeedsUnrestrict(download.link, torrentInfo.links[0])
+					) {
 						try {
 							const unrestricted = await realDebridService.unrestrictLink(torrentInfo.links[0]);
 							updatedDownload.link = unrestricted.download || unrestricted.link;

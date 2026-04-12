@@ -67,4 +67,8 @@ export interface Episode {
 	title: string;
 	number: string;
 	url?: string;
+	/** Per-episode flags when the catalog provides them; otherwise set from series-level sub/dub. */
+	isSubbed?: boolean;
+	isDubbed?: boolean;
+	isFiller?: boolean;
 }

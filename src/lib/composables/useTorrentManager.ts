@@ -49,8 +49,7 @@ export function useTorrentManager() {
 					body: JSON.stringify({
 						id,
 						filename: data.filename,
-						progress,
-						link: data.links?.[0] || ''
+						progress
 					})
 				});
 			}

@@ -29,10 +29,16 @@ export const POST: RequestHandler = async ({ request }) => {
 		const spotifyService = createSpotifyService();
 		const fileId = `${Date.now()}-${Math.random().toString(36).substring(7)}`;
 
-		// Progress callback
-		const progressCallback = progressId ? (progress: number, stage: string) => {
-			setProgress(progressId, progress, stage);
-		} : undefined;
+		// Progress callback (declare before first setProgress so SSE sees updates immediately)
+		const progressCallback = progressId
+			? (progress: number, stage: string) => {
+					setProgress(progressId, progress, stage);
+				}
+			: undefined;
+
+		if (progressId) {
+			setProgress(progressId, 1, 'Starting download...');
+		}
 
 		const options: SpotifyDownloadOptions = {
 			format: (format || 'flac') as 'flac' | 'mp3',

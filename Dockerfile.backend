@@ -1,43 +1,42 @@
-# Background Worker Dockerfile
-# This runs a separate background worker service that:
-# - Polls Real-Debrid for download progress
-# - Updates the database with download status
-# - Performs temp file cleanup
-#
-# This worker runs independently from the main SvelteKit application
-FROM node:20-alpine
+# Background worker — Real-Debrid polling + DB updates (decoupled from the SvelteKit app).
+# Multi-stage: bundle TypeScript with esbuild, ship a tiny runtime with only `pg` (native module).
 
+FROM node:20-alpine AS build
 WORKDIR /app
 
-# Install system dependencies
-# Install Python and pip for spotdl (Spotify downloads)
-RUN apk add --no-cache ffmpeg yt-dlp python3 py3-pip
+COPY package.json pnpm-lock.yaml ./
+RUN corepack enable && corepack prepare pnpm@9.15.9 --activate \
+	&& pnpm install --frozen-lockfile
 
-# Install pnpm and tsx globally for running TypeScript directly
-RUN npm install -g pnpm tsx
-
-# Copy package files
-COPY package*.json ./
-COPY pnpm-lock.yaml* ./
-
-# Install all dependencies (needed for TypeScript and imports)
-# The worker runs TypeScript directly via tsx, so we need dev dependencies too
-# Use no-frozen-lockfile to allow builds when package.json changes but lockfile isn't updated yet
-RUN pnpm install --no-frozen-lockfile
-
-# Copy necessary source files for the worker
-COPY src/ ./src/
 COPY tsconfig.json ./
-COPY svelte.config.js ./
-COPY vite.config.ts ./
+COPY src ./src
 
-# Copy Python script and install spotdl for Spotify downloads
-COPY scripts/ ./scripts/
-RUN pip3 install --no-cache-dir --break-system-packages spotdl requests beautifulsoup4 python-dotenv spotipy
+# Bundle worker + inlined deps; keep pg external (native bindings).
+RUN npx --yes esbuild@0.25.0 src/worker.ts \
+	--bundle \
+	--platform=node \
+	--target=node20 \
+	--format=cjs \
+	--outfile=worker.cjs \
+	--external:pg
 
-# Set environment to production
+FROM node:20-alpine AS runner
+WORKDIR /app
+
 ENV NODE_ENV=production
 
-# Start the worker
-CMD ["tsx", "src/worker.ts"]
+# Only runtime deps the bundle needs (pg cannot be inlined).
+COPY package.json ./
+RUN npm install pg@^8.16.0 --omit=dev --no-audit --no-fund \
+	&& npm cache clean --force \
+	&& rm -f package.json package-lock.json
 
+COPY --from=build /app/worker.cjs ./worker.cjs
+
+RUN addgroup -g 1001 -S worker && adduser -S worker -u 1001 -G worker \
+	&& mkdir -p temp/youtube temp/spotify \
+	&& chown -R worker:worker /app
+
+USER worker
+
+CMD ["node", "worker.cjs"]

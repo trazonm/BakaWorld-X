@@ -28,7 +28,8 @@ export const GET: RequestHandler = async ({ params, url }) => {
 		}
 
 		if (!filePath) {
-			const match = files.find((f) => f.startsWith(`spotify-${id}`));
+			const expectedStem = `spotify-${id}`;
+			const match = files.find((f) => path.parse(f).name === expectedStem);
 			if (match) {
 				filePath = path.join(TEMP_DIR, match);
 			}
@@ -58,7 +59,7 @@ export const GET: RequestHandler = async ({ params, url }) => {
 				'Content-Length': stats.size.toString(),
 				'Content-Disposition': `attachment; filename="${requestedName}"`,
 				'Accept-Ranges': 'bytes',
-				'Cache-Control': 'public, max-age=3600'
+				'Cache-Control': 'private, no-store'
 			}
 		});
 	} catch (error) {

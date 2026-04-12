@@ -147,6 +147,7 @@
 			loading={$loading} 
 			error={$error} 
 			onDelete={handleDelete}
+			onRefreshDownloads={() => downloadManager.fetchDownloads(true)}
 			on:toast={handleToast}
 		/>
 	</div>

@@ -40,6 +40,19 @@ export interface ConsumetWatchResponse {
 		quality: string;
 		isM3U8: boolean;
 	}>;
+	download?: string;
+}
+
+function usesPathStyleAnimeWatch(provider: string): boolean {
+	return provider === 'animekai';
+}
+
+/** Result when AnimeKai watch is resolved after server / dub retries */
+export interface AnimeKaiWatchResult {
+	watch: ConsumetWatchResponse;
+	serverUsed: string;
+	dubUsed: boolean;
+	dubFallback: boolean;
 }
 
 export interface ConsumetManga {
@@ -97,7 +110,11 @@ class ConsumetService {
 	/**
 	 * Search for anime
 	 */
-	async searchAnime(query: string, provider: string = 'hianime', page: number = 1): Promise<ConsumetSearchResponse<Anime>> {
+	async searchAnime(
+		query: string,
+		provider: string = config.consumet.defaultAnimeProvider,
+		page: number = 1
+	): Promise<ConsumetSearchResponse<Anime>> {
 		const url = `${this.baseUrl}/anime/${provider}/${encodeURIComponent(query)}?page=${page}`;
 		console.log('ConsumetService - Anime search URL:', url);
 		
@@ -162,9 +179,9 @@ class ConsumetService {
 
 	/**
 	 * Get anime info by ID
-	 * Route: /anime/hianime/info?id={id}
+	 * Route: /anime/{provider}/info?id={id}
 	 */
-	async getAnimeInfo(animeId: string, provider: string = 'hianime'): Promise<ConsumetAnimeInfo> {
+	async getAnimeInfo(animeId: string, provider: string = config.consumet.defaultAnimeProvider): Promise<ConsumetAnimeInfo> {
 		const url = `${this.baseUrl}/anime/${provider}/info?id=${encodeURIComponent(animeId)}`;
 		console.log('ConsumetService - Get anime info URL:', url);
 		
@@ -220,13 +237,14 @@ class ConsumetService {
 
 	/**
 	 * Get episode streaming links
-	 * Route: /anime/hianime/watch?episodeId={episodeId}&server={serverName}
-	 * Valid servers: "vidcloud", "streamsb", "vidstreaming", "streamtape"
+	 * HiAnime-style: /anime/{provider}/watch?episodeId=...&server=...
+	 * AnimeKai: /anime/animekai/watch/{episodeId}?server=...&dub=true|false
 	 */
 	async getEpisodeStreamingLinks(
 		episodeId: string,
-		provider: string = 'hianime',
-		server: string = 'vidcloud'
+		provider: string = config.consumet.defaultAnimeProvider,
+		server: string = usesPathStyleAnimeWatch(provider) ? 'vidstreaming' : 'vidcloud',
+		dub: boolean = false
 	): Promise<ConsumetWatchResponse> {
 		// Map old server names to Consumet server names if needed
 		const serverMap: Record<string, string> = {
@@ -235,10 +253,10 @@ class ConsumetService {
 			'hd-3': 'streamsb'
 		};
 		const mappedServer = serverMap[server] || server;
-		
-		// According to Consumet docs, episodeId should be a query parameter, not in the path
-		// Route: /anime/hianime/watch?episodeId={episodeId}&server={server}
-		const url = `${this.baseUrl}/anime/${provider}/watch?episodeId=${encodeURIComponent(episodeId)}&server=${mappedServer}`;
+
+		const url = usesPathStyleAnimeWatch(provider)
+			? `${this.baseUrl}/anime/${provider}/watch/${encodeURIComponent(episodeId)}?server=${encodeURIComponent(mappedServer)}&dub=${dub}`
+			: `${this.baseUrl}/anime/${provider}/watch?episodeId=${encodeURIComponent(episodeId)}&server=${mappedServer}`;
 		console.log('ConsumetService - Get episode streaming links URL:', url);
 		
 		// Use native http/https modules
@@ -305,10 +323,47 @@ class ConsumetService {
 	}
 
 	/**
+	 * AnimeKai often returns 500 when dub is requested but not available, or when a server is down.
+	 * Try other servers and fall back sub when dub was requested.
+	 */
+	async getAnimeKaiWatchWithFallback(
+		episodeId: string,
+		preferDub: boolean
+	): Promise<AnimeKaiWatchResult> {
+		const servers = ['vidstreaming', 'vidcloud', 'streamsb'];
+		const dubAttempts = preferDub ? [true, false] : [false];
+		let lastError: Error | undefined;
+
+		for (const tryDub of dubAttempts) {
+			for (const server of servers) {
+				try {
+					const watch = await this.getEpisodeStreamingLinks(episodeId, 'animekai', server, tryDub);
+					return {
+						watch,
+						serverUsed: server,
+						dubUsed: tryDub,
+						dubFallback: preferDub && !tryDub
+					};
+				} catch (e) {
+					lastError = e instanceof Error ? e : new Error(String(e));
+				}
+			}
+		}
+
+		throw lastError ?? new Error('AnimeKai watch failed after retries');
+	}
+
+	/**
 	 * Get available servers for an episode
 	 */
-	async getEpisodeServers(episodeId: string, provider: string = 'hianime'): Promise<string[]> {
-		const url = `${this.baseUrl}/anime/${provider}/servers/${encodeURIComponent(episodeId)}`;
+	async getEpisodeServers(
+		episodeId: string,
+		provider: string = config.consumet.defaultAnimeProvider,
+		dub: boolean = false
+	): Promise<string[]> {
+		const url = usesPathStyleAnimeWatch(provider)
+			? `${this.baseUrl}/anime/${provider}/servers/${encodeURIComponent(episodeId)}?dub=${dub}`
+			: `${this.baseUrl}/anime/${provider}/servers/${encodeURIComponent(episodeId)}`;
 		console.log('ConsumetService - Get episode servers URL:', url);
 		
 		// Use native http/https modules

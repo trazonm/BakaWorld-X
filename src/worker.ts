@@ -2,7 +2,12 @@
 // This runs independently from the frontend and continuously updates download progress
 import { config } from 'dotenv';
 import { Pool } from 'pg';
-import { createRealDebridService, UnknownResourceError } from './lib/services/realDebridService';
+import {
+	createRealDebridService,
+	UnknownResourceError,
+	isRealDebridWebDownloadPage,
+	torrentDownloadLinkNeedsUnrestrict
+} from './lib/services/realDebridService';
 import { cleanupTempFiles } from './lib/server/tempCleanup';
 
 // Load environment variables from .env file (for local development)
@@ -128,15 +133,55 @@ async function pollUserDownloads(username: string, downloads: any[], realDebridS
 	let removed = 0;
 	let errors = 0;
 
-	// Filter to only active downloads for efficiency
-	const activeDownloads = downloads.filter(d => d.progress < 100 && d.id);
-	const completedDownloads = downloads.filter(d => d.progress >= 100 || !d.id);
+	for (const download of downloads) {
+		if (!download.id) {
+			updatedDownloads.push(download);
+			continue;
+		}
 
-	// Keep completed downloads as-is
-	updatedDownloads.push(...completedDownloads);
+		// Finished torrents: optionally heal stuck Real-Debrid landing URLs or missing links
+		if (download.progress >= 100) {
+			let entry = { ...download };
+			const shouldHeal =
+				!entry.link?.trim() || isRealDebridWebDownloadPage(entry.link);
+			if (shouldHeal) {
+				try {
+					const torrentInfo = await realDebridService.getTorrentInfo(download.id);
+					const apiLink = torrentInfo.links?.[0];
+					if (apiLink && torrentDownloadLinkNeedsUnrestrict(entry.link, apiLink)) {
+						const unrestricted = await realDebridService.unrestrictLink(apiLink);
+						entry = {
+							...entry,
+							link: unrestricted.download || unrestricted.link
+						};
+						logWithTimestamp(`🔧 [${username}] Resolved direct link for ${entry.filename || download.id}`);
+					}
+				} catch (err) {
+					if (err instanceof UnknownResourceError) {
+						logWithTimestamp(
+							`🗑️ [${username}] Completed torrent missing from Real-Debrid, removing: ${download.filename || download.id}`
+						);
+						try {
+							await realDebridService.deleteTorrent(download.id);
+						} catch {
+							/* ignore */
+						}
+						try {
+							await deleteDownloadById(username, download.id);
+							removed++;
+						} catch (dbError) {
+							logWithTimestamp(`❌ [${username}] Error removing torrent ${download.id}: ${dbError}`, 'error');
+							errors++;
+						}
+						continue;
+					}
+					logWithTimestamp(`⚠️ [${username}] Could not heal link for ${download.id}: ${err}`, 'warn');
+				}
+			}
+			updatedDownloads.push(entry);
+			continue;
+		}
 
-	// Process active downloads
-	for (const download of activeDownloads) {
 		try {
 			const torrentInfo = await realDebridService.getTorrentInfo(download.id);
 
@@ -150,15 +195,12 @@ async function pollUserDownloads(username: string, downloads: any[], realDebridS
 				seeders: torrentInfo.seeders
 			};
 
-			// Check if download just completed
 			const wasCompleted = download.progress < 100 && torrentInfo.progress >= 100;
 
-			// If completed, unrestrict the link
 			if (
 				torrentInfo.progress >= 100 &&
-				torrentInfo.links &&
-				torrentInfo.links[0] &&
-				!download.link?.includes('real-debrid.com')
+				torrentInfo.links?.[0] &&
+				torrentDownloadLinkNeedsUnrestrict(download.link, torrentInfo.links[0])
 			) {
 				try {
 					const unrestricted = await realDebridService.unrestrictLink(torrentInfo.links[0]);
@@ -174,7 +216,6 @@ async function pollUserDownloads(username: string, downloads: any[], realDebridS
 
 			updatedDownloads.push(updatedDownload);
 
-			// Log significant progress updates (>5% change or completion)
 			const progressChange = Math.abs((torrentInfo.progress || 0) - (download.progress || 0));
 			if (progressChange >= 5 || torrentInfo.progress >= 100) {
 				logWithTimestamp(
@@ -182,16 +223,13 @@ async function pollUserDownloads(username: string, downloads: any[], realDebridS
 				);
 			}
 		} catch (error) {
-			// If torrent doesn't exist (unknown_ressource), remove it from database
 			if (error instanceof UnknownResourceError) {
 				logWithTimestamp(
 					`🗑️ [${username}] Removing missing torrent: ${download.filename || download.id} (${download.id})`
 				);
 				try {
-					// Try to delete from Real-Debrid once more to be sure
 					await realDebridService.deleteTorrent(download.id);
 				} catch (deleteError) {
-					// If it still returns unknown_ressource, that's fine - it's already gone
 					if (!(deleteError instanceof UnknownResourceError)) {
 						logWithTimestamp(
 							`⚠️ [${username}] Error attempting to delete missing torrent ${download.id}: ${deleteError}`,
@@ -199,7 +237,6 @@ async function pollUserDownloads(username: string, downloads: any[], realDebridS
 						);
 					}
 				}
-				// Remove from database
 				try {
 					await deleteDownloadById(username, download.id);
 					removed++;
@@ -207,10 +244,8 @@ async function pollUserDownloads(username: string, downloads: any[], realDebridS
 					logWithTimestamp(`❌ [${username}] Error removing torrent ${download.id} from database: ${dbError}`, 'error');
 					errors++;
 				}
-				// Skip adding to updatedDownloads - effectively removes it
 				continue;
 			}
-			// For other errors, keep the download entry but log the error
 			logWithTimestamp(`❌ [${username}] Error polling torrent ${download.id}: ${error}`, 'error');
 			errors++;
 			updatedDownloads.push({

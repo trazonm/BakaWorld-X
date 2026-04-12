@@ -6,12 +6,7 @@
 	
 	export let data: PageData;
 	$: anime = data.anime;
-	$: {
-		anime.episodes.forEach((episode:any) => {
-			episode.id = episode.id.replace(/\$/g, '-');
-		});
-	}
-	
+
 	// Check if we're navigating to/from a watch page (handles both forward and backward navigation)
 	$: isNavigatingToEpisode = $navigating !== null && (
 		$navigating.to?.url.pathname.includes('/watch/') ||
@@ -160,7 +155,7 @@
 				<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
 					{#each anime.episodes as episode}
 						<a
-							href="/anime/{anime.id}/watch/{episode.id.replace(/\$/g, '-')}?language={preferredLanguage}"
+							href="/anime/{anime.id}/watch/{encodeURIComponent(episode.id)}?language={preferredLanguage}"
 							class="bg-gray-800 hover:bg-gray-700 rounded-lg p-4 transition-colors border border-gray-700 hover:border-blue-500"
 						>
 							<div class="flex items-center justify-between mb-2">

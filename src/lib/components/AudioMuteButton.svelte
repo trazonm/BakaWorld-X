@@ -10,7 +10,7 @@
 {#if $theme === 'midnight'}
 	<button
 		type="button"
-		class="inline-flex h-11 w-11 items-center justify-center rounded-lg bg-gray-900/90 text-white shadow-lg ring-1 ring-gray-700 transition-colors hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+		class="inline-flex h-11 w-11 items-center justify-center rounded-xl bg-zinc-900/90 text-zinc-100 shadow-sm ring-1 ring-white/10 transition-colors hover:bg-zinc-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-fuchsia-500/45"
 		onclick={handleToggle}
 		aria-label={$audioMuted ? 'Unmute audio' : 'Mute audio'}
 		title={$audioMuted ? 'Unmute audio' : 'Mute audio'}

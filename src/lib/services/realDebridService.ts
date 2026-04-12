@@ -45,6 +45,28 @@ export class UnknownResourceError extends Error {
 	}
 }
 
+/** Real-Debrid web download landing page (must be passed through /unrestrict/link). */
+export function isRealDebridWebDownloadPage(url: string | undefined): boolean {
+	if (!url?.trim()) return false;
+	return /https?:\/\/(?:www\.)?real-debrid\.com\/d\//i.test(url.trim());
+}
+
+/**
+ * Whether we should call POST /unrestrict/link for a torrent file using the link from torrents/info `links[0]`.
+ * RD returns hoster or wrapped URLs there; the direct CDN URL only appears after unrestriction.
+ */
+export function torrentDownloadLinkNeedsUnrestrict(
+	storedLink: string | undefined,
+	torrentApiLink: string
+): boolean {
+	if (!torrentApiLink?.trim()) return false;
+	const stored = (storedLink || '').trim();
+	if (!stored) return true;
+	if (stored === torrentApiLink) return true;
+	if (isRealDebridWebDownloadPage(stored)) return true;
+	return false;
+}
+
 export class RealDebridService {
 	private authToken: string;
 	private requestTimestamps: number[] = []; // Track requests for rate limiting

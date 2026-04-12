@@ -33,9 +33,11 @@
 	</div>
 {:else if results.length > 0}
 	<!-- Search Results Grid -->
-	<div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 md:gap-6 justify-items-center">
+	<div
+		class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 md:gap-6 justify-items-stretch items-stretch"
+	>
 		{#each results as anime (anime.id)}
-			<div class="w-full max-w-[300px]">
+			<div class="mx-auto flex h-full w-full max-w-[300px] min-h-0">
 				<AnimeCard {anime} />
 			</div>
 		{/each}

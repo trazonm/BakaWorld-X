@@ -10,7 +10,6 @@
 	let loginLoading = false;
 	let loginError = '';
 
-	// Load reCAPTCHA script
 	function loadRecaptchaScript() {
 		return new Promise<void>((resolve, reject) => {
 			if (typeof window !== 'undefined' && (window as any).grecaptcha) {
@@ -32,12 +31,11 @@
 		});
 	}
 
-	// Get reCAPTCHA token
 	async function getRecaptchaToken(): Promise<string> {
 		if (!recaptchaLoaded || !(window as any).grecaptcha) {
 			throw new Error('reCAPTCHA not loaded');
 		}
-		
+
 		try {
 			const token = await (window as any).grecaptcha.execute(recaptchaSiteKey, { action: 'login' });
 			return token;
@@ -47,7 +45,6 @@
 		}
 	}
 
-	// Redirect to /home if already logged in
 	onMount(async () => {
 		await refreshAuth();
 		const { isLoggedIn } = get(auth);
@@ -55,7 +52,6 @@
 			goto('/home');
 		}
 
-		// Fetch reCAPTCHA site key and load script
 		try {
 			const res = await fetch('/api/auth/recaptcha-key');
 			const data = await res.json();
@@ -87,51 +83,62 @@
 </script>
 
 <main
-	class="flex min-h-[calc(100vh-5rem)] w-full flex-col items-center justify-center"
+	class="flex min-h-[calc(100vh-5rem)] w-full flex-col items-center justify-center px-4 py-16"
 >
-	<div class="flex flex-col items-center mb-40">
-		<h1 class="mt-12 mb-8 text-4xl font-extrabold text-white drop-shadow-lg">BakaWorld χ</h1>
-		<div class="flex gap-6">
+	<div class="w-full max-w-lg text-center">
+		<p class="mb-3 text-xs font-medium uppercase tracking-[0.2em] text-zinc-500">BakaWorld</p>
+		<h1
+			class="mb-4 text-4xl font-bold tracking-tight text-white sm:text-5xl md:text-6xl"
+		>
+			BakaWorld <span class="text-theme-accent">χ</span>
+		</h1>
+		<p class="mx-auto mb-10 max-w-md text-sm leading-relaxed text-zinc-400 md:text-base">
+			Anime, manga, comics, and your queue — one place.
+		</p>
+		<div class="flex flex-col justify-center gap-3 sm:flex-row sm:gap-4">
 			<button
-				class="rounded bg-blue-700 px-6 py-2 font-semibold text-white shadow-md hover:bg-blue-800"
-				on:click={openLogin}>Login</button
+				type="button"
+				class="min-h-[48px] rounded-xl bg-violet-600 px-8 py-3 text-base font-semibold text-white shadow-lg shadow-violet-950/40 transition hover:bg-violet-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/60 active:translate-y-px"
+				on:click={openLogin}>Log in</button
 			>
 			<button
-				class="rounded bg-green-700 px-6 py-2 font-semibold text-white shadow-md hover:bg-green-800"
-				on:click={openSignup}>Sign Up</button
+				type="button"
+				class="min-h-[48px] rounded-xl border border-white/15 bg-white/[0.04] px-8 py-3 text-base font-semibold text-zinc-100 transition hover:bg-white/[0.08] focus:outline-none focus-visible:ring-2 focus-visible:ring-white/20 active:translate-y-px"
+				on:click={openSignup}>Create account</button
 			>
 		</div>
 	</div>
 </main>
 
 {#if showLogin}
-	<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+	<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
 		<div
-			class="relative w-full max-w-sm rounded-lg border border-gray-700 bg-gray-900 p-8 shadow-2xl"
+			class="relative w-full max-w-md rounded-2xl border border-white/10 bg-zinc-950/95 p-8 shadow-2xl shadow-black/50 ring-1 ring-white/5"
 		>
 			<button
-				class="absolute top-2 right-2 text-2xl text-gray-400 hover:text-white"
+				class="absolute right-3 top-3 flex h-10 w-10 items-center justify-center rounded-lg text-2xl text-zinc-500 transition hover:bg-white/[0.06] hover:text-zinc-200"
 				on:click={closeModal}>&times;</button
 			>
-			<h2 class="mb-4 text-2xl font-bold text-white">Login</h2>
-			
+			<h2 class="mb-6 text-2xl font-bold tracking-tight text-white">Log in</h2>
+
 			{#if loginError}
-				<div class="mb-4 rounded bg-red-900/50 border border-red-700 px-4 py-3 text-red-200 text-sm">
+				<div
+					class="mb-4 rounded-xl border border-red-500/30 bg-red-950/40 px-4 py-3 text-sm text-red-200"
+				>
 					{loginError}
 				</div>
 			{/if}
-			
+
 			<form
 				on:submit|preventDefault={async (e) => {
-					if (loginLoading) return; // Prevent double submission
-					
+					if (loginLoading) return;
+
 					loginLoading = true;
 					loginError = '';
-					
+
 					const form = e.target as HTMLFormElement;
 					const formData = new FormData(form);
-					
-					// Get reCAPTCHA token
+
 					let recaptchaToken = '';
 					try {
 						recaptchaToken = await getRecaptchaToken();
@@ -146,7 +153,7 @@
 						const res = await fetch('/api/auth/login', {
 							method: 'POST',
 							headers: { 'Content-Type': 'application/json' },
-							credentials: 'include', // Include cookies in request
+							credentials: 'include',
 							body: JSON.stringify({
 								username: formData.get('username'),
 								password: formData.get('password'),
@@ -155,10 +162,8 @@
 						});
 						const data = await res.json();
 						if (data.success) {
-							// Wait a brief moment for cookie to be set, then refresh auth
-							await new Promise(resolve => setTimeout(resolve, 100));
+							await new Promise((resolve) => setTimeout(resolve, 100));
 							await refreshAuth();
-							// Use window.location for a full page reload to ensure cookie is read
 							window.location.href = '/home';
 						} else {
 							loginError = data.message || 'Login failed';
@@ -176,7 +181,7 @@
 					name="username"
 					type="text"
 					placeholder="Username"
-					class="rounded border border-gray-700 bg-gray-800 px-4 py-2 text-white focus:outline-none"
+					class="min-h-[48px] rounded-xl border border-white/10 bg-zinc-900/80 px-4 py-3 text-white placeholder:text-zinc-500 focus:border-violet-500/50 focus:outline-none focus:ring-2 focus:ring-violet-500/25"
 					required
 					disabled={loginLoading}
 				/>
@@ -184,23 +189,39 @@
 					name="password"
 					type="password"
 					placeholder="Password"
-					class="rounded border border-gray-700 bg-gray-800 px-4 py-2 text-white focus:outline-none"
+					class="min-h-[48px] rounded-xl border border-white/10 bg-zinc-900/80 px-4 py-3 text-white placeholder:text-zinc-500 focus:border-violet-500/50 focus:outline-none focus:ring-2 focus:ring-violet-500/25"
 					required
 					disabled={loginLoading}
 				/>
 				<button
 					type="submit"
-					class="rounded bg-blue-700 px-4 py-2 font-semibold text-white hover:bg-blue-800 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+					class="mt-2 flex min-h-[48px] items-center justify-center rounded-xl bg-violet-600 px-4 py-3 font-semibold text-white transition hover:bg-violet-500 disabled:cursor-not-allowed disabled:opacity-50"
 					disabled={loginLoading}
 				>
 					{#if loginLoading}
-						<svg class="animate-spin h-5 w-5 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-							<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-							<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+						<svg
+							class="mr-2 h-5 w-5 animate-spin"
+							xmlns="http://www.w3.org/2000/svg"
+							fill="none"
+							viewBox="0 0 24 24"
+						>
+							<circle
+								class="opacity-25"
+								cx="12"
+								cy="12"
+								r="10"
+								stroke="currentColor"
+								stroke-width="4"
+							></circle>
+							<path
+								class="opacity-75"
+								fill="currentColor"
+								d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+							></path>
 						</svg>
-						Logging in...
+						Logging in…
 					{:else}
-						Login
+						Continue
 					{/if}
 				</button>
 			</form>
@@ -209,15 +230,15 @@
 {/if}
 
 {#if showSignup}
-	<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+	<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
 		<div
-			class="relative w-full max-w-sm rounded-lg border border-gray-700 bg-gray-900 p-8 shadow-2xl"
+			class="relative w-full max-w-md rounded-2xl border border-white/10 bg-zinc-950/95 p-8 shadow-2xl shadow-black/50 ring-1 ring-white/5"
 		>
 			<button
-				class="absolute top-2 right-2 text-2xl text-gray-400 hover:text-white"
+				class="absolute right-3 top-3 flex h-10 w-10 items-center justify-center rounded-lg text-2xl text-zinc-500 transition hover:bg-white/[0.06] hover:text-zinc-200"
 				on:click={closeModal}>&times;</button
 			>
-			<h2 class="mb-4 text-2xl font-bold text-white">Sign Up</h2>
+			<h2 class="mb-6 text-2xl font-bold tracking-tight text-white">Create account</h2>
 			<form
 				on:submit|preventDefault={async (e) => {
 					const form = e.target as HTMLFormElement;
@@ -257,31 +278,31 @@
 					name="username"
 					type="text"
 					placeholder="Username"
-					class="rounded border border-gray-700 bg-gray-800 px-4 py-2 text-white focus:outline-none"
+					class="min-h-[48px] rounded-xl border border-white/10 bg-zinc-900/80 px-4 py-3 text-white placeholder:text-zinc-500 focus:border-emerald-500/50 focus:outline-none focus:ring-2 focus:ring-emerald-500/25"
 					required
 				/>
 				<input
 					name="password"
 					type="password"
 					placeholder="Password"
-					class="rounded border border-gray-700 bg-gray-800 px-4 py-2 text-white focus:outline-none"
+					class="min-h-[48px] rounded-xl border border-white/10 bg-zinc-900/80 px-4 py-3 text-white placeholder:text-zinc-500 focus:border-emerald-500/50 focus:outline-none focus:ring-2 focus:ring-emerald-500/25"
 					required
 				/>
 				<input
 					name="confirm"
 					type="password"
-					placeholder="Confirm Password"
-					class="rounded border border-gray-700 bg-gray-800 px-4 py-2 text-white focus:outline-none"
+					placeholder="Confirm password"
+					class="min-h-[48px] rounded-xl border border-white/10 bg-zinc-900/80 px-4 py-3 text-white placeholder:text-zinc-500 focus:border-emerald-500/50 focus:outline-none focus:ring-2 focus:ring-emerald-500/25"
 					required
 				/>
-				<div class="mb-2 text-xs text-gray-400">
-					Password must be at least 8 characters, include uppercase, lowercase, number, and special
+				<p class="text-xs leading-relaxed text-zinc-500">
+					Password must be at least 8 characters and include uppercase, lowercase, number, and special
 					character.
-				</div>
+				</p>
 				<button
 					type="submit"
-					class="rounded bg-green-700 px-4 py-2 font-semibold text-white hover:bg-green-800"
-					>Sign Up</button
+					class="mt-1 min-h-[48px] rounded-xl bg-emerald-600 px-4 py-3 font-semibold text-white transition hover:bg-emerald-500"
+					>Sign up</button
 				>
 			</form>
 		</div>

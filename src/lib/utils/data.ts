@@ -1,8 +1,18 @@
 // Data manipulation utilities
 import type { SearchResult } from '$lib/types';
 
+const US = '\x1f';
+
 export function getRowKey(result: { id?: string; Guid?: string; Title?: string; Size?: number }): string {
 	return result.id || result.Guid || `${result.Title}-${result.Size}` || '';
+}
+
+/**
+ * Keys for `{#each results as r (key)}`. Jackett can repeat the same `Guid` (e.g. identical magnet)
+ * on multiple rows; Svelte requires unique each keys, so the index is always included.
+ */
+export function eachSearchResultKey(result: SearchResult, index: number): string {
+	return `${index}${US}${getRowKey(result)}`;
 }
 
 export function sortSearchResults<T extends SearchResult>(

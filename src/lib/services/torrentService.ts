@@ -78,7 +78,10 @@ class TorrentService {
 			body: JSON.stringify({ link })
 		});
 		const data = await res.json();
-		return data.download;
+		if (!res.ok) {
+			throw new Error(data.error || 'Failed to unrestrict link');
+		}
+		return data.download || data.link || '';
 	}
 
 	async handleLink(link: string): Promise<string> {

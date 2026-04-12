@@ -2,7 +2,7 @@
 <script lang="ts">
 	import TorrentRow from './TorrentRow.svelte';
 	import type { SearchResult, SortKey, SortDirection } from '$lib/types';
-	import { getRowKey } from '$lib/utils';
+	import { eachSearchResultKey } from '$lib/utils';
 
 	export let results: SearchResult[];
 	export let sortKey: SortKey;
@@ -12,11 +12,11 @@
 </script>
 
 <div class="overflow-x-auto">
-	<table class="min-w-full text-left text-sm bg-gray-900 text-white border border-gray-800">
-		<thead>
-			<tr class="border-b border-gray-800">
+	<table class="min-w-full border-collapse text-left text-sm text-zinc-100">
+		<thead class="sticky top-0 z-[1] border-b border-zinc-800 bg-zinc-950/95 backdrop-blur-sm">
+			<tr>
 				<th
-					class="cursor-pointer px-4 py-2 select-none"
+					class="cursor-pointer px-4 py-3 select-none text-zinc-400 transition-colors hover:text-fuchsia-200"
 					on:click={() => onSort('Title')}
 				>
 					Name
@@ -25,7 +25,7 @@
 					{/if}
 				</th>
 				<th
-					class="cursor-pointer px-4 py-2 select-none"
+					class="cursor-pointer px-4 py-3 select-none text-zinc-400 transition-colors hover:text-fuchsia-200"
 					on:click={() => onSort('Size')}
 				>
 					Size
@@ -34,7 +34,7 @@
 					{/if}
 				</th>
 				<th
-					class="cursor-pointer px-4 py-2 select-none"
+					class="cursor-pointer px-4 py-3 select-none text-zinc-400 transition-colors hover:text-fuchsia-200"
 					on:click={() => onSort('Seeders')}
 				>
 					Seeders
@@ -42,11 +42,11 @@
 						<span>{sortDirection === 'asc' ? '▲' : '▼'}</span>
 					{/if}
 				</th>
-				<th class="px-4 py-2">Action</th>
+				<th class="px-4 py-3">Action</th>
 			</tr>
 		</thead>
-		<tbody>
-			{#each results as result, index (`${getRowKey(result)}-${index}`)}
+		<tbody class="divide-y divide-zinc-800/90">
+			{#each results as result, i (eachSearchResultKey(result, i))}
 				<TorrentRow {result} {onAddToQueue} />
 			{/each}
 		</tbody>

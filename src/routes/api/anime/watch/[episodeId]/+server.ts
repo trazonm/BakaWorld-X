@@ -1,79 +1,180 @@
-// Anime episode streaming links endpoint using Consumet API
+// MegaPlay: `s-2` (Aniwatch ?ep= id), MAL/AniList + ep#; else Consumet AnimeKai HLS fallback.
 import type { RequestHandler } from '@sveltejs/kit';
-import { getSessionUser } from '$lib/server/session';
-import { createConsumetService } from '$lib/services/consumetService';
+import { createConsumetService, type ConsumetWatchResponse } from '$lib/services/consumetService';
 import { config } from '$lib/config';
+import { extractAnimeExternalIds } from '$lib/server/animePlaybackMeta';
 import '$lib/server/dns-config';
 
-export const GET: RequestHandler = async ({ request, params, url }) => {
-    // TODO: Re-enable auth when ready
-    // const user = getSessionUser(request);
-    // if (!user) {
-    //     return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
-    // }
-    
-    let episodeId = params.episodeId;
-    const language = url.searchParams.get('language') || 'sub'; // sub or dub
-    
-    if (!episodeId) {
-        return new Response(JSON.stringify({ error: 'Episode ID is required' }), { status: 400 });
-    }
-    
-    // Convert URL-safe episode ID back to original format (replace - with $)
-    // Format: anime-name-id$episode$hianime-ep-id
-    episodeId = episodeId.replace(/-/g, '$');
-    
-    console.log('Episode watch - Original ID from URL:', params.episodeId);
-    console.log('Episode watch - Converted ID:', episodeId);
-    console.log('Episode watch - Language:', language);
-    
-    try {
-        // Extract the hianime episode ID (the number after $episode$)
-        // Format: dragon-ball-509$episode$10218
-        const parts = episodeId.split('$episode$');
-        if (parts.length !== 2) {
-            throw new Error(`Invalid episode ID format: ${episodeId}. Expected format: anime-id$episode$ep-number`);
-        }
-        
-        const hianimeEpId = parts[1];
-        console.log('Extracted hianime episode ID:', hianimeEpId);
-        
-        // Create MegaPlay embed URL
-        // Format: https://megaplay.buzz/stream/s-2/{hianime-ep-id}/{language}
-        const embedUrl = `https://megaplay.buzz/stream/s-2/${hianimeEpId}/${language}`;
-        console.log('MegaPlay embed URL:', embedUrl);
-        
-        // Return the embed URL in a format compatible with the video player
-        const response = {
-            embedUrl: embedUrl,
-            sources: [{
-                url: embedUrl,
-                quality: 'default',
-                isM3U8: false,
-                isEmbed: true
-            }],
-            headers: {}
-        };
-        
-        return new Response(JSON.stringify(response), { 
-            status: 200,
-            headers: { 'Content-Type': 'application/json' }
-        });
-    } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-        const errorStack = error instanceof Error ? error.stack : undefined;
-        console.error('Episode streaming links error:', errorMessage);
-        console.error('Error stack:', errorStack);
-        
-        return new Response(JSON.stringify({ 
-            error: errorMessage,
-            details: errorStack,
-            episodeId: params.episodeId,
-            convertedId: episodeId,
-            server: server
-        }), { 
-            status: 500,
-            headers: { 'Content-Type': 'application/json' }
-        });
-    }
+function decodeEpisodeSegment(segment: string): string {
+	try {
+		return decodeURIComponent(segment);
+	} catch {
+		return segment;
+	}
+}
+
+function parsePositiveIntParam(v: string | null): number | undefined {
+	if (v == null || v === '') return undefined;
+	const n = parseInt(v, 10);
+	return Number.isFinite(n) && n > 0 ? n : undefined;
+}
+
+export const GET: RequestHandler = async ({ params, url }) => {
+	const language = url.searchParams.get('language') === 'dub' ? 'dub' : 'sub';
+	const dub = language === 'dub';
+
+	let episodeId = params.episodeId;
+	if (!episodeId) {
+		return new Response(JSON.stringify({ error: 'Episode ID is required' }), { status: 400 });
+	}
+
+	episodeId = decodeEpisodeSegment(episodeId);
+
+	const provider = config.consumet.defaultAnimeProvider;
+	const consumetService = createConsumetService(config.consumet.baseUrl);
+
+	const animeId = url.searchParams.get('animeId')?.trim() || '';
+	const episodeNumber =
+		parsePositiveIntParam(url.searchParams.get('episodeNumber')) ??
+		parsePositiveIntParam(url.searchParams.get('ep'));
+
+	let malId = parsePositiveIntParam(url.searchParams.get('malId'));
+	let anilistId = parsePositiveIntParam(url.searchParams.get('anilistId'));
+
+	const useMega = config.megaplay.useMetaEmbedWhenAvailable;
+	const megaBase = config.megaplay.baseUrl.replace(/\/$/, '');
+	const lang = language === 'dub' ? 'dub' : 'sub';
+
+	try {
+		// Aniwatch numeric episode id → MegaPlay s-2 (see https://megaplay.buzz/api )
+		if (useMega && /^\d+$/.test(episodeId)) {
+			const embedUrl = `${megaBase}/stream/s-2/${episodeId}/${lang}`;
+			return new Response(
+				JSON.stringify({
+					playback: 'embed',
+					embedUrl,
+					sources: [
+						{
+							url: embedUrl,
+							quality: 'default',
+							isM3U8: false,
+							isEmbed: true
+						}
+					],
+					headers: {},
+					languageUsed: lang,
+					playbackSource: 'megaplay-s2'
+				}),
+				{
+					status: 200,
+					headers: { 'Content-Type': 'application/json' }
+				}
+			);
+		}
+
+		if (useMega && episodeNumber != null && malId == null && anilistId == null && animeId) {
+			try {
+				const info = (await consumetService.getAnimeInfo(
+					animeId,
+					provider
+				)) as Record<string, unknown>;
+				const extracted = extractAnimeExternalIds(info);
+				malId = extracted.malId;
+				anilistId = extracted.anilistId;
+			} catch (e) {
+				console.warn(
+					'anime/watch: getAnimeInfo for external ids failed; falling back to Consumet watch',
+					e
+				);
+			}
+		}
+
+		if (useMega && episodeNumber != null && (malId != null || anilistId != null)) {
+			const embedUrl =
+				malId != null
+					? `${megaBase}/stream/mal/${malId}/${episodeNumber}/${lang}`
+					: `${megaBase}/stream/ani/${anilistId}/${episodeNumber}/${lang}`;
+
+			return new Response(
+				JSON.stringify({
+					playback: 'embed',
+					embedUrl,
+					sources: [
+						{
+							url: embedUrl,
+							quality: 'default',
+							isM3U8: false,
+							isEmbed: true
+						}
+					],
+					headers: {},
+					languageUsed: lang,
+					playbackSource: 'megaplay'
+				}),
+				{
+					status: 200,
+					headers: { 'Content-Type': 'application/json' }
+				}
+			);
+		}
+
+		let data: ConsumetWatchResponse;
+		let languageUsed: 'sub' | 'dub' = dub ? 'dub' : 'sub';
+		let languageDubFallback = false;
+
+		if (provider === 'animekai') {
+			const resolved = await consumetService.getAnimeKaiWatchWithFallback(episodeId, dub);
+			data = resolved.watch;
+			languageUsed = resolved.dubUsed ? 'dub' : 'sub';
+			languageDubFallback = resolved.dubFallback;
+		} else {
+			data = await consumetService.getEpisodeStreamingLinks(episodeId, provider, 'vidcloud', dub);
+		}
+
+		const referer =
+			(data.headers?.Referer as string | undefined) ||
+			(data.headers as { referer?: string })?.referer ||
+			'https://animekai.to/';
+
+		const sources = (data.sources || []).map((s) => ({
+			...s,
+			url: s.isM3U8
+				? `/api/proxy/m3u8?url=${encodeURIComponent(s.url)}&referer=${encodeURIComponent(referer)}`
+				: s.url,
+			isEmbed: false
+		}));
+
+		return new Response(
+			JSON.stringify({
+				playback: 'hls',
+				headers: data.headers,
+				sources,
+				download: data.download,
+				languageUsed,
+				...(languageDubFallback ? { languageDubFallback: true } : {}),
+				playbackSource: 'consumet'
+			}),
+			{
+				status: 200,
+				headers: { 'Content-Type': 'application/json' }
+			}
+		);
+	} catch (error) {
+		const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+		const errorStack = error instanceof Error ? error.stack : undefined;
+		console.error('Episode streaming links error:', errorMessage);
+		console.error('Error stack:', errorStack);
+
+		return new Response(
+			JSON.stringify({
+				error: errorMessage,
+				details: errorStack,
+				episodeId: params.episodeId
+			}),
+			{
+				status: 500,
+				headers: { 'Content-Type': 'application/json' }
+			}
+		);
+	}
 };

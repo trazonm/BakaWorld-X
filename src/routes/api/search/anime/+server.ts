@@ -1,46 +1,34 @@
-// Anime search endpoint using Consumet API
+// Anime search via Aniwatch-Api (idanime → MegaPlay-compatible catalog)
 import type { RequestHandler } from '@sveltejs/kit';
-import { getSessionUser } from '$lib/server/session';
-import { createConsumetService } from '$lib/services/consumetService';
-import { config } from '$lib/config';
+import { aniwatchSearch } from '$lib/server/aniwatchClient';
 import '$lib/server/dns-config';
 
 export const GET: RequestHandler = async ({ request }) => {
-    // TODO: Re-enable auth when ready
-    // const user = getSessionUser(request);
-    // if (!user) {
-    //     return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
-    // }
-    
-    const url = new URL(request.url);
-    const query = url.searchParams.get('query')?.trim();
-    const page = parseInt(url.searchParams.get('page') || '1');
-    
-    if (!query) {
-        return new Response(JSON.stringify({ error: 'Query parameter is required' }), { status: 400 });
-    }
-    
-    try {
-        // Use config default (http://192.168.0.107:6000)
-        const baseUrl = config.consumet.baseUrl;
-        console.log('Anime search - Using base URL:', baseUrl);
-        console.log('Anime search - Query:', query, 'Page:', page);
-        
-        const consumetService = createConsumetService(baseUrl);
-        const result = await consumetService.searchAnime(query, 'hianime', page);
-        
-        return new Response(JSON.stringify(result), { 
-            status: 200,
-            headers: { 'Content-Type': 'application/json' }
-        });
-    } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-        const errorStack = error instanceof Error ? error.stack : undefined;
-        console.error('Anime search error:', errorMessage);
-        console.error('Error stack:', errorStack);
-        return new Response(JSON.stringify({ 
-            error: errorMessage,
-            details: errorStack
-        }), { status: 500 });
-    }
+	const url = new URL(request.url);
+	const query = url.searchParams.get('query')?.trim();
+	const page = Math.max(1, parseInt(url.searchParams.get('page') || '1', 10));
+
+	if (!query) {
+		return new Response(JSON.stringify({ error: 'Query parameter is required' }), { status: 400 });
+	}
+
+	try {
+		const result = await aniwatchSearch(query, page);
+		return new Response(JSON.stringify(result), {
+			status: 200,
+			headers: { 'Content-Type': 'application/json' }
+		});
+	} catch (error) {
+		const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+		const errorStack = error instanceof Error ? error.stack : undefined;
+		console.error('Anime search error:', errorMessage);
+		console.error('Error stack:', errorStack);
+		return new Response(
+			JSON.stringify({
+				error: errorMessage,
+				details: errorStack
+			}),
+			{ status: 500 }
+		);
+	}
 };

@@ -8,6 +8,7 @@
 	import { theme } from '$lib/stores/theme';
 	import ThemeToggle from '$lib/components/ThemeToggle.svelte';
 	import AudioMuteButton from '$lib/components/AudioMuteButton.svelte';
+	import SiteAmbientCanvas from '$lib/components/SiteAmbientCanvas.svelte';
 	import InstallPrompt from '$lib/components/InstallPrompt.svelte';
 	import '../app.css';
 	import { registerSW } from 'virtual:pwa-register';
@@ -41,10 +42,11 @@
 	};
 
 	function linkClasses(href: string) {
-		const base = 'transition-colors font-semibold';
-		return activeUrl === href
-			? `${base} text-blue-400`
-			: `${base} text-gray-300 hover:text-blue-300`;
+		const base =
+			'rounded-lg px-3 py-2 text-sm font-medium transition-colors duration-150 max-lg:py-2.5';
+		return activeUrl === href || (href !== '/' && activeUrl.startsWith(href + '/'))
+			? `${base} bg-white/10 text-white shadow-sm ring-1 ring-violet-400/35`
+			: `${base} text-zinc-400 hover:bg-white/[0.06] hover:text-zinc-100`;
 	}
 
 	// Close menu on navigation - must be called at top level, not inside onMount
@@ -73,25 +75,30 @@
 	}
 </script>
 
-<nav class="relative z-50 px-4 py-4 md:px-8 navbar-transparent">
+<div class="relative isolate min-h-screen">
+	<SiteAmbientCanvas />
+
+	<nav
+		class="navbar-surface sticky top-0 z-50 border-b border-white/[0.07] px-4 py-3 md:px-8 md:py-3.5"
+	>
 	<div class="container mx-auto flex items-center justify-between gap-4">
 		<!-- Left: Logo and Brand -->
-		<a href="/" class="flex items-center gap-3 flex-shrink-0">
+		<a href="/" class="flex flex-shrink-0 items-center gap-3">
 			<div style="color-scheme: light; filter: none; -webkit-filter: none;" class="logo-container">
-				<img src={logo} alt="BakaWorld Logo" class="h-10 w-10 rounded-full shadow-lg logo-image" />
+				<img src={logo} alt="BakaWorld Logo" class="logo-image h-10 w-10 rounded-xl shadow-md ring-1 ring-white/10" />
 			</div>
-			<span class="text-2xl font-semibold text-white">BakaWorld χ</span>
+			<span class="text-xl font-semibold tracking-tight text-zinc-50 md:text-2xl">BakaWorld χ</span>
 		</a>
 		
 		<!-- Center: Navigation Links -->
-		<div class="hidden lg:flex items-center gap-6 text-sm absolute left-1/2 transform -translate-x-1/2">
+		<div class="absolute left-1/2 hidden -translate-x-1/2 transform items-center gap-1 lg:flex">
 			{#each navLinks as link}
 				<a href={link.href} class={linkClasses(link.href)}>{link.label}</a>
 			{/each}
 		</div>
 		
 		<!-- Right: Theme Toggle, Audio Mute, Logout, Mobile Menu -->
-		<div class="flex items-center gap-3 ml-auto">
+		<div class="ml-auto flex items-center gap-2 md:gap-3">
 			<!-- Theme Toggle -->
 			<ThemeToggle />
 			
@@ -100,14 +107,14 @@
 			
 			{#if $auth.isLoggedIn}
 				<button
-					class="hidden lg:inline-flex items-center rounded-lg border border-red-900 bg-red-700 px-4 py-2 font-semibold text-white shadow hover:bg-red-800 focus:outline-none focus:ring-2 focus:ring-red-500"
+					class="hidden items-center rounded-xl border border-red-500/40 bg-red-600/90 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-red-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-400/60 lg:inline-flex"
 					onclick={handleLogout}
 				>
 					Logout
 				</button>
 			{/if}
 			<button
-				class="inline-flex h-11 w-11 items-center justify-center rounded-lg bg-gray-900/90 text-white shadow-lg ring-1 ring-gray-700 transition-colors hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 lg:hidden"
+				class="inline-flex h-11 w-11 items-center justify-center rounded-xl bg-zinc-900/90 text-zinc-100 shadow-sm ring-1 ring-white/10 transition-colors hover:bg-zinc-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/50 lg:hidden"
 				type="button"
 				onclick={toggleMenu}
 				aria-label={$menuOpen ? 'Close menu' : 'Open menu'}
@@ -140,25 +147,27 @@
 		</button>
 		</div>
 	</div>
-</nav>
+	</nav>
 
 {#if $menuOpen}
 	<div class="fixed inset-0 z-40 md:hidden">
 		<button
 			type="button"
-			class="absolute inset-0 cursor-pointer bg-black/70 backdrop-blur-sm"
+			class="absolute inset-0 cursor-pointer bg-black/80"
 			aria-label="Close menu"
 			onclick={closeMenu}
 		></button>
-		<div class="absolute left-4 right-4 top-24 space-y-4 rounded-2xl border theme-border bg-gray-900/95 p-6 shadow-2xl" style="background-color: var(--theme-bg-secondary); border-color: var(--theme-border);">
-			<div class="space-y-2">
+		<div
+			class="absolute left-4 right-4 top-24 space-y-3 rounded-2xl border border-white/10 bg-zinc-900/95 p-5 shadow-2xl shadow-black/40 ring-1 ring-white/5"
+		>
+			<div class="space-y-1">
 				{#each navLinks as link}
 					<a
 						href={link.href}
 						class={`block rounded-xl px-4 py-3 text-base font-semibold transition ${
-							activeUrl === link.href
-								? 'bg-blue-900/50 text-blue-300 ring-1 ring-blue-700'
-								: 'text-gray-100 hover:bg-gray-800'
+							activeUrl === link.href || activeUrl.startsWith(link.href + '/')
+								? 'bg-violet-600/25 text-violet-100 ring-1 ring-violet-500/35'
+								: 'text-zinc-100 hover:bg-white/[0.06]'
 						}`}
 						onclick={closeMenu}
 					>
@@ -168,7 +177,7 @@
 			</div>
 			{#if $auth.isLoggedIn}
 				<button
-					class="w-full rounded-xl bg-red-600 px-4 py-3 text-base font-semibold text-white shadow hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500"
+					class="w-full rounded-xl bg-red-600/90 px-4 py-3 text-base font-semibold text-white shadow-sm transition hover:bg-red-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-400/60"
 					onclick={handleLogout}
 				>
 					Logout
@@ -181,4 +190,23 @@
 <!-- PWA Install Prompt -->
 <InstallPrompt />
 
-{@render children()}
+	<div class="relative z-10">
+		{@render children()}
+	</div>
+</div>
+
+<style>
+	.navbar-surface {
+		background-color: color-mix(in srgb, var(--theme-bg-primary) 88%, transparent);
+		backdrop-filter: blur(16px);
+		-webkit-backdrop-filter: blur(16px);
+	}
+
+	@media (max-width: 767px) {
+		.navbar-surface {
+			background-color: var(--theme-bg-primary);
+			backdrop-filter: none;
+			-webkit-backdrop-filter: none;
+		}
+	}
+</style>

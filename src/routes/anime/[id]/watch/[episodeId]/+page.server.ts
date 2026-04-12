@@ -1,5 +1,22 @@
 import type { PageServerLoad } from './$types';
 import { error } from '@sveltejs/kit';
+import {
+	extractAnimeExternalIds,
+	parseEpisodeNumberFromEpisode
+} from '$lib/server/animePlaybackMeta';
+
+function decodeEpisodeParam(segment: string): string {
+	try {
+		return decodeURIComponent(segment);
+	} catch {
+		return segment;
+	}
+}
+
+function episodeMatchesUrlParam(ep: { id: string }, urlParam: string): boolean {
+	const decoded = decodeEpisodeParam(urlParam);
+	return ep.id === decoded || ep.id.replace(/\$/g, '-') === urlParam;
+}
 
 export const load: PageServerLoad = async ({ params, fetch, url }) => {
 	const language = url.searchParams.get('language') || 'sub';
@@ -24,9 +41,8 @@ export const load: PageServerLoad = async ({ params, fetch, url }) => {
 			console.log('First few episode IDs:', animeData.episodes.slice(0, 3).map((ep: any) => ep.id));
 		}
 		
-		// Find the current episode (URL uses - instead of $)
-		const currentEpisode = animeData.episodes?.find((ep: any) => 
-			ep.id.replace(/\$/g, '-') === params.episodeId
+		const currentEpisode = animeData.episodes?.find((ep: any) =>
+			episodeMatchesUrlParam(ep, params.episodeId)
 		);
 		
 		console.log('Current episode found:', !!currentEpisode);
@@ -36,7 +52,10 @@ export const load: PageServerLoad = async ({ params, fetch, url }) => {
 		
 		if (!currentEpisode) {
 			console.log('Episode not found. Looking for:', params.episodeId);
-			console.log('Available episodes:', animeData.episodes?.map((ep: any) => ep.id.replace(/\$/g, '-')).slice(0, 5));
+			console.log(
+				'Available episodes:',
+				animeData.episodes?.map((ep: any) => encodeURIComponent(ep.id)).slice(0, 5)
+			);
 			throw error(404, 'Episode not found');
 		}
 		
@@ -85,7 +104,15 @@ export const load: PageServerLoad = async ({ params, fetch, url }) => {
 		}
 		
 		// Load the video with the determined language (may be different from requested)
-		const videoResponse = await fetch(`/api/anime/watch/${params.episodeId}?language=${actualLanguage}`);
+		const watchSegment = encodeURIComponent(decodeEpisodeParam(params.episodeId));
+		const epNum = parseEpisodeNumberFromEpisode(currentEpisode);
+		const { malId, anilistId } = extractAnimeExternalIds(animeData as Record<string, unknown>);
+		const watchQs = new URLSearchParams({ language: actualLanguage, animeId: params.id });
+		if (epNum != null) watchQs.set('episodeNumber', String(epNum));
+		if (malId != null) watchQs.set('malId', String(malId));
+		if (anilistId != null) watchQs.set('anilistId', String(anilistId));
+
+		const videoResponse = await fetch(`/api/anime/watch/${watchSegment}?${watchQs}`);
 		console.log('Video response status:', videoResponse.status);
 		
 		if (!videoResponse.ok) {
@@ -102,25 +129,35 @@ export const load: PageServerLoad = async ({ params, fetch, url }) => {
 		
 		const videoData = await videoResponse.json();
 		console.log('Video data received:', videoData ? 'Yes' : 'No', 'Sources:', videoData?.sources?.length || 0);
+
+		// Watch API may fall back (e.g. AnimeKai dub 500 → sub) — align UI with what actually played
+		let resolvedLanguage = actualLanguage;
+		let resolvedLanguageFallback = languageFallback;
+		if (videoData.languageUsed === 'sub' || videoData.languageUsed === 'dub') {
+			if (videoData.languageUsed !== actualLanguage) {
+				resolvedLanguage = videoData.languageUsed;
+				resolvedLanguageFallback = true;
+			}
+		}
+		if (videoData.languageDubFallback === true) {
+			resolvedLanguageFallback = true;
+		}
 		
 		// If video loaded successfully, the language is definitely available
 		// Update availability flags based on successful load
-		if (videoData && (videoData.embedUrl || videoData.sources?.length > 0)) {
-			if (actualLanguage === 'sub') {
-				// If sub loaded successfully, mark it as available
+		if (videoData && (videoData.embedUrl || videoData.playback === 'hls' || videoData.sources?.length > 0)) {
+			if (resolvedLanguage === 'sub') {
 				animeData.hasSub = true;
 				animeData.sub = animeData.sub || 1;
-			} else if (actualLanguage === 'dub') {
-				// If dub loaded successfully, mark it as available
+			} else if (resolvedLanguage === 'dub') {
 				animeData.hasDub = true;
 				animeData.dub = animeData.dub || 1;
 			}
 		}
 		
 		// Find next and previous episodes
-		const currentIndex = animeData.episodes?.findIndex((ep: any) => 
-			ep.id.replace(/\$/g, '-') === params.episodeId
-		) ?? -1;
+		const currentIndex =
+			animeData.episodes?.findIndex((ep: any) => episodeMatchesUrlParam(ep, params.episodeId)) ?? -1;
 		
 		const nextEpisode = currentIndex >= 0 && currentIndex < animeData.episodes.length - 1 
 			? animeData.episodes[currentIndex + 1] 
@@ -136,9 +173,9 @@ export const load: PageServerLoad = async ({ params, fetch, url }) => {
 			videoData,
 			nextEpisode,
 			prevEpisode,
-			language: actualLanguage, // Return the actual language used (may be different from requested)
-			languageFallback, // Indicate if we had to fall back
-			requestedLanguage: language, // Keep track of what was originally requested
+			language: resolvedLanguage,
+			languageFallback: resolvedLanguageFallback,
+			requestedLanguage: language,
 			animeId: params.id,
 			episodeId: params.episodeId
 		};

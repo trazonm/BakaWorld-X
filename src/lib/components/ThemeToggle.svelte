@@ -38,7 +38,7 @@
 	<!-- Theme Toggle Button -->
 	<button
 		type="button"
-		class="inline-flex h-11 w-11 items-center justify-center rounded-lg bg-gray-900/90 text-white shadow-lg ring-1 ring-gray-700 transition-colors hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+		class="inline-flex h-11 w-11 items-center justify-center rounded-xl bg-zinc-900/90 text-zinc-100 shadow-sm ring-1 ring-white/10 transition-colors hover:bg-zinc-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/50"
 		onclick={() => isOpen = !isOpen}
 		aria-label="Toggle theme"
 		aria-expanded={isOpen}
@@ -58,14 +58,16 @@
 
 	<!-- Theme Dropdown Menu -->
 	{#if isOpen}
-		<div class="absolute right-0 top-12 z-50 w-48 rounded-lg border border-gray-700 bg-gray-900 shadow-xl">
-			<div class="p-2">
+		<div
+			class="absolute right-0 top-12 z-50 w-52 rounded-xl border border-white/10 bg-zinc-950/95 p-1.5 shadow-xl shadow-black/40 ring-1 ring-white/5 backdrop-blur-md"
+		>
+			<div class="p-0.5">
 				<button
 					type="button"
-					class={`w-full rounded-lg px-4 py-2 text-left text-sm font-medium transition-colors ${
+					class={`w-full rounded-lg px-4 py-2.5 text-left text-sm font-medium transition-colors ${
 						$theme === 'dark'
-							? 'bg-blue-600 text-white'
-							: 'text-gray-300 hover:bg-gray-800'
+							? 'bg-violet-600/90 text-white shadow-sm'
+							: 'text-zinc-300 hover:bg-white/[0.06]'
 					}`}
 					onclick={() => setTheme('dark')}
 				>
@@ -78,10 +80,10 @@
 				</button>
 				<button
 					type="button"
-					class={`w-full rounded-lg px-4 py-2 text-left text-sm font-medium transition-colors mt-1 ${
+					class={`mt-1 w-full rounded-lg px-4 py-2.5 text-left text-sm font-medium transition-colors ${
 						$theme === 'midnight'
-							? 'bg-blue-600 text-white'
-							: 'text-gray-300 hover:bg-gray-800'
+							? 'bg-fuchsia-700/90 text-white shadow-sm'
+							: 'text-zinc-300 hover:bg-white/[0.06]'
 					}`}
 					onclick={() => setTheme('midnight')}
 				>

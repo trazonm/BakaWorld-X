@@ -34,10 +34,31 @@ export const POST: RequestHandler = async ({ request }) => {
 	if (!user) {
 		return new Response(JSON.stringify({ error: 'User not found' }), { status: 404 });
 	}
-	const { id, filename, progress, link } = await request.json();
+	const body = await request.json();
+	const { id } = body;
+	if (!id) {
+		return new Response(JSON.stringify({ error: 'id is required' }), { status: 400 });
+	}
 	const downloads = Array.isArray(user.downloads) ? [...user.downloads] : [];
 	const index = downloads.findIndex((d: any) => d.id === id);
-	const newDownload = { id, filename, progress, link };
+	const existing = index !== -1 ? { ...downloads[index] } : {};
+	const mergeKeys = [
+		'filename',
+		'progress',
+		'link',
+		'status',
+		'speed',
+		'seeders',
+		'hash',
+		'guid',
+		'added'
+	] as const;
+	for (const key of mergeKeys) {
+		if (key in body) {
+			(existing as any)[key] = body[key];
+		}
+	}
+	const newDownload = { ...existing, id };
 	if (index !== -1) {
 		downloads[index] = newDownload;
 	} else {

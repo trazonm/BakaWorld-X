@@ -1,14 +1,33 @@
 // Spotify downloader service - Downloads using spotdl (YouTube Music as source)
-import type { SpotifyTrackInfo, SpotifyDownloadOptions, SpotifyDownloadProgress } from '$lib/types/spotify';
-import { spawn, execSync } from 'child_process';
+import type { SpotifyTrackInfo, SpotifyDownloadOptions } from '$lib/types/spotify';
+import { spawn, execFile } from 'child_process';
+import { promisify } from 'util';
 import fs from 'fs';
 import path from 'path';
+
+const execFileAsync = promisify(execFile) as (
+	cmd: string,
+	args?: readonly string[] | null,
+	opts?: { encoding: 'utf-8'; maxBuffer?: number }
+) => Promise<{ stdout: string; stderr: string }>;
 
 const TEMP_DIR = path.join(process.cwd(), 'temp', 'spotify');
 
 // Ensure temp directory exists
 if (!fs.existsSync(TEMP_DIR)) {
 	fs.mkdirSync(TEMP_DIR, { recursive: true });
+}
+
+function newestFileWithExtension(dir: string, ext: string): string | null {
+	const entries = fs.readdirSync(dir, { withFileTypes: true });
+	let best: { path: string; mtime: number } | null = null;
+	for (const ent of entries) {
+		if (!ent.isFile() || !ent.name.endsWith(ext)) continue;
+		const full = path.join(dir, ent.name);
+		const mtime = fs.statSync(full).mtimeMs;
+		if (!best || mtime > best.mtime) best = { path: full, mtime };
+	}
+	return best?.path ?? null;
 }
 
 /**
@@ -37,13 +56,13 @@ async function getTrackInfoFromAPI(trackId: string, originalUrl?: string): Promi
 		if (fs.existsSync(scriptPath)) {
 			try {
 				const urlToUse = originalUrl || `https://open.spotify.com/track/${trackId}`;
-				const result = execSync(`python3 "${scriptPath}" info "${urlToUse}"`, {
-					encoding: 'utf-8',
-					maxBuffer: 10 * 1024 * 1024,
-					stdio: ['ignore', 'pipe', 'pipe']
-				});
-				
-				const output = result.toString().trim();
+				const { stdout: result } = await execFileAsync(
+					'python3',
+					[scriptPath, 'info', urlToUse],
+					{ encoding: 'utf-8', maxBuffer: 10 * 1024 * 1024 }
+				);
+
+				const output = result.trim();
 				if (!output) {
 					throw new Error('Python script returned empty output');
 				}
@@ -73,7 +92,7 @@ async function getTrackInfoFromAPI(trackId: string, originalUrl?: string): Promi
 
 		// Fallback: Try spotdl directly
 		try {
-			execSync('which spotdl', { stdio: 'ignore' });
+			await execFileAsync('which', ['spotdl'], { encoding: 'utf-8' });
 			// spotdl query command would need to be called here
 			// For now, return basic info
 		} catch {
@@ -107,52 +126,53 @@ async function getTrackInfoFromAPI(trackId: string, originalUrl?: string): Promi
 }
 
 /**
- * Download track from Spotify using spotdl (YouTube Music as source)
+ * Download track from Spotify using spotdl (YouTube Music as source).
+ * `workDir` must be an empty or dedicated folder so we never pick another track's file.
+ * Uses async child processes only so the Node event loop is not blocked (other requests keep working).
  */
 async function downloadFromSpotify(
 	url: string,
-	outputPath: string,
+	workDir: string,
+	finalOutputPath: string,
 	format: 'flac' | 'mp3',
 	progressCallback?: (progress: number, stage: string) => void
 ): Promise<string> {
-	return new Promise((resolve, reject) => {
-		if (progressCallback) progressCallback(0, 'Starting download...');
-		
-		// Try Python script first
-		const scriptPath = path.join(process.cwd(), 'scripts', 'spotify_downloader.py');
-		if (fs.existsSync(scriptPath)) {
-			try {
-				const result = execSync(
-					`python3 "${scriptPath}" download "${url}" ${format} "${path.dirname(outputPath)}"`,
-					{ encoding: 'utf-8', maxBuffer: 10 * 1024 * 1024 }
-				);
-				const data = JSON.parse(result.trim());
-				if (data.success && data.file) {
-					// Move to final location if needed
-					if (data.file !== outputPath && fs.existsSync(data.file)) {
-						fs.renameSync(data.file, outputPath);
-					}
-					if (progressCallback) progressCallback(100, 'Download complete');
-					resolve(outputPath);
-					return;
-				}
-				throw new Error(data.error || 'Download failed');
-			} catch (error: any) {
-				console.log('Python script failed, trying spotdl directly');
-			}
-		}
+	if (progressCallback) progressCallback(0, 'Starting download...');
 
-		// Fallback: Use spotdl directly
+	const scriptPath = path.join(process.cwd(), 'scripts', 'spotify_downloader.py');
+	if (fs.existsSync(scriptPath)) {
 		try {
-			execSync('which spotdl', { stdio: 'ignore' });
+			const { stdout } = await execFileAsync(
+				'python3',
+				[scriptPath, 'download', url, format, workDir],
+				{ encoding: 'utf-8', maxBuffer: 10 * 1024 * 1024 }
+			);
+			const data = JSON.parse(stdout.trim());
+			if (data.success && data.file) {
+				const downloaded = data.file as string;
+				if (downloaded !== finalOutputPath && fs.existsSync(downloaded)) {
+					if (fs.existsSync(finalOutputPath)) fs.unlinkSync(finalOutputPath);
+					fs.renameSync(downloaded, finalOutputPath);
+				}
+				if (progressCallback) progressCallback(100, 'Download complete');
+				return finalOutputPath;
+			}
+			throw new Error(data.error || 'Download failed');
 		} catch {
-			reject(new Error('spotdl not found. Please install spotdl: pip install spotdl'));
-			return;
+			console.log('Python script failed, trying spotdl directly');
 		}
+	}
 
+	try {
+		await execFileAsync('which', ['spotdl'], { encoding: 'utf-8' });
+	} catch {
+		throw new Error('spotdl not found. Please install spotdl: pip install spotdl');
+	}
+
+	return await new Promise<string>((resolve, reject) => {
 		const args = [
 			url,
-			'--output', path.dirname(outputPath),
+			'--output', workDir,
 			'--format', format,
 			'--threads', '4'
 			// Note: Album art is embedded automatically by spotdl by default
@@ -167,11 +187,10 @@ async function downloadFromSpotify(
 
 		const proc = spawn('spotdl', args, {
 			stdio: ['ignore', 'pipe', 'pipe'],
-			cwd: path.dirname(outputPath)
+			cwd: workDir
 		});
 
 		let errorOutput = '';
-		let downloadedFile: string | null = null;
 
 		proc.stdout.on('data', (data) => {
 			const output = data.toString();
@@ -212,20 +231,15 @@ async function downloadFromSpotify(
 
 		proc.on('close', (code) => {
 			if (code === 0) {
-				// Find downloaded file - spotdl uses format: "Artist - Title.ext"
-				const dir = path.dirname(outputPath);
-				const files = fs.readdirSync(dir);
 				const ext = `.${format}`;
-				const flacFile = files.find(f => f.endsWith(ext));
-				
-				if (flacFile) {
-					const foundFile = path.join(dir, flacFile);
-					// Rename to match expected filename
-					if (foundFile !== outputPath && fs.existsSync(foundFile)) {
-						fs.renameSync(foundFile, outputPath);
+				const foundFile = newestFileWithExtension(workDir, ext);
+				if (foundFile) {
+					if (foundFile !== finalOutputPath && fs.existsSync(foundFile)) {
+						if (fs.existsSync(finalOutputPath)) fs.unlinkSync(finalOutputPath);
+						fs.renameSync(foundFile, finalOutputPath);
 					}
 					if (progressCallback) progressCallback(100, 'Download complete');
-					resolve(outputPath);
+					resolve(finalOutputPath);
 				} else {
 					reject(new Error('Downloaded file not found'));
 				}
@@ -258,27 +272,32 @@ export class SpotifyService {
 		fileId: string,
 		progressCallback?: (progress: number, stage: string) => void
 	): Promise<string> {
-		// Get track info
+		if (progressCallback) progressCallback(2, 'Fetching track metadata...');
+
 		const trackInfo = await this.getTrackInfo(url);
-		
+
 		if (progressCallback) progressCallback(5, 'Track info retrieved');
 
 		const format = options.format || 'flac';
 		const baseName = `spotify-${fileId}`;
 		const finalFile = path.join(TEMP_DIR, `${baseName}.${format}`);
+		const workDir = path.join(TEMP_DIR, '_inflight', fileId);
+		fs.mkdirSync(workDir, { recursive: true });
 
 		if (progressCallback) progressCallback(10, 'Starting download from YouTube Music...');
 		
-		// Download using spotdl
-		const downloadedPath = await downloadFromSpotify(url, finalFile, format, (progress, stage) => {
-			if (progressCallback) {
-				progressCallback(10 + (progress * 0.9), stage);
+		try {
+			await downloadFromSpotify(url, workDir, finalFile, format, (progress, stage) => {
+				if (progressCallback) {
+					progressCallback(10 + (progress * 0.9), stage);
+				}
+			});
+		} finally {
+			try {
+				fs.rmSync(workDir, { recursive: true, force: true });
+			} catch {
+				// ignore cleanup errors
 			}
-		});
-
-		// Move to final location if needed
-		if (downloadedPath !== finalFile && fs.existsSync(downloadedPath)) {
-			fs.renameSync(downloadedPath, finalFile);
 		}
 
 		if (progressCallback) progressCallback(100, 'Download complete');

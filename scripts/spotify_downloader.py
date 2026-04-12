@@ -245,13 +245,14 @@ def download_from_spotify(url, output_dir, format='flac'):
         )
         
         if result.returncode == 0:
-            # Find downloaded file - spotdl downloads with artist - title format
-            for file in output_path.iterdir():
-                ext = f'.{format}'
-                if file.suffix == ext:
-                    return str(file)
-            
-            raise Exception("Downloaded file not found")
+            # spotdl writes "Artist - Title.ext"; pick newest match so we never return
+            # another track left in a shared output directory.
+            ext = f'.{format}'
+            candidates = [f for f in output_path.iterdir() if f.is_file() and f.suffix == ext]
+            if not candidates:
+                raise Exception("Downloaded file not found")
+            newest = max(candidates, key=lambda p: p.stat().st_mtime)
+            return str(newest)
         
         raise Exception(f"spotdl failed: {result.stderr}")
     except Exception as e:

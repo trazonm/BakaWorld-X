@@ -1,9 +1,25 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import { onMount, onDestroy } from 'svelte';
+	import { onMount, onDestroy, tick } from 'svelte';
 	import { browser } from '$app/environment';
 	import { navigating } from '$app/stores';
 	import type { PageData } from './$types';
+
+	function decodeRouteEpisodeId(segment: string): string {
+		try {
+			return decodeURIComponent(segment);
+		} catch {
+			return segment;
+		}
+	}
+
+	function episodeWatchPathFromRoute(segment: string): string {
+		return encodeURIComponent(decodeRouteEpisodeId(segment));
+	}
+
+	function episodeMatchesRoute(ep: { id: string }, routeParam: string): boolean {
+		return ep.id === decodeRouteEpisodeId(routeParam) || ep.id.replace(/\$/g, '-') === routeParam;
+	}
 
 	export let data: PageData;
 
@@ -26,6 +42,9 @@
 		episodeId
 	} = data);
 
+	let canGoNext = !!nextEpisode;
+	let canGoPrev = !!prevEpisode;
+
 	let selectedLanguage = 'sub';
 	
 	// Update selectedLanguage when data.language changes
@@ -38,7 +57,6 @@
 			selectedLanguage = data.language;
 		}
 	}
-	let loading = false;
 	let error = '';
 	let iframeError = false;
 	let iframeErrorMessage = '';
@@ -63,17 +81,7 @@
 	// Track which languages we've successfully loaded
 	let loadedSub = false;
 	let loadedDub = false;
-	
-	// Mark languages as loaded when video successfully loads
-	$: {
-		if (embedUrl && selectedLanguage === 'sub') {
-			loadedSub = true;
-		}
-		if (embedUrl && selectedLanguage === 'dub') {
-			loadedDub = true;
-		}
-	}
-	
+
 	// Check language availability from anime data
 	// Check both boolean (hasSub/hasDub) and number (sub/dub) formats
 	// Also check if we've successfully loaded the language before
@@ -131,9 +139,36 @@
 	let scrollTracker: ReturnType<typeof setInterval> | null = null;
 	let scrollPreventionTimeout: ReturnType<typeof setTimeout> | null = null;
 
-	// Get the embed URL from videoData
-	$: embedUrl = videoData?.embedUrl || videoData?.sources?.[0]?.url;
-	$: loading = !embedUrl;
+	let videoEl: HTMLVideoElement | undefined;
+	let detachNativePlayer: (() => void) | null = null;
+	let hlsAttachRequestId = 0;
+
+	// MegaPlay embed vs Consumet HLS (e.g. AnimeKai)
+	$: embedUrl =
+		videoData?.playback === 'embed'
+			? (videoData?.embedUrl || videoData?.sources?.[0]?.url || '')
+			: videoData?.playback === undefined && videoData?.embedUrl
+				? videoData.embedUrl
+				: '';
+
+	$: hlsPlaylistUrl =
+		videoData?.playback === 'hls'
+			? (videoData?.sources?.find((s: { isM3U8?: boolean }) => s.isM3U8)?.url ??
+					(videoData?.sources?.[0]?.url || ''))
+			: '';
+
+	$: loading = !embedUrl && !hlsPlaylistUrl;
+
+	// Mark languages as loaded when video successfully loads
+	$: {
+		if ((embedUrl || hlsPlaylistUrl) && selectedLanguage === 'sub') {
+			loadedSub = true;
+		}
+		if ((embedUrl || hlsPlaylistUrl) && selectedLanguage === 'dub') {
+			loadedDub = true;
+		}
+	}
+
 	// Show loading when navigating (forward or backward) or when embedUrl is not available
 	// Check both 'to' (forward nav) and 'from' (backward nav) to handle browser back button
 	$: isNavigatingToEpisode = isNavigating || 
@@ -142,25 +177,73 @@
 			$navigating.from?.url.pathname.includes('/watch/')
 		)) || 
 		loading;
-	
-		// Reset autoplay tracking when embed URL changes
-		$: if (embedUrl && autoplay && browser) {
-			hasAdvanced = false;
-			videoEndedListenerAdded = false;
-			pageLoadTime = Date.now();
-			lastUserActivity = Date.now();
-		}
-		
-		// Reset navigating flag when embedUrl is available (episode loaded)
-		$: if (embedUrl && isNavigating) {
-			// Small delay to ensure smooth transition
-			setTimeout(() => {
-				isNavigating = false;
-			}, 500);
-		}
 
-	// Block popups from iframe
-	let iframeElement: HTMLIFrameElement;
+	function triggerAutoplayAdvance() {
+		if (!autoplay || !canGoNext || hasAdvanced) return;
+		hasAdvanced = true;
+		setTimeout(() => {
+			goToNextEpisode();
+		}, AUTOPLAY_DELAY);
+	}
+
+	$: if (browser) {
+		const url = hlsPlaylistUrl;
+		if (!url) {
+			detachNativePlayer?.();
+			detachNativePlayer = null;
+		} else {
+			const req = ++hlsAttachRequestId;
+			tick().then(async () => {
+				if (req !== hlsAttachRequestId || !videoEl) return;
+				const media = videoEl;
+				detachNativePlayer?.();
+				detachNativePlayer = null;
+				const onEnded = () => triggerAutoplayAdvance();
+				media.addEventListener('ended', onEnded);
+				const Hls = (await import('hls.js')).default;
+				if (Hls.isSupported()) {
+					const hls = new Hls({ enableWorker: true });
+					hls.loadSource(url);
+					hls.attachMedia(media);
+					detachNativePlayer = () => {
+						media.removeEventListener('ended', onEnded);
+						hls.destroy();
+					};
+				} else if (media.canPlayType('application/vnd.apple.mpegurl')) {
+					media.src = url;
+					detachNativePlayer = () => {
+						media.removeEventListener('ended', onEnded);
+						media.removeAttribute('src');
+						media.load();
+					};
+				} else {
+					media.removeEventListener('ended', onEnded);
+				}
+
+				if (userHasInteracted && isNavigating) {
+					setTimeout(() => tryToAutoplayVideo(), 800);
+				}
+			});
+		}
+	}
+	
+	// Reset autoplay tracking when playback URL changes
+	$: if ((embedUrl || hlsPlaylistUrl) && autoplay && browser) {
+		hasAdvanced = false;
+		videoEndedListenerAdded = false;
+		pageLoadTime = Date.now();
+		lastUserActivity = Date.now();
+	}
+
+	// Reset navigating flag when video is ready (episode loaded)
+	$: if ((embedUrl || hlsPlaylistUrl) && isNavigating) {
+		setTimeout(() => {
+			isNavigating = false;
+		}, 500);
+	}
+
+	// Block popups from iframe (embed mode only)
+	let iframeElement: HTMLIFrameElement | undefined;
 	let popupBlocked = false;
 	
 	function setupPopupBlocker() {
@@ -240,10 +323,11 @@
 	}
 
 	function handleIframeLoad() {
-		if (!iframeElement) return;
-		
+		const frame = iframeElement;
+		if (!frame) return;
+
 		// Ensure iframe is connected to DOM before proceeding
-		if (!iframeElement.isConnected) {
+		if (!frame.isConnected) {
 			console.warn('Iframe not connected to DOM');
 			return;
 		}
@@ -255,14 +339,14 @@
 			try {
 				// Try to access iframe content - cross-origin restrictions are normal
 				// but if we can't access it AND the iframe appears empty, it might be blocked
-				const iframeDoc = iframeElement.contentDocument || iframeElement.contentWindow?.document;
+				const iframeDoc = frame.contentDocument || frame.contentWindow?.document;
 				
 				// For cross-origin iframes, we can't access the document
 				// But we can check if the iframe's contentWindow is accessible
-				if (iframeElement.contentWindow) {
+				if (frame.contentWindow) {
 					try {
 						// Try to access location - this will throw for cross-origin iframes
-						const location = iframeElement.contentWindow.location;
+						const location = frame.contentWindow.location;
 						// If we get here and location is accessible, the iframe loaded
 					} catch (e) {
 						// Cross-origin restriction is normal - iframe is likely loaded
@@ -297,10 +381,10 @@
 	
 	// Override scrollIntoView completely (only if not already overridden)
 	try {
-		const descriptor = Object.getOwnPropertyDescriptor(iframeElement, 'scrollIntoView');
+		const descriptor = Object.getOwnPropertyDescriptor(frame, 'scrollIntoView');
 		// Only define if not already defined by us
 		if (!descriptor || descriptor.configurable !== false) {
-			Object.defineProperty(iframeElement, 'scrollIntoView', {
+			Object.defineProperty(frame, 'scrollIntoView', {
 				value: function() {
 					// Prevent automatic scrolling - do nothing
 					return;
@@ -355,20 +439,20 @@
 		};
 
 		// Listen for all possible focus/click events on iframe and container
-		iframeElement.addEventListener('focus', preventScrollOnFocus, true);
-		iframeElement.addEventListener('focusin', preventScrollOnFocus, true);
-		iframeElement.addEventListener('click', (e) => {
+		frame.addEventListener('focus', preventScrollOnFocus, true);
+		frame.addEventListener('focusin', preventScrollOnFocus, true);
+		frame.addEventListener('click', (e) => {
 			// Preemptively save scroll position before click
 			scrollPosition = window.pageYOffset || document.documentElement.scrollTop;
 		}, true);
 		
 		// Also prevent on mouse events that might trigger focus
-		iframeElement.addEventListener('mousedown', () => {
+		frame.addEventListener('mousedown', () => {
 			scrollPosition = window.pageYOffset || document.documentElement.scrollTop;
 		}, true);
 		
 		// Wrap iframe container to catch events before they reach iframe
-		const videoContainer = iframeElement.parentElement;
+		const videoContainer = frame.parentElement;
 		if (videoContainer) {
 			videoContainer.addEventListener('click', (e) => {
 				// Save scroll position before any click
@@ -413,7 +497,7 @@
 		
 		// Also use a MutationObserver to detect scroll changes
 		const scrollMutationObserver = new MutationObserver(() => {
-			if (document.activeElement === iframeElement && isPreventingScroll) {
+			if (document.activeElement === frame && isPreventingScroll) {
 				window.scrollTo(0, scrollPosition);
 			}
 		});
@@ -435,7 +519,7 @@
 		// Try to access iframe content and block window.open
 		try {
 			// Try to inject script to block popups inside iframe (may fail due to CORS)
-			const iframeWindow = iframeElement.contentWindow;
+			const iframeWindow = frame.contentWindow;
 			if (iframeWindow) {
 				try {
 					// This will fail for cross-origin iframes, which is expected
@@ -470,7 +554,14 @@
 
 	// Function to try to autoplay video when navigating between episodes
 	function tryToAutoplayVideo() {
-		if (!iframeElement || !userHasInteracted) return;
+		if (!userHasInteracted) return;
+
+		if (videoEl && hlsPlaylistUrl) {
+			videoEl.play().catch(() => {});
+			return;
+		}
+
+		if (!iframeElement) return;
 
 		try {
 			// Try to access iframe content (may fail due to CORS)
@@ -507,29 +598,33 @@
 	
 	// Listen for messages from iframe (if video player supports it)
 	function handleMessage(event: MessageEvent) {
-		// Check if message is from video player indicating video ended
-		if (event.data) {
-			const data = event.data;
-			const dataStr = typeof data === 'string' ? data.toLowerCase() : '';
-			const dataType = typeof data === 'object' ? (data.type || data.event || '').toLowerCase() : '';
-			
-			// Check various message formats that video players might use
-			const isVideoEnded = 
-				dataType === 'ended' || 
-				dataType === 'video-ended' ||
-				dataType === 'complete' ||
-				dataStr.includes('ended') ||
-				dataStr.includes('complete') ||
-				(data && typeof data === 'object' && (data.state === 'ended' || data.status === 'ended'));
+		if (!event.data) return;
 
-			if (isVideoEnded) {
-				if (autoplay && canGoNext && !hasAdvanced) {
-					hasAdvanced = true;
-					setTimeout(() => {
-						goToNextEpisode();
-					}, AUTOPLAY_DELAY); // Small delay to ensure video has fully ended
-				}
+		const raw = event.data;
+		let parsed: unknown = raw;
+		if (typeof raw === 'string') {
+			try {
+				parsed = JSON.parse(raw);
+			} catch {
+				parsed = raw;
 			}
+		}
+
+		const dataStr = typeof raw === 'string' ? raw.toLowerCase() : '';
+		const d = parsed && typeof parsed === 'object' ? (parsed as Record<string, unknown>) : null;
+		const dataType = String(d?.type || d?.event || '').toLowerCase();
+
+		const isVideoEnded =
+			dataType === 'ended' ||
+			dataType === 'video-ended' ||
+			dataType === 'complete' ||
+			dataStr.includes('ended') ||
+			dataStr.includes('complete') ||
+			d?.state === 'ended' ||
+			d?.status === 'ended';
+
+		if (isVideoEnded) {
+			triggerAutoplayAdvance();
 		}
 	}
 
@@ -553,15 +648,13 @@
 						// Check for video element
 						const video = iframeDoc.querySelector('video');
 						if (video && !videoEndedListenerAdded) {
-							// Listen for video ended event
-							video.addEventListener('ended', () => {
-								if (autoplay && canGoNext && !hasAdvanced) {
-									hasAdvanced = true;
-									setTimeout(() => {
-										goToNextEpisode();
-									}, AUTOPLAY_DELAY);
-								}
-							}, { once: true });
+							video.addEventListener(
+								'ended',
+								() => {
+									triggerAutoplayAdvance();
+								},
+								{ once: true }
+							);
 							videoEndedListenerAdded = true;
 						}
 					}
@@ -789,6 +882,9 @@
 	});
 	
 onDestroy(() => {
+	detachNativePlayer?.();
+	detachNativePlayer = null;
+
 	// Restore original window.open
 	if (originalWindowOpen) {
 		window.open = originalWindowOpen;
@@ -823,7 +919,7 @@ onDestroy(() => {
 
 	function navigateToEpisode(episode: any) {
 		if (!episode) return;
-		const episodeId = episode.id.replace(/\$/g, '-');
+		const pathSeg = encodeURIComponent(episode.id);
 		isNavigating = true; // Mark that we're navigating
 		// Use the stored preference (not selectedLanguage which might be a fallback)
 		// This ensures we try the user's preferred language for each episode
@@ -835,7 +931,7 @@ onDestroy(() => {
 				languageToUse = storedLanguage;
 			}
 		}
-		goto(`/anime/${animeId}/watch/${episodeId}?language=${languageToUse}`);
+		goto(`/anime/${animeId}/watch/${pathSeg}?language=${languageToUse}`);
 	}
 
 	function findNextNonFillerEpisode(currentIndex: number, direction: 'next' | 'prev'): any {
@@ -858,9 +954,7 @@ onDestroy(() => {
 
 	function goToNextEpisode() {
 		if (skipFiller && anime?.episodes) {
-			const currentIndex = anime.episodes.findIndex((ep: any) => 
-				ep.id.replace(/\$/g, '-') === episodeId
-			);
+			const currentIndex = anime.episodes.findIndex((ep: any) => episodeMatchesRoute(ep, episodeId));
 			const nextNonFiller = findNextNonFillerEpisode(currentIndex, 'next');
 			if (nextNonFiller) {
 				navigateToEpisode(nextNonFiller);
@@ -872,9 +966,7 @@ onDestroy(() => {
 
 	function goToPrevEpisode() {
 		if (skipFiller && anime?.episodes) {
-			const currentIndex = anime.episodes.findIndex((ep: any) => 
-				ep.id.replace(/\$/g, '-') === episodeId
-			);
+			const currentIndex = anime.episodes.findIndex((ep: any) => episodeMatchesRoute(ep, episodeId));
 			const prevNonFiller = findNextNonFillerEpisode(currentIndex, 'prev');
 			if (prevNonFiller) {
 				navigateToEpisode(prevNonFiller);
@@ -920,18 +1012,12 @@ onDestroy(() => {
 		}
 		// Clear any existing fallback message
 		languageFallbackMessage = '';
-		goto(`/anime/${animeId}/watch/${episodeId}?language=${newLanguage}`);
+		goto(`/anime/${animeId}/watch/${episodeWatchPathFromRoute(episodeId)}?language=${newLanguage}`);
 	}
 
-	// Computed values for button states when skip filler is enabled
-	let canGoNext = !!nextEpisode;
-	let canGoPrev = !!prevEpisode;
-	
 	$: {
 		if (skipFiller && anime?.episodes) {
-			const currentIndex = anime.episodes.findIndex((ep: any) => 
-				ep.id.replace(/\$/g, '-') === episodeId
-			);
+			const currentIndex = anime.episodes.findIndex((ep: any) => episodeMatchesRoute(ep, episodeId));
 			canGoNext = findNextNonFillerEpisode(currentIndex, 'next') !== null;
 			canGoPrev = findNextNonFillerEpisode(currentIndex, 'prev') !== null;
 		} else {
@@ -971,6 +1057,19 @@ onDestroy(() => {
 					<p class="text-gray-400 text-sm mt-2">Please wait</p>
 				</div>
 			</div>
+		{:else if hlsPlaylistUrl}
+			<!-- svelte-ignore a11y_media_has_caption -->
+			<video
+				bind:this={videoEl}
+				class="absolute top-0 left-0 h-full w-full bg-black"
+				controls
+				playsinline
+				title="Video Player"
+				onpointerdown={() => {
+					userHasInteracted = true;
+					if (browser) localStorage.setItem(USER_INTERACTION_KEY, 'true');
+				}}
+			></video>
 		{:else if embedUrl}
 			{#if iframeError}
 				<!-- Error State -->

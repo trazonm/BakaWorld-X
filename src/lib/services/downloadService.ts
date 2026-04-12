@@ -59,7 +59,22 @@ class DownloadService {
 			body: JSON.stringify({ link })
 		});
 		const data = await res.json();
-		return data.download;
+		if (!res.ok) {
+			throw new Error(data.error || 'Failed to unrestrict link');
+		}
+		return data.download || data.link || '';
+	}
+
+	/** Re-fetch torrent link from Real-Debrid and unrestrict (e.g. expired or stuck /d/ URL). */
+	async refreshDirectLink(id: string): Promise<string> {
+		const res = await fetch(`/api/downloads/${encodeURIComponent(id)}/refresh-link`, {
+			method: 'POST'
+		});
+		const data = await res.json();
+		if (!res.ok) {
+			throw new Error(data.error || 'Failed to refresh link');
+		}
+		return data.link || '';
 	}
 
 	clearCache(): void {

@@ -2,7 +2,7 @@ import type { RequestHandler } from '@sveltejs/kit';
 
 export const GET: RequestHandler = async ({ url, request }) => {
     const playlistUrl = url.searchParams.get('url');
-    const referer = url.searchParams.get('referer') || 'https://hianime.to/';
+    const referer = url.searchParams.get('referer') || 'https://animekai.to/';
     
     if (!playlistUrl) {
         return new Response('Missing playlist URL', { status: 400 });
@@ -10,12 +10,19 @@ export const GET: RequestHandler = async ({ url, request }) => {
     
     // console.log('Proxying M3U8 request to:', playlistUrl);
     
+    let originHeader = 'https://animekai.to';
+    try {
+        originHeader = new URL(referer).origin;
+    } catch {
+        /* keep default */
+    }
+
     try {
         const response = await fetch(playlistUrl, {
             headers: {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
                 'Referer': referer,
-                'Origin': 'https://hianime.to',
+                'Origin': originHeader,
                 'Accept': '*/*',
                 'Accept-Language': 'en-US,en;q=0.9',
                 'Connection': 'keep-alive',

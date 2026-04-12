@@ -34,22 +34,20 @@
 		on:click={() => onAddToQueue(result)}>Add to Queue</button
 	>
 {:else if rowState.state === 'adding'}
-	<span class="animate-pulse text-blue-400">Processing</span>
+	<span class="text-sky-400">Processing</span>
 {:else if rowState.state === 'progress'}
 	{#if result.id}
 		{#if rowState.progress !== undefined}
-			<!-- Use progress from status store (updated from database) -->
-			<span class="animate-pulse text-blue-400 text-sm md:text-base">Progress: {rowState.progress}%</span>
+			<span class="text-sky-400 text-sm md:text-base">Progress: {rowState.progress}%</span>
 		{:else}
-			<!-- Fallback: fetch from API if not in status store yet -->
 			{#await getTorrentInfo(result.id)}
-				<span class="animate-pulse text-blue-400">Uploading</span>
+				<span class="text-sky-400">Uploading</span>
 			{:then torrentInfo}
-				<span class="animate-pulse text-blue-400 text-sm md:text-base">Progress: {torrentInfo.progress || 0}%</span>
+				<span class="text-sky-400 text-sm md:text-base">Progress: {torrentInfo.progress || 0}%</span>
 			{/await}
 		{/if}
 	{:else}
-		<span class="animate-pulse text-blue-400 text-sm md:text-base">Uploading</span>
+		<span class="text-sky-400 text-sm md:text-base">Uploading</span>
 	{/if}
 {:else if rowState.state === 'done'}
 	{#if result.id}

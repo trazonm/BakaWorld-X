@@ -1,9 +1,5 @@
-version: '3.8'
-
 services:
-  # SvelteKit application - Full-stack app (frontend + API routes)
-  # This is the standard SvelteKit deployment pattern where API routes
-  # are part of the same application as the frontend
+  # SvelteKit (adapter-node): UI + API in one Node process.
   app:
     build:
       context: .
@@ -50,7 +46,7 @@ services:
       DB_USER: ${DB_USER}
       DB_PASSWORD: ${DB_PASSWORD}
       REAL_DEBRID_AUTH: ${REAL_DEBRID_AUTH}
-      # Poll interval in milliseconds (default: 30 seconds)
+      # Poll interval in ms (compose default 30s for prod; set POLL_INTERVAL=5000 for snappier dev)
       POLL_INTERVAL: ${POLL_INTERVAL:-30000}
     networks:
       - bakaworld-network
