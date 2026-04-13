@@ -26,8 +26,8 @@ function getDbConfig() {
 
 const pool = new Pool(getDbConfig());
 
-// Poll interval in milliseconds (default: 5 seconds for faster response to new downloads)
-const POLL_INTERVAL = Number(process.env.POLL_INTERVAL) || 5000;
+// Poll interval in milliseconds (default: 1 second; override with POLL_INTERVAL)
+const POLL_INTERVAL = Number(process.env.POLL_INTERVAL) || 1000;
 
 // Graceful shutdown
 let isShuttingDown = false;

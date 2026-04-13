@@ -148,7 +148,7 @@ export function useDownloadManager() {
 	function startPolling(downloads: Download[]) {
 		downloads.forEach(download => {
 			if (download.progress < 100 && !intervals[download.id]) {
-				intervals[download.id] = setInterval(() => fetchProgress(download.id), 2000);
+				intervals[download.id] = setInterval(() => fetchProgress(download.id), 1000);
 			}
 		});
 	}

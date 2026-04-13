@@ -57,7 +57,7 @@
 				fetch('/api/torrents/poll-progress', { method: 'POST' })
 					.then(() => downloadManager.fetchDownloads(true))
 					.catch((err) => console.error('Background polling error:', err));
-			}, 5000);
+			}, 1000);
 
 			if (disposed) {
 				clearInterval(backgroundPollInterval);

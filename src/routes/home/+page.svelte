@@ -141,7 +141,7 @@
 				fetch('/api/torrents/poll-progress', { method: 'POST' }).catch((err) =>
 					console.error('Background polling error:', err)
 				);
-			}, 5000);
+			}, 1000);
 
 			downloadRefreshInterval = setInterval(async () => {
 				if (searchResults.length > 0) {
@@ -156,7 +156,7 @@
 						searchResults = updatedResults;
 					}
 				}
-			}, 5000);
+			}, 1000);
 		})();
 
 		return () => {

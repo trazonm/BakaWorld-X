@@ -39,7 +39,7 @@ export const config = {
 	},
 	torrent: {
 		maxConcurrentDownloads: 5,
-		pollInterval: 2000,
+		pollInterval: 1000,
 		timeoutDuration: 300000 // 5 minutes
 	},
 	ui: {

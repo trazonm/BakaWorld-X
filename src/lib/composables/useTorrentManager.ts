@@ -13,7 +13,7 @@ export function useTorrentManager() {
 		Object.keys(status).forEach(id => {
 			// Start polling for any download in 'progress' state (including queued with 0%)
 			if (status[id].state === 'progress' && !progressIntervals[id]) {
-				progressIntervals[id] = setInterval(() => pollProgress(id), 2000);
+				progressIntervals[id] = setInterval(() => pollProgress(id), 1000);
 			}
 		});
 	}
@@ -361,7 +361,7 @@ export function useTorrentManager() {
 
 			// Start polling for this torrent (client-side for UI updates)
 			if (!progressIntervals[id]) {
-				progressIntervals[id] = setInterval(() => pollProgress(id), 2000);
+				progressIntervals[id] = setInterval(() => pollProgress(id), 1000);
 			}
 
 			// Trigger background polling (server-side)

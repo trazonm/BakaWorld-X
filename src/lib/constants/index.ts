@@ -6,7 +6,7 @@ export const API_ENDPOINTS = {
 	AUTH: '/api/auth'
 } as const;
 
-export const POLLING_INTERVAL = 2000; // 2 seconds
+export const POLLING_INTERVAL = 1000; // 1 second
 
 export const COOKIE_CONFIG = {
 	NAME: 'session',
@@ -22,7 +22,7 @@ export const COOKIE_CONFIG = {
 export const UI_CONFIG = {
 	MODAL_ANIMATION_DURATION: 300,
 	TABLE_PAGE_SIZE: 50,
-	PROGRESS_UPDATE_INTERVAL: 2000
+	PROGRESS_UPDATE_INTERVAL: 1000
 } as const;
 
 export const TORRENT_STATES = {
