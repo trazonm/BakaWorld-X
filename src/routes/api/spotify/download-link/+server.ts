@@ -3,6 +3,7 @@ import type { RequestHandler } from '@sveltejs/kit';
 import { createSpotifyService } from '$lib/services/spotifyService';
 import { setProgress } from '$lib/server/spotifyProgress';
 import type { SpotifyDownloadOptions } from '$lib/types/spotify';
+import { SPOTIFY_DOWNLOAD_QUALITIES } from '$lib/types/spotify';
 import path from 'path';
 
 const INVALID_FILENAME_CHARS = /[<>:"/\\|?*\u0000-\u001F]/g;
@@ -40,12 +41,20 @@ export const POST: RequestHandler = async ({ request }) => {
 			setProgress(progressId, 1, 'Starting download...');
 		}
 
+		const allowed = new Set<string>(SPOTIFY_DOWNLOAD_QUALITIES);
+		const fmt =
+			typeof format === 'string' && allowed.has(format)
+				? format
+				: typeof format === 'string' && (format === 'mp3' || format === 'flac')
+					? format
+					: 'mp3-320';
+
 		const options: SpotifyDownloadOptions = {
-			format: (format || 'flac') as 'flac' | 'mp3',
-			bitrate: bitrate || (format === 'mp3' ? 320 : undefined)
+			format: fmt as SpotifyDownloadOptions['format'],
+			bitrate: typeof bitrate === 'number' ? bitrate : undefined
 		};
 
-		// Download track - wait for completion (uses spotdl with YouTube Music as source)
+		// Download via YouTube (yt-dlp): Spotify metadata → search → best audio → MP3/FLAC
 		const filePath = await spotifyService.downloadTrackToFile(
 			url,
 			options,

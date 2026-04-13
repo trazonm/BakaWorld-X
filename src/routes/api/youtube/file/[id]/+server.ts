@@ -1,5 +1,6 @@
 // Serve YouTube download file
 import type { RequestHandler } from '@sveltejs/kit';
+import { attachmentContentDisposition } from '$lib/server/contentDisposition';
 import fs from 'fs';
 import path from 'path';
 
@@ -77,7 +78,7 @@ export const GET: RequestHandler = async ({ params, url }) => {
 			headers: {
 				'Content-Type': contentType,
 				'Content-Length': stats.size.toString(),
-				'Content-Disposition': `attachment; filename="${requestedName}"`,
+				'Content-Disposition': attachmentContentDisposition(requestedName),
 				'Accept-Ranges': 'bytes',
 				'Cache-Control': 'public, max-age=3600'
 			}

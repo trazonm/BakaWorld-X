@@ -1,0 +1,5 @@
+packages:
+  - '.'
+
+# pnpm 10: use `pnpm approve-builds` / onlyBuiltDependencies if you want to restrict native builds.
+dangerouslyAllowAllBuilds: true

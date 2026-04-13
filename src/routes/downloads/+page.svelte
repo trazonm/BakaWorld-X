@@ -18,8 +18,22 @@
 	let showToast = false;
 
 	onMount(() => {
-		const init = async () => {
+		let disposed = false;
+		let unsubscribe: (() => void) | undefined;
+		let backgroundPollInterval: ReturnType<typeof setInterval> | undefined;
+
+		const handleVisibilityChange = async () => {
+			if (document.hidden) return;
+			await downloadManager.fetchDownloads(true); // Silent refresh
+			fetch('/api/torrents/poll-progress', { method: 'POST' })
+				.then(() => downloadManager.fetchDownloads(true)) // Silent refresh
+				.catch(err => console.error('Background polling error:', err));
+		};
+
+		void (async () => {
 			await refreshAuth();
+			if (disposed) return;
+
 			const { isLoggedIn, username: uname } = get(auth);
 			username = uname || '';
 			if (!isLoggedIn) {
@@ -28,37 +42,40 @@
 			}
 
 			await downloadManager.fetchDownloads();
-			const unsubscribe = downloads.subscribe(downloadList => {
+			if (disposed) return;
+
+			unsubscribe = downloads.subscribe((downloadList) => {
 				downloadManager.startPolling(downloadList);
 			});
+			if (disposed) {
+				unsubscribe();
+				unsubscribe = undefined;
+				return;
+			}
 
-			// Background polling - runs every 5 seconds to update progress in database
-			const backgroundPollInterval = setInterval(() => {
+			backgroundPollInterval = setInterval(() => {
 				fetch('/api/torrents/poll-progress', { method: 'POST' })
-					.then(() => downloadManager.fetchDownloads(true)) // Silent refresh
-					.catch(err => console.error('Background polling error:', err));
+					.then(() => downloadManager.fetchDownloads(true))
+					.catch((err) => console.error('Background polling error:', err));
 			}, 5000);
 
-			// Refresh state when page becomes visible
-			const handleVisibilityChange = async () => {
-				if (!document.hidden) {
-					await downloadManager.fetchDownloads(true); // Silent refresh
-					// Trigger immediate background poll on visibility
-					fetch('/api/torrents/poll-progress', { method: 'POST' })
-						.then(() => downloadManager.fetchDownloads(true)) // Silent refresh
-						.catch(err => console.error('Background polling error:', err));
-				}
-			};
-			document.addEventListener('visibilitychange', handleVisibilityChange);
-
-			return () => {
+			if (disposed) {
 				clearInterval(backgroundPollInterval);
-				document.removeEventListener('visibilitychange', handleVisibilityChange);
-				unsubscribe();
-			};
+				backgroundPollInterval = undefined;
+				unsubscribe?.();
+				unsubscribe = undefined;
+				return;
+			}
+
+			document.addEventListener('visibilitychange', handleVisibilityChange);
+		})();
+
+		return () => {
+			disposed = true;
+			if (backgroundPollInterval !== undefined) clearInterval(backgroundPollInterval);
+			document.removeEventListener('visibilitychange', handleVisibilityChange);
+			unsubscribe?.();
 		};
-		
-		init();
 	});
 
 	onDestroy(() => {
@@ -108,7 +125,7 @@
 	<title>BakaWorld χ - Downloads</title>
 </svelte:head>
 
-<main class="text-white">
+<main class="relative z-[1] min-h-[calc(100dvh-5rem)] bg-transparent text-white">
 	<div class="container mx-auto px-4 py-4 md:py-8 max-w-7xl">
 		<!-- Header -->
 		<div class="flex flex-col md:flex-row md:items-center md:justify-between mb-6 md:mb-8 gap-4">

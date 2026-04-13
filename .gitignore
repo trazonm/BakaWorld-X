@@ -33,3 +33,7 @@ __pycache__/
 *.pyo
 *.pyd
 .cache/
+# Root-level token/cache file (e.g. Spotify) — never commit
+/.cache
+# Local pnpm store path if present in repo
+.pnpm-store/

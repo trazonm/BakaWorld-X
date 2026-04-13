@@ -15,13 +15,13 @@
 	}
 </script>
 
-<form class="flex justify-center mb-8" on:submit={handleSubmit}>
+<form class="flex justify-center" on:submit={handleSubmit}>
 	<div class="flex w-full max-w-2xl">
 		<input
 			type="text"
 			bind:value={query}
 			placeholder="Search for manga..."
-			class="flex-1 rounded-l-lg bg-gray-900 text-white px-6 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 border border-gray-700 placeholder-gray-400"
+			class="flex-1 rounded-l-lg border border-gray-700 bg-gray-900 px-6 py-3 text-white placeholder-gray-400 focus:outline-none focus:ring-0"
 			required
 			disabled={loading}
 		/>

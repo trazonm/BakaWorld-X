@@ -1,5 +1,6 @@
 // Serve Spotify download file
 import type { RequestHandler } from '@sveltejs/kit';
+import { attachmentContentDisposition } from '$lib/server/contentDisposition';
 import fs from 'fs';
 import path from 'path';
 
@@ -8,7 +9,7 @@ const TEMP_DIR = path.join(process.cwd(), 'temp', 'spotify');
 export const GET: RequestHandler = async ({ params, url }) => {
 	try {
 		const { id } = params;
-		const requestedName = url.searchParams.get('name') || 'spotify_track.flac';
+		const requestedName = url.searchParams.get('name') || 'spotify_track.mp3';
 
 		if (!id) {
 			return new Response('File ID required', { status: 400 });
@@ -16,7 +17,7 @@ export const GET: RequestHandler = async ({ params, url }) => {
 
 		// Find file with matching ID
 		const files = fs.readdirSync(TEMP_DIR);
-		const extensions = ['.flac', '.mp3', '.m4a', '.wav'];
+		const extensions = ['.flac', '.mp3', '.m4a', '.wav', '.ogg'];
 		
 		let filePath: string | null = null;
 		for (const ext of extensions) {
@@ -53,11 +54,21 @@ export const GET: RequestHandler = async ({ params, url }) => {
 			}
 		}, 60 * 60 * 1000);
 
+		const contentType = filePath.endsWith('.mp3')
+			? 'audio/mpeg'
+			: filePath.endsWith('.ogg')
+				? 'audio/ogg'
+				: filePath.endsWith('.m4a')
+					? 'audio/mp4'
+					: filePath.endsWith('.wav')
+						? 'audio/wav'
+						: 'audio/flac';
+
 		return new Response(fileBuffer, {
 			headers: {
-				'Content-Type': filePath.endsWith('.mp3') ? 'audio/mpeg' : 'audio/flac',
+				'Content-Type': contentType,
 				'Content-Length': stats.size.toString(),
-				'Content-Disposition': `attachment; filename="${requestedName}"`,
+				'Content-Disposition': attachmentContentDisposition(requestedName),
 				'Accept-Ranges': 'bytes',
 				'Cache-Control': 'private, no-store'
 			}

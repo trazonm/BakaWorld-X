@@ -3,7 +3,8 @@
 	import { writable } from 'svelte/store';
 	import { page } from '$app/state';
 	import logo from '$lib/assets/logo.png';
-	import { goto, afterNavigate } from '$app/navigation';
+	import { browser } from '$app/environment';
+	import { goto, afterNavigate, beforeNavigate } from '$app/navigation';
 	import { auth, refreshAuth } from '$lib/stores/auth';
 	import { theme } from '$lib/stores/theme';
 	import ThemeToggle from '$lib/components/ThemeToggle.svelte';
@@ -49,9 +50,23 @@
 			: `${base} text-zinc-400 hover:bg-white/[0.06] hover:text-zinc-100`;
 	}
 
+	// Drop focus before swap so autofill / IME overlays from the previous page
+	// (e.g. Premiumizer URL field) are not left composited on screen.
+	beforeNavigate(() => {
+		if (!browser) return;
+		const el = document.activeElement;
+		if (el instanceof HTMLElement) el.blur();
+	});
+
 	// Close menu on navigation - must be called at top level, not inside onMount
-	afterNavigate(() => {
+	afterNavigate(({ from, to }) => {
 		closeMenu();
+		// Reset scroll so a tall previous page cannot leave the viewport showing stale composited pixels
+		if (browser && from?.url.pathname !== to?.url.pathname) {
+			requestAnimationFrame(() => {
+				window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+			});
+		}
 	});
 
 	onMount(async () => {
@@ -79,7 +94,7 @@
 	<SiteAmbientCanvas />
 
 	<nav
-		class="navbar-surface sticky top-0 z-50 border-b border-white/[0.07] px-4 py-3 md:px-8 md:py-3.5"
+		class="sticky top-0 z-50 border-none bg-transparent px-4 py-3 md:px-8 md:py-3.5"
 	>
 	<div class="container mx-auto flex items-center justify-between gap-4">
 		<!-- Left: Logo and Brand -->
@@ -190,23 +205,10 @@
 <!-- PWA Install Prompt -->
 <InstallPrompt />
 
-	<div class="relative z-10">
-		{@render children()}
+	<div class="relative z-10 min-h-0 overflow-x-clip">
+		{#key page.url.pathname}
+			{@render children()}
+		{/key}
 	</div>
 </div>
 
-<style>
-	.navbar-surface {
-		background-color: color-mix(in srgb, var(--theme-bg-primary) 88%, transparent);
-		backdrop-filter: blur(16px);
-		-webkit-backdrop-filter: blur(16px);
-	}
-
-	@media (max-width: 767px) {
-		.navbar-surface {
-			background-color: var(--theme-bg-primary);
-			backdrop-filter: none;
-			-webkit-backdrop-filter: none;
-		}
-	}
-</style>

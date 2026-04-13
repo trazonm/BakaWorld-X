@@ -15,9 +15,10 @@ RUN pnpm build
 FROM node:20-alpine AS runner
 WORKDIR /app
 
-# Runtime tools for YouTube / Spotify features used by API routes + scripts
-RUN apk add --no-cache ffmpeg yt-dlp python3 py3-pip \
-	&& pip3 install --no-cache-dir --break-system-packages spotdl requests beautifulsoup4 python-dotenv spotipy
+# Runtime: ffmpeg + latest yt-dlp (Alpine apk lags; YouTube 403 fixes ship often)
+RUN apk add --no-cache ffmpeg python3 py3-pip ca-certificates \
+	&& pip install --no-cache-dir --break-system-packages -U yt-dlp \
+	&& rm -rf /root/.cache/pip
 
 COPY package.json pnpm-lock.yaml ./
 RUN corepack enable && corepack prepare pnpm@9.15.9 --activate \
@@ -27,8 +28,6 @@ RUN corepack enable && corepack prepare pnpm@9.15.9 --activate \
 COPY --from=builder /app/build ./build
 COPY --from=builder /app/static ./static
 COPY --from=builder /app/package.json ./
-
-COPY scripts/ ./scripts/
 
 RUN addgroup -g 1001 -S nodejs && adduser -S nodejs -u 1001 -G nodejs \
 	&& mkdir -p temp/youtube temp/spotify \

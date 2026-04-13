@@ -44,9 +44,5 @@
 			</div>
 		{/each}
 	</div>
-{:else}
-	<div class="text-center py-12">
-		<p class="text-gray-400 text-lg">Start searching to discover comics</p>
-	</div>
 {/if}
 

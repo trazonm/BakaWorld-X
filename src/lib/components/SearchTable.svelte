@@ -13,10 +13,10 @@
 
 <div class="overflow-x-auto">
 	<table class="min-w-full border-collapse text-left text-sm text-zinc-100">
-		<thead class="sticky top-0 z-[1] border-b border-zinc-800 bg-zinc-950/95 backdrop-blur-sm">
+		<thead class="sticky top-0 z-[1] border-b border-white/10 bg-zinc-950/95 backdrop-blur-sm">
 			<tr>
 				<th
-					class="cursor-pointer px-4 py-3 select-none text-zinc-400 transition-colors hover:text-fuchsia-200"
+					class="cursor-pointer px-4 py-3 select-none text-zinc-400 transition-colors hover:text-[var(--theme-accent)]"
 					on:click={() => onSort('Title')}
 				>
 					Name
@@ -25,7 +25,7 @@
 					{/if}
 				</th>
 				<th
-					class="cursor-pointer px-4 py-3 select-none text-zinc-400 transition-colors hover:text-fuchsia-200"
+					class="cursor-pointer px-4 py-3 select-none text-zinc-400 transition-colors hover:text-[var(--theme-accent)]"
 					on:click={() => onSort('Size')}
 				>
 					Size
@@ -34,7 +34,7 @@
 					{/if}
 				</th>
 				<th
-					class="cursor-pointer px-4 py-3 select-none text-zinc-400 transition-colors hover:text-fuchsia-200"
+					class="cursor-pointer px-4 py-3 select-none text-zinc-400 transition-colors hover:text-[var(--theme-accent)]"
 					on:click={() => onSort('Seeders')}
 				>
 					Seeders
@@ -45,7 +45,7 @@
 				<th class="px-4 py-3">Action</th>
 			</tr>
 		</thead>
-		<tbody class="divide-y divide-zinc-800/90">
+		<tbody class="divide-y divide-white/[0.06]">
 			{#each results as result, i (eachSearchResultKey(result, i))}
 				<TorrentRow {result} {onAddToQueue} />
 			{/each}

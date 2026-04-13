@@ -22,9 +22,51 @@
 	const torrentManager = useTorrentManager();
 
 	const taglines = [
-		'Find what you want. Queue the rest.',
-		'Search. Sort. Download.',
-		'High seeders. Less waiting.'
+		'anyways.',
+		"you're here. neat.",
+		'hydrate or dont im not ur mom',
+		"we're so back (probably)",
+		'my tabs are basically furniture now',
+		'wifi said no and i respect the honesty',
+		'gojo would scroll this at 3am',
+		'luffy would 100% lose the remote on purpose',
+		'namek exploded again lol (monday)',
+		'vegeta judging my queue from the sidelines',
+		'if it works its canon idc',
+		'this runs on spite and decent bandwidth',
+		'chi-chi yelling at the ui same energy',
+		'frieza five minutes = my entire afternoon',
+		'eren would simply uninstall the problem',
+		'light yagami with a sticky note vs me with a todo list',
+		'power levels fake snacks real',
+		'one piece is long. so is this week.',
+		'jjk brain rot acquired legally',
+		'chainsaw man said read the fine print. i didnt.',
+		'behold: a loading bar with main character syndrome',
+		'brain empty just vibes',
+		'its always tuesday somewhere',
+		'me vs the back button (im losing)',
+		'cooked. not in a good way. maybe in a good way.',
+		'no thoughts just pixels',
+		'certified silliness',
+		'peak behavior (delusional)',
+		'ok but what if we didnt',
+		'girlboss gaslight gatekeep (jk please be normal)',
+		'sigma male grindset (i took a nap)',
+		'skibidi ohio rizz (jk)',
+		'touch grass later we busy',
+		'slay the day or slay minimally',
+		'ratio + L + ur router fell off',
+		'mewing while reading this? iconic.',
+		'rent free in my own head first',
+		'gyatt (this means nothing)',
+		'fr fr on god no cap (sorry)',
+		'anime was a mistake - jk we love it here',
+		'dragon ball zed more like dragon ball zzz',
+		'naruto run to the fridge type day',
+		'goku would share his food. would you.',
+		'piccolo babysitting energy loading…',
+		'buu ate the cookies. it was me. i was buu.'
 	];
 	let tagline = '';
 
@@ -208,81 +250,59 @@
 	<title>BakaWorld χ - Home</title>
 </svelte:head>
 
-<style>
-	.home-main {
-		position: relative;
-		z-index: 1;
-		background: transparent;
-	}
-
-	.search-field-home {
-		border-color: rgba(236, 72, 153, 0.35);
-	}
-
-	.search-field-home:focus-visible {
-		outline: none;
-		border-color: rgba(236, 72, 153, 0.55);
-		box-shadow: 0 0 0 3px rgba(236, 72, 153, 0.2);
-	}
-
-	:global([data-theme='dark']) .search-field-home {
-		border-color: rgba(14, 165, 233, 0.35);
-	}
-
-	:global([data-theme='dark']) .search-field-home:focus-visible {
-		border-color: rgba(34, 211, 238, 0.55);
-		box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.18);
-	}
-
-	.search-cta-home {
-		background: linear-gradient(135deg, #db2777, #9333ea, #4338ca);
-		border-color: rgba(236, 72, 153, 0.45);
-	}
-
-	.search-cta-home:hover {
-		filter: brightness(1.06);
-	}
-
-	.search-cta-home:active {
-		filter: brightness(0.96);
-	}
-
-	:global([data-theme='dark']) .search-cta-home {
-		background: linear-gradient(135deg, #0284c7, #2563eb, #4338ca);
-		border-color: rgba(14, 165, 233, 0.45);
-	}
-</style>
-
 <main
-	class="home-main flex min-h-[calc(100vh-5rem)] w-full flex-col items-center justify-center px-4 py-16"
+	class="relative z-[1] flex min-h-[calc(100vh-5rem)] w-full flex-col items-center justify-center bg-transparent px-4 py-20 sm:px-6 sm:py-24 md:py-28"
 >
-	<div class="w-full max-w-xl">
-		<p class="mb-2 text-center text-xs font-medium uppercase tracking-widest text-zinc-500">
-			BakaWorld
-		</p>
-		<h1 class="mb-2 text-center text-3xl font-bold tracking-tight text-white md:text-4xl">
-			Welcome back, <span class="text-theme-accent">{username}</span>
-		</h1>
-		<p class="mb-10 text-center text-sm text-zinc-400 md:text-base">{tagline}</p>
-
-		<form class="flex w-full flex-col gap-3 sm:flex-row sm:gap-0" on:submit={handleSearch}>
-			<input
-				type="text"
-				bind:value={searchQuery}
-				placeholder="Search torrents…"
-				class="search-field-home min-h-[48px] flex-1 rounded-xl border-2 bg-zinc-900/95 px-4 py-3 text-base text-white placeholder:text-zinc-500 sm:rounded-r-none sm:rounded-l-xl"
-				required
-				disabled={searchLoading}
-				autocomplete="off"
-			/>
-			<button
-				type="submit"
-				class="search-cta-home min-h-[48px] rounded-xl border-2 px-6 py-3 text-base font-semibold text-white transition-[filter] duration-150 sm:rounded-l-none sm:rounded-r-xl sm:px-8"
-				disabled={searchLoading}
+	<div class="mx-auto w-full max-w-2xl">
+		<header class="flex flex-col items-center text-center">
+			<p
+				class="text-lg font-semibold uppercase leading-none tracking-[0.2em] text-zinc-300 antialiased sm:text-xl md:text-2xl md:tracking-[0.22em]"
 			>
-				{searchLoading ? 'Searching…' : 'Search'}
-			</button>
-		</form>
+				BakaWorld&nbsp;χ
+			</p>
+
+			<h1
+				class="mt-6 text-balance text-3xl font-bold leading-[1.15] tracking-tight text-zinc-50 sm:mt-8 sm:text-4xl sm:leading-[1.12] md:mt-10 md:text-5xl md:leading-[1.08]"
+			>
+				Welcome back, <span class="text-theme-accent">{username}</span>
+			</h1>
+
+			<div class="mt-5 w-full max-w-full sm:mt-6 md:mt-8">
+				<p
+					class="inline-block w-max max-w-full overflow-x-auto whitespace-nowrap px-1 text-center text-sm leading-normal text-zinc-400 [scrollbar-width:thin] sm:text-base md:text-base [&::-webkit-scrollbar]:h-1 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-white/15"
+				>
+					{tagline}
+				</p>
+			</div>
+		</header>
+
+		<section class="mt-12 w-full sm:mt-14 md:mt-20" aria-label="Torrent search">
+			<label for="home-torrent-search" class="sr-only">Search torrents by keyword</label>
+			<form
+				class="flex w-full flex-col gap-2 overflow-hidden rounded-2xl border border-white/10 bg-zinc-950/40 p-2 shadow-xl shadow-black/25 ring-1 ring-white/5 backdrop-blur-md sm:flex-row sm:items-stretch sm:gap-2 sm:p-2"
+				on:submit={handleSearch}
+			>
+				<input
+					id="home-torrent-search"
+					type="search"
+					bind:value={searchQuery}
+					placeholder="Search torrents…"
+					class="min-h-[52px] flex-1 rounded-xl border-0 bg-transparent px-4 py-3.5 text-base text-zinc-50 placeholder:text-zinc-500 transition focus:outline-none focus-visible:ring-0 disabled:opacity-50 sm:min-h-14"
+					required
+					disabled={searchLoading}
+					autocomplete="off"
+					enterkeyhint="search"
+				/>
+				<button
+					type="submit"
+					class="min-h-[52px] shrink-0 rounded-xl px-8 text-sm font-semibold text-white shadow-sm transition hover:brightness-110 active:brightness-[0.97] disabled:pointer-events-none disabled:opacity-45 disabled:hover:brightness-100 sm:min-h-14 sm:px-9 sm:text-base"
+					style="background-color: var(--theme-accent);"
+					disabled={searchLoading}
+				>
+					{searchLoading ? 'Searching…' : 'Search'}
+				</button>
+			</form>
+		</section>
 	</div>
 
 	<SearchModal

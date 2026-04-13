@@ -1,5 +1,6 @@
 // YouTube downloader service - Clean implementation
 import type { YouTubeVideoInfo, YouTubeDownloadOptions } from '$lib/types/youtube';
+import { env } from '$env/dynamic/private';
 import { spawn, spawnSync, execSync } from 'child_process';
 import fs from 'fs';
 import path from 'path';
@@ -9,6 +10,41 @@ const TEMP_DIR = path.join(process.cwd(), 'temp', 'youtube');
 // Ensure temp directory exists
 if (!fs.existsSync(TEMP_DIR)) {
 	fs.mkdirSync(TEMP_DIR, { recursive: true });
+}
+
+/** YouTube stream 403s are common; try alternate player clients (see yt-dlp wiki / issues). */
+function youtubeExtractorArgChains(): string[] {
+	const custom = env.YT_DLP_YOUTUBE_EXTRACTOR_ARGS?.trim();
+	if (custom) return [custom];
+	return [
+		'youtube:player_client=android,web',
+		'youtube:player_client=tv_embedded',
+		'youtube:player_client=web_embedded'
+	];
+}
+
+function ytDlpCookieArgs(): string[] {
+	const raw = env.YT_DLP_COOKIES?.trim();
+	if (!raw) return [];
+	const resolved = path.isAbsolute(raw) ? raw : path.join(process.cwd(), raw);
+	if (!fs.existsSync(resolved)) return [];
+	return ['--cookies', resolved];
+}
+
+function ytDlpMitigationPrefix(chain: string): string[] {
+	return ['--extractor-args', chain, ...ytDlpCookieArgs()];
+}
+
+function cleanupYtDlpPartials(dir: string, namePrefix: string): void {
+	if (!fs.existsSync(dir)) return;
+	for (const f of fs.readdirSync(dir)) {
+		if (!f.startsWith(namePrefix)) continue;
+		try {
+			fs.unlinkSync(path.join(dir, f));
+		} catch {
+			// ignore
+		}
+	}
 }
 
 function findYtDlpCommand(): string | null {
@@ -35,52 +71,68 @@ export class YouTubeService {
 		}
 
 		return new Promise((resolve, reject) => {
-			const args = [
-				url,
-				'--dump-json',
-				'--no-playlist'
-			];
+			const chains = youtubeExtractorArgChains();
+			let chainIdx = 0;
+			let lastStderr = '';
 
-			let output = '';
-			const process = spawn(command, args, {
-				stdio: ['ignore', 'pipe', 'pipe']
-			});
-
-			process.stdout.on('data', (data) => {
-				output += data.toString();
-			});
-
-			process.stderr.on('data', (data) => {
-				// yt-dlp outputs progress to stderr, ignore it
-			});
-
-			process.on('error', (error) => {
-				reject(new Error(`Failed to spawn ${command}: ${error.message}`));
-			});
-
-			process.on('close', (code) => {
-				if (code === 0) {
-					try {
-						const info = JSON.parse(output.trim().split('\n').pop() || '{}');
-						resolve({
-							id: info.id,
-							title: info.title || 'Unknown',
-							thumbnail: info.thumbnail || '',
-							duration: info.duration || 0,
-							views: info.view_count || 0,
-							channel: {
-								name: info.channel || 'Unknown',
-								url: info.channel_url || ''
-							},
-							formats: info.formats || []
-						});
-					} catch (error) {
-						reject(new Error('Failed to parse video information'));
-					}
-				} else {
-					reject(new Error(`yt-dlp failed with code ${code}`));
+			const tryNext = (): void => {
+				if (chainIdx >= chains.length) {
+					const hint = lastStderr.trim().slice(-800) || 'no stderr captured';
+					reject(
+						new Error(
+							`yt-dlp failed after ${chains.length} YouTube client attempts. Last output: ${hint}. Tip: upgrade yt-dlp (\`brew upgrade yt-dlp\` / \`pip install -U yt-dlp\`) or set YT_DLP_COOKIES to a browser cookies.txt — see SPOTIFY_SETUP.md.`
+						)
+					);
+					return;
 				}
-			});
+				const args = [...ytDlpMitigationPrefix(chains[chainIdx]), url, '--dump-json', '--no-playlist'];
+
+				let output = '';
+				let stderr = '';
+				const child = spawn(command, args, {
+					stdio: ['ignore', 'pipe', 'pipe']
+				});
+
+				child.stdout.on('data', (data) => {
+					output += data.toString();
+				});
+
+				child.stderr.on('data', (data) => {
+					stderr += data.toString();
+				});
+
+				child.on('error', (error) => {
+					reject(new Error(`Failed to spawn ${command}: ${error.message}`));
+				});
+
+				child.on('close', (code) => {
+					if (code === 0) {
+						try {
+							const info = JSON.parse(output.trim().split('\n').pop() || '{}');
+							resolve({
+								id: info.id,
+								title: info.title || 'Unknown',
+								thumbnail: info.thumbnail || '',
+								duration: info.duration || 0,
+								views: info.view_count || 0,
+								channel: {
+									name: info.channel || 'Unknown',
+									url: info.channel_url || ''
+								},
+								formats: info.formats || []
+							});
+						} catch {
+							reject(new Error('Failed to parse video information'));
+						}
+					} else {
+						lastStderr = stderr;
+						chainIdx += 1;
+						tryNext();
+					}
+				});
+			};
+
+			tryNext();
 		});
 	}
 
@@ -121,17 +173,6 @@ export class YouTubeService {
 				`b[ext=mp4][vcodec!=none][acodec!=none]/` +              // premerged mp4
 				`b`;                                                     // best available
 
-			const downloadArgs = [
-				url,
-				'-o', tempFile,
-				'--no-playlist',
-				'--newline',
-				'--no-warnings',
-				'--no-mtime',
-				'-f', formatSelector,
-				'--merge-output-format', 'mp4'
-			];
-
 			if (progressCallback) {
 				progressCallback(1 + i, `Fetching formats (<=${h}p)...`);
 			}
@@ -139,49 +180,76 @@ export class YouTubeService {
 			// Clean up leftovers from previous attempts
 			this.cleanupTempFiles(fileId);
 
-			const attemptResult = await new Promise<{ ok: boolean; err?: string }>((resolve) => {
-				const proc = spawn(command, downloadArgs, { stdio: ['ignore', 'pipe', 'pipe'] });
-				let errorOutput = '';
-				let stderrOutput = '';
+			const chains = youtubeExtractorArgChains();
+			let attemptResult: { ok: boolean; err?: string } = { ok: false, err: 'No YouTube client attempts' };
 
-				proc.stderr.on('data', (data) => {
-					const output = data.toString();
-					stderrOutput += output;
-					if (progressCallback) {
-						if (output.includes('[download] Destination:') || output.includes('Downloading item')) {
-							progressCallback(2 + i, 'Starting download...');
+			for (let ci = 0; ci < chains.length; ci++) {
+				const downloadArgs = [
+					...ytDlpMitigationPrefix(chains[ci]),
+					url,
+					'-o', tempFile,
+					'--no-playlist',
+					'--newline',
+					'--no-warnings',
+					'--no-mtime',
+					'-f', formatSelector,
+					'--merge-output-format', 'mp4'
+				];
+
+				if (progressCallback && chains.length > 1) {
+					progressCallback(1 + i, `Trying YouTube client ${ci + 1}/${chains.length} (≤${h}p)…`);
+				}
+
+				attemptResult = await new Promise<{ ok: boolean; err?: string }>((resolve) => {
+					const proc = spawn(command, downloadArgs, { stdio: ['ignore', 'pipe', 'pipe'] });
+					let errorOutput = '';
+					let stderrOutput = '';
+
+					proc.stderr.on('data', (data) => {
+						const output = data.toString();
+						stderrOutput += output;
+						if (progressCallback) {
+							if (output.includes('[download] Destination:') || output.includes('Downloading item')) {
+								progressCallback(2 + i, 'Starting download...');
+							}
+							const match = output.match(/\[download\]\s+(\d+\.?\d*)%/);
+							if (match) {
+								const percent = parseFloat(match[1]);
+								progressCallback(Math.min(percent * 0.7, 70), `Downloading... ${percent.toFixed(0)}%`);
+							} else if (output.includes('[Merger]')) {
+								progressCallback(70, 'Merging video and audio...');
+							} else if (output.includes('[ExtractAudio]')) {
+								progressCallback(72, 'Extracting audio...');
+							} else if (output.includes('[ffmpeg]')) {
+								progressCallback(74, 'Post-processing...');
+							}
 						}
-						const match = output.match(/\[download\]\s+(\d+\.?\d*)%/);
-						if (match) {
-							const percent = parseFloat(match[1]);
-							progressCallback(Math.min(percent * 0.7, 70), `Downloading... ${percent.toFixed(0)}%`);
-						} else if (output.includes('[Merger]')) {
-							progressCallback(70, 'Merging video and audio...');
-						} else if (output.includes('[ExtractAudio]')) {
-							progressCallback(72, 'Extracting audio...');
-						} else if (output.includes('[ffmpeg]')) {
-							progressCallback(74, 'Post-processing...');
+						if (
+							output.toLowerCase().includes('error') ||
+							output.toLowerCase().includes('requested format is not available')
+						) {
+							errorOutput += output;
 						}
-					}
-					if (output.toLowerCase().includes('error') || output.toLowerCase().includes('requested format is not available')) {
-						errorOutput += output;
-					}
+					});
+
+					proc.on('error', (error) => {
+						resolve({ ok: false, err: `Failed to spawn ${command}: ${error.message}` });
+					});
+
+					proc.on('close', (code) => {
+						if (code === 0) {
+							if (progressCallback) progressCallback(75, 'Download complete');
+							resolve({ ok: true });
+						} else {
+							const errMsg = errorOutput || stderrOutput.substring(0, 500);
+							resolve({ ok: false, err: errMsg });
+						}
+					});
 				});
 
-				proc.on('error', (error) => {
-					resolve({ ok: false, err: `Failed to spawn ${command}: ${error.message}` });
-				});
-
-				proc.on('close', (code) => {
-					if (code === 0) {
-						if (progressCallback) progressCallback(75, 'Download complete');
-						resolve({ ok: true });
-					} else {
-						const errMsg = errorOutput || stderrOutput.substring(0, 500);
-						resolve({ ok: false, err: errMsg });
-					}
-				});
-			});
+				if (attemptResult.ok) break;
+				this.cleanupTempFiles(fileId);
+			}
 
 			if (attemptResult.ok) {
 				downloadedPath = this.findDownloadedFile(fileId);
@@ -230,65 +298,93 @@ export class YouTubeService {
 		audioFormat: 'mp3' | 'wav' | 'flac',
 		audioBitrate: number | undefined,
 		fileId: string,
-		progressCallback?: (progress: number, stage: string) => void
+		progressCallback?: (progress: number, stage: string) => void,
+		locations?: { workDir: string; baseName: string }
 	): Promise<string> {
 		const command = findYtDlpCommand();
 		if (!command) {
 			throw new Error('yt-dlp or youtube-dl not found.');
 		}
 
-		const baseName = `youtube-${fileId}`;
-		const tempPattern = path.join(TEMP_DIR, `${baseName}.audio`);
+		const workDir = locations?.workDir ?? TEMP_DIR;
+		const baseName = locations?.baseName ?? `youtube-${fileId}`;
+
+		if (!fs.existsSync(workDir)) {
+			fs.mkdirSync(workDir, { recursive: true });
+		}
+
+		const tempPattern = path.join(workDir, `${baseName}.audio`);
 		const tempFile = `${tempPattern}.%(ext)s`;
-		const finalFile = path.join(TEMP_DIR, `${baseName}.${audioFormat}`);
+		const finalFile = path.join(workDir, `${baseName}.${audioFormat}`);
 
 		if (progressCallback) progressCallback(0, 'Starting audio download...');
 
-		const args = [
-			url,
-			'-o', tempFile,
-			'--no-playlist',
-			'--newline',
-			'--no-warnings',
-			'--no-mtime',
-			'-f', 'bestaudio/best'
-		];
+		const chains = youtubeExtractorArgChains();
+		let lastErr = '';
 
-		await new Promise<void>((resolve, reject) => {
-			const proc = spawn(command, args, { stdio: ['ignore', 'pipe', 'pipe'] });
-			let errorOutput = '';
-			let stderrOutput = '';
+		for (let c = 0; c < chains.length; c++) {
+			cleanupYtDlpPartials(workDir, `${baseName}.audio`);
+			if (progressCallback && chains.length > 1) {
+				progressCallback(2, `YouTube fetch (${c + 1}/${chains.length})…`);
+			}
 
-			proc.stderr.on('data', (data) => {
-				const output = data.toString();
-				stderrOutput += output;
-				if (progressCallback) {
-					const match = output.match(/\[download\]\s+(\d+\.?\d*)%/);
-					if (match) {
-						const percent = parseFloat(match[1]);
-						progressCallback(Math.min(percent * 0.7, 70), `Downloading audio... ${percent.toFixed(0)}%`);
+			const args = [
+				...ytDlpMitigationPrefix(chains[c]),
+				url,
+				'-o', tempFile,
+				'--no-playlist',
+				'--newline',
+				'--no-warnings',
+				'--no-mtime',
+				'-f', 'bestaudio/best'
+			];
+
+			const ok = await new Promise<boolean>((resolve, reject) => {
+				const proc = spawn(command, args, { stdio: ['ignore', 'pipe', 'pipe'] });
+				let errorOutput = '';
+				let stderrOutput = '';
+
+				proc.stderr.on('data', (data) => {
+					const output = data.toString();
+					stderrOutput += output;
+					if (progressCallback) {
+						const match = output.match(/\[download\]\s+(\d+\.?\d*)%/);
+						if (match) {
+							const percent = parseFloat(match[1]);
+							progressCallback(Math.min(percent * 0.7, 70), `Downloading audio... ${percent.toFixed(0)}%`);
+						}
 					}
-				}
-				if (output.toLowerCase().includes('error')) {
-					errorOutput += output;
-				}
+					if (output.toLowerCase().includes('error')) {
+						errorOutput += output;
+					}
+				});
+
+				proc.on('error', (error) => {
+					reject(new Error(`Failed to spawn ${command}: ${error.message}`));
+				});
+
+				proc.on('close', (code) => {
+					if (code === 0) {
+						if (progressCallback) progressCallback(75, 'Audio download complete');
+						resolve(true);
+					} else {
+						lastErr = errorOutput || stderrOutput;
+						resolve(false);
+					}
+				});
 			});
 
-			proc.on('error', (error) => {
-				reject(new Error(`Failed to spawn ${command}: ${error.message}`));
-			});
+			if (ok) break;
+		}
 
-			proc.on('close', (code) => {
-				if (code === 0) {
-					if (progressCallback) progressCallback(75, 'Audio download complete');
-					resolve();
-				} else {
-					reject(new Error(`Audio download failed: ${errorOutput || stderrOutput.substring(0, 500)}`));
-				}
-			});
-		});
+		if (!this.findDownloadedFileByPrefix(`${baseName}.audio`, workDir)) {
+			throw new Error(
+				`Audio download failed after ${chains.length} attempts: ${lastErr.substring(0, 600)}`.trim() +
+					' — upgrade yt-dlp and/or set YT_DLP_COOKIES (see SPOTIFY_SETUP.md).'
+			);
+		}
 
-		const downloadedPath = this.findDownloadedFileByPrefix(`${baseName}.audio`);
+		const downloadedPath = this.findDownloadedFileByPrefix(`${baseName}.audio`, workDir);
 		if (!downloadedPath) {
 			throw new Error('Downloaded audio file not found');
 		}
@@ -475,14 +571,14 @@ export class YouTubeService {
 		return file ? path.join(TEMP_DIR, file) : null;
 	}
 
-	private findDownloadedFileByPrefix(prefix: string): string | null {
-		const files = fs.readdirSync(TEMP_DIR);
+	private findDownloadedFileByPrefix(prefix: string, dir: string = TEMP_DIR): string | null {
+		const files = fs.readdirSync(dir);
 		const file = files.find(f =>
 			f.startsWith(prefix) &&
 			!f.endsWith('.part') &&
 			!f.endsWith('.ytdl')
 		);
-		return file ? path.join(TEMP_DIR, file) : null;
+		return file ? path.join(dir, file) : null;
 	}
 
 	private isVideoFile(filePath: string): boolean {

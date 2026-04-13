@@ -1,11 +1,16 @@
 <!-- Premiumizer Page - YouTube & Spotify -->
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount, onDestroy } from 'svelte';
+	import { browser } from '$app/environment';
 	import { goto } from '$app/navigation';
 	import { get } from 'svelte/store';
 	import { auth, refreshAuth } from '$lib/stores/auth';
 	import type { YouTubeVideoInfo } from '$lib/types/youtube';
-	import type { SpotifyTrackInfo } from '$lib/types/spotify';
+	import {
+		SPOTIFY_DOWNLOAD_QUALITIES,
+		type SpotifyDownloadQuality,
+		type SpotifyTrackInfo
+	} from '$lib/types/spotify';
 
 	type MediaType = 'youtube' | 'spotify';
 	
@@ -19,7 +24,12 @@
 	let selectedQuality = '1080p';
 	let selectedAudioFormat: 'mp3' | 'wav' | 'flac' = 'mp3';
 	let audioBitrate = 320;
-	let selectedSpotifyFormat: 'flac' | 'mp3' = 'flac';
+	let selectedSpotifyFormat: SpotifyDownloadQuality = 'mp3-320';
+
+	function spotifyDownloadExtension(f: SpotifyDownloadQuality): string {
+		if (f === 'flac') return '.flac';
+		return '.mp3';
+	}
 	let downloading = false;
 	let downloadProgress = 0;
 	let downloadStage = '';
@@ -55,6 +65,13 @@
 		const { isLoggedIn } = get(auth);
 		if (!isLoggedIn) {
 			goto('/');
+		}
+	});
+
+	onDestroy(() => {
+		resetForm();
+		if (browser) {
+			document.getElementById('premiumizer-media-url')?.blur();
 		}
 	});
 
@@ -95,12 +112,24 @@
 					body: JSON.stringify({ url: url.trim() })
 				});
 
-				const data = await res.json();
+				const raw = await res.text();
+				let data: { error?: string } & Record<string, unknown> = {};
+				if (raw?.trim()) {
+					try {
+						data = JSON.parse(raw);
+					} catch {
+						error = 'Invalid response from server';
+						return;
+					}
+				} else if (!res.ok) {
+					error = 'Empty response from server';
+					return;
+				}
 
 				if (res.ok) {
-					trackInfo = data;
+					trackInfo = data as unknown as SpotifyTrackInfo;
 				} else {
-					error = data.error || 'Failed to get track information';
+					error = (data.error as string) || 'Failed to get track information';
 				}
 			}
 		} catch (err) {
@@ -214,7 +243,16 @@
 			downloadStage = 'Starting download...';
 			downloadProgress = 100;
 			
-			let extension = mediaType === 'youtube' ? (selectedFormat === 'video' ? '.mp4' : selectedAudioFormat === 'mp3' ? '.mp3' : selectedAudioFormat === 'wav' ? '.wav' : '.flac') : `.${selectedSpotifyFormat}`;
+			let extension =
+				mediaType === 'youtube'
+					? selectedFormat === 'video'
+						? '.mp4'
+						: selectedAudioFormat === 'mp3'
+							? '.mp3'
+							: selectedAudioFormat === 'wav'
+								? '.wav'
+								: '.flac'
+					: spotifyDownloadExtension(selectedSpotifyFormat);
 
 			let filename: string;
 			if (mediaType === 'youtube') {
@@ -286,88 +324,100 @@
 	<title>BakaWorld χ - Premiumizer</title>
 </svelte:head>
 
-<main class="text-white">
-	<div class="container mx-auto px-4 py-4 md:py-8 max-w-4xl">
-		<!-- Header -->
-		<div class="text-center mb-8">
-			<h1 class="text-4xl md:text-5xl font-extrabold text-white drop-shadow-lg mb-4">
-				<span class="bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">
-					Media Downloader
-				</span>
-			</h1>
-			<p class="text-gray-400 text-lg">Download YouTube videos/audio and Spotify tracks in FLAC quality</p>
-		</div>
-
-		<!-- Media Type Tabs -->
-		<div class="bg-gray-900 rounded-lg border border-gray-700 p-1 mb-6 flex gap-2">
-			<button
-				type="button"
-				on:click={() => handleMediaTypeChange('youtube')}
-				class="flex-1 rounded-lg px-4 py-3 font-semibold transition-colors {mediaType === 'youtube' 
-					? 'bg-red-600 text-white' 
-					: 'text-gray-300 hover:bg-gray-800'}"
-				disabled={loading || downloading}
-			>
-				YouTube
-			</button>
-			<button
-				type="button"
-				on:click={() => handleMediaTypeChange('spotify')}
-				class="flex-1 rounded-lg px-4 py-3 font-semibold transition-colors {mediaType === 'spotify' 
-					? 'bg-green-600 text-white' 
-					: 'text-gray-300 hover:bg-gray-800'}"
-				disabled={loading || downloading}
-			>
-				Spotify
-			</button>
-		</div>
-
-		<!-- URL Input Form -->
-		<div class="bg-gray-900 rounded-lg border border-gray-700 p-6 mb-6">
-			<form
-				on:submit={handleGetInfo}
-				class="space-y-4"
-			>
-				<div>
-					<label for="url" class="block text-sm font-medium text-gray-300 mb-2">
-						{mediaType === 'youtube' ? 'YouTube' : 'Spotify'} URL
-					</label>
-					<div class="flex gap-2">
-						<input
-							id="url"
-							type="url"
-							bind:value={url}
-							placeholder={mediaType === 'youtube' 
-								? 'https://www.youtube.com/watch?v=...' 
-								: 'https://open.spotify.com/track/...'}
-							class="flex-1 rounded-lg bg-gray-800 text-white px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 border border-gray-700 placeholder-gray-400"
-							required
-							disabled={loading || downloading}
-						/>
-						<button
-							type="submit"
-							class="rounded-lg bg-red-600 px-6 py-3 font-semibold text-white hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-							disabled={loading || downloading || !url.trim()}
-						>
-							{#if loading}
-								<span class="animate-spin inline-block w-5 h-5 border-2 border-white border-t-transparent rounded-full mr-2"></span>
-								Loading...
-							{:else}
-								Get Info
-							{/if}
-						</button>
-					</div>
-				</div>
-			</form>
-		</div>
-
-		<!-- Error Message -->
-		{#if error}
-			<div class="mb-6 p-4 rounded-lg bg-red-900/50 border border-red-700">
-				<p class="text-red-200">{error}</p>
+<main class="relative z-[1] flex min-h-[calc(100vh-5rem)] w-full flex-col text-white">
+	<section
+		class="flex min-h-0 w-full flex-1 flex-col items-center justify-center px-4 py-12 sm:py-16 md:py-20"
+	>
+		<div class="mx-auto w-full max-w-4xl">
+			<!-- Header -->
+			<div class="text-center mb-8">
+				<h1 class="text-4xl md:text-5xl font-extrabold text-white drop-shadow-lg mb-4">
+					<span class="bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">
+						Media Downloader
+					</span>
+				</h1>
+				<p class="text-gray-400 text-lg">Download YouTube videos/audio and Spotify tracks in FLAC quality</p>
 			</div>
-		{/if}
 
+			<!-- Media Type Tabs -->
+			<div class="mb-6 flex gap-2 rounded-lg border border-gray-700 bg-gray-900 p-1">
+				<button
+					type="button"
+					on:click={() => handleMediaTypeChange('youtube')}
+					class="flex-1 rounded-lg px-4 py-3 font-semibold transition-colors {mediaType === 'youtube'
+						? 'bg-red-600 text-white'
+						: 'text-gray-300 hover:bg-gray-800'}"
+					disabled={loading || downloading}
+				>
+					YouTube
+				</button>
+				<button
+					type="button"
+					on:click={() => handleMediaTypeChange('spotify')}
+					class="flex-1 rounded-lg px-4 py-3 font-semibold transition-colors {mediaType === 'spotify'
+						? 'bg-green-600 text-white'
+						: 'text-gray-300 hover:bg-gray-800'}"
+					disabled={loading || downloading}
+				>
+					Spotify
+				</button>
+			</div>
+
+			<!-- URL Input Form -->
+			<div class="rounded-lg border border-gray-700 bg-gray-900 p-6">
+				<form on:submit={handleGetInfo} class="space-y-4">
+					<div>
+						<span
+							id="premiumizer-url-heading"
+							class="mb-2 block text-sm font-medium text-gray-300"
+						>
+							{mediaType === 'youtube' ? 'YouTube' : 'Spotify'} URL
+						</span>
+						<div class="flex gap-2">
+							<input
+								id="premiumizer-media-url"
+								type="url"
+								name="premiumizer-media-url"
+								autocomplete="off"
+								aria-labelledby="premiumizer-url-heading"
+								bind:value={url}
+								placeholder={mediaType === 'youtube'
+									? 'https://www.youtube.com/watch?v=...'
+									: 'https://open.spotify.com/track/...'}
+								class="flex-1 rounded-lg border border-gray-700 bg-gray-800 px-4 py-3 text-white placeholder-gray-400 focus:outline-none focus:ring-0"
+								required
+								disabled={loading || downloading}
+							/>
+							<button
+								type="submit"
+								class="rounded-lg px-6 py-3 font-semibold text-white outline-none transition-colors focus:outline-none disabled:cursor-not-allowed disabled:opacity-50 {mediaType === 'spotify'
+									? 'bg-green-600 hover:bg-green-700 focus-visible:ring-2 focus-visible:ring-green-400/60'
+									: 'bg-red-600 hover:bg-red-700 focus-visible:ring-2 focus-visible:ring-red-400/60'}"
+								disabled={loading || downloading || !url.trim()}
+							>
+								{#if loading}
+									<span
+										class="mr-2 inline-block h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent"
+									></span>
+									Loading...
+								{:else}
+									Get Info
+								{/if}
+							</button>
+						</div>
+					</div>
+				</form>
+			</div>
+
+			<!-- Error Message -->
+			{#if error}
+				<div class="mt-4 p-4 rounded-lg bg-red-900/50 border border-red-700">
+					<p class="text-red-200">{error}</p>
+				</div>
+			{/if}
+		</div>
+	</section>
+	<section class="container mx-auto w-full max-w-4xl shrink-0 px-4 pb-10 pt-4 md:pt-6">
 		<!-- YouTube Video Info and Download Options -->
 		{#if mediaType === 'youtube' && videoInfo}
 			<div class="bg-gray-900 rounded-lg border border-gray-700 p-6 mb-6">
@@ -434,7 +484,7 @@
 							<select
 								id="quality"
 								bind:value={selectedQuality}
-								class="w-full rounded-lg bg-gray-800 text-white px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 border border-gray-700"
+								class="w-full rounded-lg bg-gray-800 text-white px-4 py-3 focus:outline-none focus:ring-0 border border-gray-700"
 								disabled={downloading}
 							>
 								<option value="4k">4K (2160p)</option>
@@ -455,7 +505,7 @@
 								<select
 									id="audioFormat"
 									bind:value={selectedAudioFormat}
-									class="w-full rounded-lg bg-gray-800 text-white px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 border border-gray-700"
+									class="w-full rounded-lg bg-gray-800 text-white px-4 py-3 focus:outline-none focus:ring-0 border border-gray-700"
 									disabled={downloading}
 								>
 									<option value="mp3">MP3</option>
@@ -471,7 +521,7 @@
 									<select
 										id="bitrate"
 										bind:value={audioBitrate}
-										class="w-full rounded-lg bg-gray-800 text-white px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 border border-gray-700"
+										class="w-full rounded-lg bg-gray-800 text-white px-4 py-3 focus:outline-none focus:ring-0 border border-gray-700"
 										disabled={downloading}
 									>
 										<option value={320}>320 kbps</option>
@@ -564,36 +614,33 @@
 					</div>
 				</div>
 
-				<!-- Format Selection -->
 				<div class="space-y-4">
 					<div>
 						<label for="spotifyFormat" class="block text-sm font-medium text-gray-300 mb-2">
-							Audio Format
+							Audio format
 						</label>
 						<select
 							id="spotifyFormat"
 							bind:value={selectedSpotifyFormat}
-							class="w-full rounded-lg bg-gray-800 text-white px-4 py-3 focus:outline-none focus:ring-2 focus:ring-green-500 border border-gray-700"
+							class="w-full rounded-lg bg-gray-800 text-white px-4 py-3 focus:outline-none focus:ring-0 border border-gray-700"
 							disabled={downloading}
 						>
-							<option value="flac">FLAC (Lossless)</option>
-							<option value="mp3">MP3 (320kbps)</option>
+							{#each SPOTIFY_DOWNLOAD_QUALITIES as preset}
+								<option value={preset}
+									>{preset === 'mp3-128'
+										? 'MP3 128 kbps'
+										: preset === 'mp3-320'
+											? 'MP3 320 kbps'
+											: 'FLAC'}</option
+								>
+							{/each}
 						</select>
 					</div>
 
-					<div class="p-4 bg-blue-900/20 border border-blue-700/50 rounded-lg">
-						<p class="text-sm text-blue-300">
-							<strong>Note:</strong> This downloads tracks from Spotify using spotdl, which uses YouTube Music as the audio source. 
-							Requires spotdl to be installed on the server (<code class="text-xs bg-gray-800 px-1 py-0.5 rounded">pip install spotdl</code>).
-						</p>
-						<p class="text-sm text-green-300 mt-2">
-							✓ Downloads from YouTube Music (no DRM issues)
-							<br />
-							✓ Embeds Spotify metadata and album art
-							<br />
-							✓ Supports FLAC (lossless) and MP3 (320kbps)
-						</p>
-					</div>
+					<p class="text-sm text-gray-400">
+						Picks a public audio match for this track. You don’t need Spotify Premium. Wrong song sometimes
+						happens—try another link or version.
+					</p>
 
 					<!-- Progress Bar -->
 					{#if downloading}
@@ -616,9 +663,7 @@
 								></div>
 							</div>
 							{#if downloadProgress > 0 && downloadProgress < 100}
-								<div class="text-xs text-gray-400 mt-1">
-									Downloading from YouTube Music via spotdl...
-								</div>
+								<div class="text-xs text-gray-400 mt-1">Downloading…</div>
 							{/if}
 						</div>
 					{/if}
@@ -641,5 +686,5 @@
 				</div>
 			</div>
 		{/if}
-	</div>
+	</section>
 </main>

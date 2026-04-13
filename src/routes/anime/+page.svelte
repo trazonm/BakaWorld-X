@@ -40,20 +40,16 @@
 		lastSearchedQuery = $state.query;
 		localQuery = $state.query;
 	}
+
+	// One viewport-tall column (no extra scroll) until there is real result chrome below
+	$: heroFillView =
+		!$state.hasSearched || ($state.loading && $state.results.length === 0);
 </script>
 
 <svelte:head>
 	<title>BakaWorld χ - Anime Search</title>
 	<meta name="description" content="Search and discover your favorite anime series" />
 </svelte:head>
-
-<style>
-	/* Override global overflow for this page only */
-	:global(html), :global(body) {
-		overflow-y: auto !important;
-		height: auto !important;
-	}
-</style>
 
 <div class="anime-search-container">
 	{#if isNavigatingToAnime}
@@ -67,24 +63,35 @@
 			</div>
 		</div>
 	{/if}
-	<main class="container mx-auto px-4 py-8 max-w-7xl">
-		<!-- Header Section -->
-		<div class="text-center mb-8">
-			<h1 class="text-4xl md:text-5xl font-extrabold text-white drop-shadow-lg mb-4">
-				<span class="bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">
-					Anime Search
-				</span>
-			</h1>
-			<p class="text-gray-400 text-lg">Discover your favorite anime series</p>
-		</div>
+	<main
+		class="relative z-[1] flex w-full flex-col {heroFillView
+			? 'h-[calc(100dvh-5rem)] overflow-x-hidden overflow-y-hidden'
+			: 'min-h-[calc(100dvh-5rem)]'}"
+	>
+		<section
+			class="flex w-full flex-col items-center justify-center px-4 {heroFillView
+				? 'min-h-0 flex-1 justify-center py-8 sm:py-10'
+				: 'py-12 sm:py-16 md:py-20'}"
+		>
+			<div class="mx-auto w-full max-w-2xl text-center">
+				<div class="mb-6 md:mb-8">
+					<h1 class="text-4xl md:text-5xl font-extrabold text-white drop-shadow-lg mb-4">
+						<span class="bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">
+							Anime Search
+						</span>
+					</h1>
+					<p class="text-gray-400 text-lg">Discover your favorite anime series</p>
+				</div>
 
-		<!-- Search Form -->
-		<AnimeSearchForm 
-			bind:query={localQuery} 
-			loading={$state.loading} 
-			on:search={handleSearch} 
-		/>
+				<AnimeSearchForm
+					bind:query={localQuery}
+					loading={$state.loading}
+					on:search={handleSearch}
+				/>
+			</div>
+		</section>
 
+		<section class="container mx-auto w-full max-w-7xl shrink-0 px-4 pb-10 pt-4 md:pt-6">
 		<!-- Results Count -->
 		{#if $state.results.length > 0 && !$state.loading}
 			<div class="text-gray-400 text-center mb-6">
@@ -114,5 +121,6 @@
 			on:next={handleNext}
 			on:prev={handlePrev}
 		/>
+		</section>
 	</main>
 </div>
