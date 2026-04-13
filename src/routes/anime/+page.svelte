@@ -91,6 +91,7 @@
 			</div>
 		</section>
 
+		{#if !heroFillView}
 		<section class="container mx-auto w-full max-w-7xl shrink-0 px-4 pb-10 pt-4 md:pt-6">
 		<!-- Results Count -->
 		{#if $state.results.length > 0 && !$state.loading}
@@ -122,5 +123,6 @@
 			on:prev={handlePrev}
 		/>
 		</section>
+		{/if}
 	</main>
 </div>

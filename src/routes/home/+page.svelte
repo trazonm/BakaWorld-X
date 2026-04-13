@@ -255,11 +255,11 @@
 >
 	<div class="mx-auto w-full max-w-2xl">
 		<header class="flex flex-col items-center text-center">
-			<p
+			<!-- <p
 				class="text-lg font-semibold uppercase leading-none tracking-[0.2em] text-zinc-300 antialiased sm:text-xl md:text-2xl md:tracking-[0.22em]"
 			>
 				BakaWorld&nbsp;χ
-			</p>
+			</p> -->
 
 			<h1
 				class="mt-6 text-balance text-3xl font-bold leading-[1.15] tracking-tight text-zinc-50 sm:mt-8 sm:text-4xl sm:leading-[1.12] md:mt-10 md:text-5xl md:leading-[1.08]"

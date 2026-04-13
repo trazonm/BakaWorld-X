@@ -288,6 +288,7 @@
 
 	.page-container {
 		display: flex;
+		flex-direction: column;
 		align-items: center;
 		justify-content: center;
 		min-height: 70vh;
@@ -378,6 +379,7 @@
 		transition: all 0.2s;
 		backdrop-filter: blur(4px);
 		display: flex;
+		flex-direction: column;
 		align-items: center;
 		justify-content: center;
 	}
@@ -577,8 +579,10 @@
 		bottom: 0;
 		background: rgba(0, 0, 0, 0.7);
 		display: flex;
+		flex-direction: column;
 		align-items: center;
 		justify-content: center;
+		gap: 1rem;
 		z-index: 9999;
 		backdrop-filter: blur(4px);
 	}
