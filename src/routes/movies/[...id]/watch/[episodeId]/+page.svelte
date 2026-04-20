@@ -189,7 +189,7 @@
 					class="aspect-video h-[min(70vh,600px)] w-full"
 					allow="fullscreen; autoplay; encrypted-media; picture-in-picture"
 					allowfullscreen
-					referrerpolicy="origin"
+					referrerpolicy="no-referrer"
 				></iframe>
 			{/key}
 		{:else}
