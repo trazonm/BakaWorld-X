@@ -12,7 +12,7 @@ export const GET: RequestHandler = async ({ url }) => {
 	}
 
 	try {
-		const consumet = createConsumetService(config.consumet.baseUrl);
+		const consumet = createConsumetService();
 		const servers = await consumet.getMovieEpisodeServers(
 			episodeId,
 			mediaId,

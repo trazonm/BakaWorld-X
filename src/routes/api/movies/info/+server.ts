@@ -11,7 +11,7 @@ export const GET: RequestHandler = async ({ url }) => {
 	}
 
 	try {
-		const consumet = createConsumetService(config.consumet.baseUrl);
+		const consumet = createConsumetService();
 		const info = await consumet.getMovieInfo(id, config.consumet.defaultMovieProvider);
 		return new Response(JSON.stringify(info), {
 			status: 200,

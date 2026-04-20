@@ -13,7 +13,6 @@ export const config = {
 		retryAttempts: 3
 	},
 	consumet: {
-		baseUrl: 'http://192.168.0.107:6000',
 		defaultAnimeProvider: 'animekai',
 		defaultMangaProvider: 'mangadex',
 		/** Movies/TV catalog provider id for the streaming metadata service. */

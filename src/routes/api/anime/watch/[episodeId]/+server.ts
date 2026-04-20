@@ -32,7 +32,7 @@ export const GET: RequestHandler = async ({ params, url }) => {
 	episodeId = decodeEpisodeSegment(episodeId);
 
 	const provider = config.consumet.defaultAnimeProvider;
-	const consumetService = createConsumetService(config.consumet.baseUrl);
+	const consumetService = createConsumetService();
 
 	const animeId = url.searchParams.get('animeId')?.trim() || '';
 	const episodeNumber =

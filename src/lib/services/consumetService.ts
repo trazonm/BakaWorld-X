@@ -1,5 +1,6 @@
 // Centralized Consumet API service for anime and manga
 import { config } from '$lib/config';
+import { getConsumetBaseUrl } from '$lib/server/consumetBaseUrl';
 import {
 	flattenConsumetSeasons,
 	inferSeasonsWhenNumbersRestart,
@@ -116,7 +117,7 @@ class ConsumetService {
 	private baseUrl: string;
 
 	constructor(baseUrl?: string) {
-		this.baseUrl = baseUrl || config.consumet.baseUrl;
+		this.baseUrl = (baseUrl || getConsumetBaseUrl()).replace(/\/$/, '');
 	}
 
 	private async requestConsumetJson(pathWithLeadingSlash: string): Promise<unknown> {

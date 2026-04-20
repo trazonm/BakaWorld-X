@@ -14,7 +14,7 @@ export const GET: RequestHandler = async ({ request }) => {
 	}
 
 	try {
-		const consumet = createConsumetService(config.consumet.baseUrl);
+		const consumet = createConsumetService();
 		const result = await consumet.searchMovies(query, config.consumet.defaultMovieProvider, page);
 
 		return new Response(

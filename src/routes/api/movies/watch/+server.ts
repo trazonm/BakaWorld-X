@@ -71,7 +71,7 @@ export const GET: RequestHandler = async ({ url }) => {
 		return new Response(JSON.stringify({ error: 'episodeId and mediaId are required' }), { status: 400 });
 	}
 
-	const consumetClient = createConsumetService(config.consumet.baseUrl);
+	const consumetClient = createConsumetService();
 
 	try {
 		if (singleOnly && server) {

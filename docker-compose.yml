@@ -28,6 +28,8 @@ services:
       SPOTIFY_CLIENT_SECRET: ${SPOTIFY_CLIENT_SECRET:-}
       YT_DLP_COOKIES: ${YT_DLP_COOKIES:-}
       YT_DLP_YOUTUBE_EXTRACTOR_ARGS: ${YT_DLP_YOUTUBE_EXTRACTOR_ARGS:-}
+      # Consumet-compatible API (movies/TV/anime). Must be reachable from this container (use host.docker.internal, Tailscale IP, or public URL).
+      CONSUMET_BASE_URL: ${CONSUMET_BASE_URL:-}
     volumes:
       - ./static:/app/static:ro
     networks:

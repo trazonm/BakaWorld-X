@@ -5,7 +5,7 @@ import '$lib/server/dns-config';
 
 export const GET: RequestHandler = async () => {
 	try {
-		const consumet = createConsumetService(config.consumet.baseUrl);
+		const consumet = createConsumetService();
 		const results = await consumet.getMovieTrending(config.consumet.defaultMovieProvider);
 		return new Response(JSON.stringify({ results }), {
 			status: 200,
