@@ -43,6 +43,15 @@
 			? (videoData.embedUrl || videoData.sources?.[0]?.url || '')
 			: '';
 
+	/** Provider watch URL from catalog metadata (correct referer when opened on their origin). Not every build includes episode.url. */
+	$: providerWatchPageUrl = (() => {
+		const epU = episode.url?.trim();
+		if (epU && /^https?:\/\//i.test(epU)) return epU;
+		const movU = movie.url?.trim();
+		if (movU && /^https?:\/\//i.test(movU)) return movU;
+		return '';
+	})();
+
 	$: hlsPlaylistUrl =
 		videoData?.playback === 'hls'
 			? (videoData.sources?.find((s: { isM3U8?: boolean }) => s.isM3U8)?.url ??
@@ -210,19 +219,36 @@
 		{/if}
 	</div>
 
-	{#if embedUrl}
-		<p class="mt-3 text-center text-sm text-gray-400">
-			If the player shows an error here,
-			<a
-				href={embedUrl}
-				target="_blank"
-				rel="noopener noreferrer"
-				class="text-amber-400 underline hover:text-amber-300"
-			>
-				open in new tab
-			</a>
-			<span class="text-gray-500"> (avoids some embed blocks on public sites).</span>
-		</p>
+	{#if providerWatchPageUrl || embedUrl}
+		<div class="mt-3 space-y-2 text-center text-sm text-gray-400">
+			{#if providerWatchPageUrl}
+				<p>
+					<a
+						href={providerWatchPageUrl}
+						target="_blank"
+						rel="noopener noreferrer"
+						class="font-medium text-amber-400 underline hover:text-amber-300"
+					>
+						Open this title on the source site
+					</a>
+					<span class="text-gray-500"> — most reliable when embeds show errors on this domain.</span>
+				</p>
+			{/if}
+			{#if embedUrl}
+				<p>
+					<span class="text-gray-500">Or</span>
+					<a
+						href={embedUrl}
+						target="_blank"
+						rel="noopener noreferrer"
+						class="text-amber-400 underline hover:text-amber-300"
+					>
+						open the embed player in a new tab
+					</a>
+					<span class="text-gray-500">.</span>
+				</p>
+			{/if}
+		</div>
 	{/if}
 
 	<div class="mt-6 flex flex-wrap justify-between gap-3">
