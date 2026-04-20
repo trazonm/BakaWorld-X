@@ -2,6 +2,7 @@ import type { RequestHandler } from '@sveltejs/kit';
 import { createConsumetService, type ConsumetMovieWatchResponse } from '$lib/services/consumetService';
 import { config } from '$lib/config';
 import { resolveFlixhqEmbedUrl } from '$lib/server/flixhqEmbed';
+import { tryFetchHlsFromEmbedPage } from '$lib/server/movieEmbedToHls';
 import { serverParamFromLabel } from '$lib/server/flixhqPlayback';
 import { userFacingErrorMessage } from '$lib/utils/userFacingErrorMessage';
 import '$lib/server/dns-config';
@@ -46,6 +47,19 @@ function normalizeEmbedWatchJson(embedUrl: string, serverUsed: string) {
 	};
 }
 
+/** Use `<video>` + HLS proxy when we can scrape a `.m3u8` from the third-party embed HTML (server fetch + FlixHQ Referer). */
+function hlsWatchFromExtractedM3u8(m3u8Url: string, segmentReferer: string, serverUsed: string) {
+	const proxied = `/api/proxy/m3u8?url=${encodeURIComponent(m3u8Url)}&referer=${encodeURIComponent(segmentReferer)}`;
+	return {
+		playback: 'hls' as const,
+		headers: { Referer: segmentReferer },
+		sources: [{ url: proxied, quality: 'auto', isM3U8: true as const }],
+		subtitles: [] as { lang: string; url: string }[],
+		playbackSource: 'embed-hls-extract' as const,
+		serverUsed
+	};
+}
+
 async function tryFlixhqEmbedFallback(
 	episodeId: string,
 	mediaId: string,
@@ -54,6 +68,18 @@ async function tryFlixhqEmbedFallback(
 	const { embedUrl, serverLabel } = await resolveFlixhqEmbedUrl(episodeId, mediaId, preferred);
 	/** Must match `<option value>` (vidcloud | upcloud | mixdrop), not FlixHQ label text */
 	const serverUsed = serverParamFromLabel(serverLabel);
+	try {
+		const extracted = await tryFetchHlsFromEmbedPage(embedUrl, mediaId);
+		if (extracted) {
+			const body = hlsWatchFromExtractedM3u8(extracted.m3u8, extracted.pageUrl, serverUsed);
+			return new Response(JSON.stringify(body), {
+				status: 200,
+				headers: { 'Content-Type': 'application/json' }
+			});
+		}
+	} catch (e) {
+		console.warn('Movie embed → HLS extract failed:', e);
+	}
 	return new Response(
 		JSON.stringify(normalizeEmbedWatchJson(embedUrl, serverUsed)),
 		{ status: 200, headers: { 'Content-Type': 'application/json' } }

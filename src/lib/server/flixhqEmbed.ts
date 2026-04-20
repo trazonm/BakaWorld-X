@@ -21,7 +21,7 @@ function flixhqHeaders(referer: string): HeadersInit {
 }
 
 /** Public watch URL for this title (Referer FlixHQ expects). */
-function flixhqWatchReferer(mediaId: string): string {
+export function getFlixhqWatchReferer(mediaId: string): string {
 	const path = mediaId
 		.split('/')
 		.filter(Boolean)
@@ -124,7 +124,7 @@ export async function resolveFlixhqEmbedUrl(
 	allowAnyServerFallback: boolean = preferredOrder.length > 1
 ): Promise<{ embedUrl: string; serverLabel: string }> {
 	const isMovie = mediaId.toLowerCase().includes('movie');
-	const referer = flixhqWatchReferer(mediaId);
+	const referer = getFlixhqWatchReferer(mediaId);
 
 	const listPath = isMovie
 		? `/ajax/episode/list/${encodeURIComponent(numericMovieListId(mediaId, episodeId))}`
