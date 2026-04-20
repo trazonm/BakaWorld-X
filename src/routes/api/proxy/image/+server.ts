@@ -1,12 +1,31 @@
 import type { RequestHandler } from '@sveltejs/kit';
 
-export const GET: RequestHandler = async ({ url, request }) => {
+/** CDN paths like `/images/no_thumbnail.jpg` must be absolute before server-side fetch (SvelteKit rule). */
+function resolveRemoteImageUrl(imageUrl: string, referer: string): string {
+	const raw = imageUrl.trim();
+	if (/^https?:\/\//i.test(raw) || raw.startsWith('data:')) {
+		return raw;
+	}
+	if (raw.startsWith('//')) {
+		return `https:${raw}`;
+	}
+	try {
+		const base = new URL(referer);
+		return new URL(raw, `${base.origin}/`).href;
+	} catch {
+		return new URL(raw, 'https://readcomicsonline.ru/').href;
+	}
+}
+
+export const GET: RequestHandler = async ({ url }) => {
 	const imageUrl = url.searchParams.get('url');
 	const referer = url.searchParams.get('referer') || 'https://readcomicsonline.ru/';
 
 	if (!imageUrl) {
 		return new Response('Missing image URL', { status: 400 });
 	}
+
+	const fetchUrl = resolveRemoteImageUrl(imageUrl, referer);
 
 	// Extract origin from referer URL
 	let origin = 'https://readcomicsonline.ru';
@@ -19,7 +38,7 @@ export const GET: RequestHandler = async ({ url, request }) => {
 	}
 
 	try {
-		const response = await fetch(imageUrl, {
+		const response = await fetch(fetchUrl, {
 			headers: {
 				'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
 				'Referer': referer,
@@ -40,11 +59,11 @@ export const GET: RequestHandler = async ({ url, request }) => {
 		// Determine content type from response or infer from URL
 		let contentType = response.headers.get('content-type');
 		if (!contentType) {
-			if (imageUrl.includes('.jpg') || imageUrl.includes('.jpeg')) {
+			if (fetchUrl.includes('.jpg') || fetchUrl.includes('.jpeg')) {
 				contentType = 'image/jpeg';
-			} else if (imageUrl.includes('.png')) {
+			} else if (fetchUrl.includes('.png')) {
 				contentType = 'image/png';
-			} else if (imageUrl.includes('.webp')) {
+			} else if (fetchUrl.includes('.webp')) {
 				contentType = 'image/webp';
 			} else {
 				contentType = 'image/jpeg'; // Default

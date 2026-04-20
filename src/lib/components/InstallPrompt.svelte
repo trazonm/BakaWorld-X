@@ -5,8 +5,8 @@
 
 	let deferredPrompt: BeforeInstallPromptEvent | null = null;
 	let showBanner = $state(false);
-	let isIOS = false;
-	let isInstalled = false;
+	let isIOS = $state(false);
+	let isInstalled = $state(false);
 
 	// Check if app is already installed
 	function checkIfInstalled() {

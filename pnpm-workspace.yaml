@@ -3,3 +3,19 @@ packages:
 
 # pnpm 10: use `pnpm approve-builds` / onlyBuiltDependencies if you want to restrict native builds.
 dangerouslyAllowAllBuilds: true
+
+# Install optional native binaries for both x64 and arm64 on each OS so ARM64 Node can resolve
+# LightningCSS / Tailwind even if `pnpm install` was run under a different Node arch.
+supportedArchitectures:
+  os:
+    - win32
+    - linux
+    - darwin
+  cpu:
+    - x64
+    - arm64
+
+# Windows ARM64 + pnpm can leave Rollup's native optional binary unlinked while Node is arm64.
+# WASM Rollup avoids `@rollup/rollup-win32-*` entirely (slightly slower bundling).
+overrides:
+  rollup: 'npm:@rollup/wasm-node@4.45.0'

@@ -1,8 +1,9 @@
-// MegaPlay: `s-2` (Aniwatch ?ep= id), MAL/AniList + ep#; else Consumet AnimeKai HLS fallback.
+// MegaPlay: `s-2` (Aniwatch ?ep= id), MAL/AniList + ep#; else catalog AnimeKai HLS fallback.
 import type { RequestHandler } from '@sveltejs/kit';
 import { createConsumetService, type ConsumetWatchResponse } from '$lib/services/consumetService';
 import { config } from '$lib/config';
 import { extractAnimeExternalIds } from '$lib/server/animePlaybackMeta';
+import { userFacingErrorMessage } from '$lib/utils/userFacingErrorMessage';
 import '$lib/server/dns-config';
 
 function decodeEpisodeSegment(segment: string): string {
@@ -83,7 +84,7 @@ export const GET: RequestHandler = async ({ params, url }) => {
 				anilistId = extracted.anilistId;
 			} catch (e) {
 				console.warn(
-					'anime/watch: getAnimeInfo for external ids failed; falling back to Consumet watch',
+					'anime/watch: getAnimeInfo for external ids failed; falling back to catalog watch',
 					e
 				);
 			}
@@ -152,7 +153,7 @@ export const GET: RequestHandler = async ({ params, url }) => {
 				download: data.download,
 				languageUsed,
 				...(languageDubFallback ? { languageDubFallback: true } : {}),
-				playbackSource: 'consumet'
+				playbackSource: 'catalog-hls'
 			}),
 			{
 				status: 200,
@@ -167,7 +168,7 @@ export const GET: RequestHandler = async ({ params, url }) => {
 
 		return new Response(
 			JSON.stringify({
-				error: errorMessage,
+				error: userFacingErrorMessage(errorMessage),
 				details: errorStack,
 				episodeId: params.episodeId
 			}),

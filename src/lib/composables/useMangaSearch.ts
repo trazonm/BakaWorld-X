@@ -1,6 +1,7 @@
 // Composable for manga search functionality
 import { writable, get } from 'svelte/store';
 import type { ConsumetManga, MangaSearchState } from '$lib/types/manga';
+import { userFacingErrorMessage } from '$lib/utils/userFacingErrorMessage';
 
 export function useMangaSearch() {
 	const initialState: MangaSearchState = {
@@ -61,7 +62,7 @@ export function useMangaSearch() {
 			state.update(s => ({
 				...s,
 				loading: false,
-				error: error.message || 'Search failed',
+				error: userFacingErrorMessage(error?.message || 'Search failed'),
 				results: [],
 				hasSearched: true
 			}));

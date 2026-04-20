@@ -2,6 +2,7 @@
 import { writable, get } from 'svelte/store';
 import { animeSearchService } from '$lib/services/animeService';
 import type { Anime, AnimeSearchState } from '$lib/types/anime';
+import { userFacingErrorMessage } from '$lib/utils/userFacingErrorMessage';
 
 export function useAnimeSearch() {
 	const initialState: AnimeSearchState = {
@@ -40,7 +41,7 @@ export function useAnimeSearch() {
 			state.update(s => ({
 				...s,
 				loading: false,
-				error: error.message || 'Search failed',
+				error: userFacingErrorMessage(error?.message || 'Search failed'),
 				results: [],
 				hasSearched: true
 			}));

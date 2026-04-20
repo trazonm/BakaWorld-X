@@ -1,6 +1,13 @@
 // Centralized Consumet API service for anime and manga
 import { config } from '$lib/config';
+import {
+	flattenConsumetSeasons,
+	inferSeasonsWhenNumbersRestart,
+	normalizeMovieEpisodes,
+	sortEpisodes
+} from '$lib/server/flixhqPlayback';
 import type { Anime, Episode } from '$lib/types/anime';
+import type { ConsumetMovie, ConsumetMovieInfo, MovieServerOption } from '$lib/types/movie';
 
 // Get base URL - will be set per request in server endpoints
 // For client-side, this service shouldn't be used directly
@@ -41,6 +48,11 @@ export interface ConsumetWatchResponse {
 		isM3U8: boolean;
 	}>;
 	download?: string;
+}
+
+/** FlixHQ `/movies/.../watch` may include subtitles */
+export interface ConsumetMovieWatchResponse extends ConsumetWatchResponse {
+	subtitles?: Array<{ url: string; lang: string }>;
 }
 
 function usesPathStyleAnimeWatch(provider: string): boolean {
@@ -105,6 +117,56 @@ class ConsumetService {
 
 	constructor(baseUrl?: string) {
 		this.baseUrl = baseUrl || config.consumet.baseUrl;
+	}
+
+	private async requestConsumetJson(pathWithLeadingSlash: string): Promise<unknown> {
+		const url = `${this.baseUrl}${pathWithLeadingSlash}`;
+		const urlObj = new URL(url);
+		const httpModule = urlObj.protocol === 'https:' ? await import('https') : await import('http');
+
+		return new Promise((resolve, reject) => {
+			const options = {
+				hostname: urlObj.hostname,
+				port: urlObj.port || (urlObj.protocol === 'https:' ? 443 : 80),
+				path: urlObj.pathname + urlObj.search,
+				method: 'GET',
+				headers: {
+					Accept: 'application/json',
+					'User-Agent': 'BakaWorld-X/1.0'
+				}
+			};
+
+			const req = httpModule.request(options, (res) => {
+				let data = '';
+				res.on('data', (chunk) => {
+					data += chunk;
+				});
+				res.on('end', () => {
+					if (res.statusCode && res.statusCode >= 200 && res.statusCode < 300) {
+						try {
+							resolve(JSON.parse(data));
+						} catch (parseError) {
+							reject(
+								new Error(
+									`Failed to parse JSON: ${parseError instanceof Error ? parseError.message : 'Unknown'}`
+								)
+							);
+						}
+					} else {
+						reject(
+							new Error(`Consumet API error: ${res.statusCode} ${res.statusMessage} - ${data.substring(0, 300)}`)
+						);
+					}
+				});
+			});
+
+			req.on('error', (error: unknown) => {
+				const err = error as { message?: string; code?: string };
+				reject(new Error(`Network error: ${err.message ?? String(error)} (${err.code || 'N/A'})`));
+			});
+
+			req.end();
+		});
 	}
 
 	/**
@@ -175,6 +237,208 @@ class ConsumetService {
 
 			req.end();
 		});
+	}
+
+	/**
+	 * Search movies / TV (FlixHQ and other Consumet movie providers).
+	 * @see https://docs.consumet.org/rest-api/Movies/flixhq/search
+	 */
+	async searchMovies(
+		query: string,
+		provider: string = config.consumet.defaultMovieProvider,
+		page: number = 1
+	): Promise<ConsumetSearchResponse<ConsumetMovie>> {
+		const url = `${this.baseUrl}/movies/${provider}/${encodeURIComponent(query)}?page=${page}`;
+		console.log('ConsumetService - Movie search URL:', url);
+
+		const urlObj = new URL(url);
+		const httpModule = urlObj.protocol === 'https:' ? await import('https') : await import('http');
+
+		return new Promise((resolve, reject) => {
+			const options = {
+				hostname: urlObj.hostname,
+				port: urlObj.port || (urlObj.protocol === 'https:' ? 443 : 80),
+				path: urlObj.pathname + urlObj.search,
+				method: 'GET',
+				headers: {
+					Accept: 'application/json',
+					'User-Agent': 'BakaWorld-X/1.0'
+				}
+			};
+
+			const req = httpModule.request(options, (res) => {
+				let data = '';
+
+				res.on('data', (chunk) => {
+					data += chunk;
+				});
+
+				res.on('end', () => {
+					if (res.statusCode && res.statusCode >= 200 && res.statusCode < 300) {
+						try {
+							const jsonData = JSON.parse(data);
+							resolve({
+								currentPage: jsonData.currentPage || page,
+								hasNextPage: jsonData.hasNextPage || false,
+								totalPages: jsonData.totalPages,
+								totalResults: jsonData.totalResults,
+								results: jsonData.results || []
+							});
+						} catch (parseError) {
+							reject(
+								new Error(
+									`Failed to parse JSON response: ${parseError instanceof Error ? parseError.message : 'Unknown error'}`
+								)
+							);
+						}
+					} else {
+						reject(new Error(`Consumet API error: ${res.statusCode} ${res.statusMessage} - ${data.substring(0, 200)}`));
+					}
+				});
+			});
+
+			req.on('error', (error: any) => {
+				console.error('ConsumetService - Movie search request error:', {
+					message: error.message,
+					code: error.code,
+					url
+				});
+				reject(new Error(`Network error connecting to Consumet API: ${error.message} (Code: ${error.code || 'N/A'})`));
+			});
+
+			req.end();
+		});
+	}
+
+	/**
+	 * Movie / TV info (episodes list).
+	 * @see https://docs.consumet.org/rest-api/Movies/flixhq/get-movie-info
+	 */
+	async getMovieInfo(
+		mediaId: string,
+		provider: string = config.consumet.defaultMovieProvider
+	): Promise<ConsumetMovieInfo> {
+		const raw = (await this.requestConsumetJson(
+			`/movies/${provider}/info?id=${encodeURIComponent(mediaId)}`
+		)) as Record<string, unknown> & { episodes?: unknown; seasons?: unknown };
+		const id = raw?.id != null ? String(raw.id).trim() : '';
+		if (!id) {
+			throw new Error('Invalid movie info response');
+		}
+		const genres = (raw.genres as string[] | undefined) ?? (raw.geners as string[] | undefined);
+		const isTv =
+			String(raw.type ?? '')
+				.toLowerCase()
+				.includes('tv') || mediaId.toLowerCase().includes('tv/');
+
+		let episodes;
+		const fromSeasons = flattenConsumetSeasons(raw.seasons);
+		if (fromSeasons?.length) {
+			episodes = sortEpisodes(fromSeasons);
+		} else {
+			let norm = normalizeMovieEpisodes(raw.episodes);
+			if (isTv && !norm.some((e) => e.season != null)) {
+				norm = inferSeasonsWhenNumbersRestart(norm);
+			}
+			episodes = sortEpisodes(norm);
+		}
+
+		const { seasons: _s, episodes: _e, ...restRaw } = raw;
+		void _s;
+		void _e;
+		return {
+			...(restRaw as unknown as ConsumetMovieInfo),
+			id,
+			genres,
+			episodes
+		};
+	}
+
+	/**
+	 * @see https://docs.consumet.org/rest-api/Movies/flixhq/get-movie-episode-available-servers
+	 */
+	async getMovieEpisodeServers(
+		episodeId: string,
+		mediaId: string,
+		provider: string = config.consumet.defaultMovieProvider
+	): Promise<MovieServerOption[]> {
+		const qs = new URLSearchParams({ episodeId, mediaId });
+		const raw = await this.requestConsumetJson(`/movies/${provider}/servers?${qs}`);
+		return Array.isArray(raw) ? (raw as MovieServerOption[]) : [];
+	}
+
+	/**
+	 * @see https://docs.consumet.org/rest-api/Movies/flixhq/get-movie-episode-streaming-links
+	 */
+	async getMovieWatch(
+		episodeId: string,
+		mediaId: string,
+		server: string = 'vidcloud',
+		provider: string = config.consumet.defaultMovieProvider
+	): Promise<ConsumetMovieWatchResponse> {
+		const qs = new URLSearchParams({ episodeId, mediaId, server });
+		const raw = (await this.requestConsumetJson(`/movies/${provider}/watch?${qs}`)) as ConsumetMovieWatchResponse;
+		if (!raw.sources?.length) {
+			throw new Error('No video sources returned');
+		}
+		return raw;
+	}
+
+	/**
+	 * FlixHQ often 500s per-server; try Consumet-supported servers in order.
+	 * @see https://docs.consumet.org/rest-api/Movies/flixhq/get-movie-episode-streaming-links
+	 */
+	async getMovieWatchWithFallback(
+		episodeId: string,
+		mediaId: string,
+		provider: string = config.consumet.defaultMovieProvider,
+		tryFirst?: string
+	): Promise<{ watch: ConsumetMovieWatchResponse; serverUsed: string }> {
+		const defaults = ['vidcloud', 'upcloud', 'mixdrop'] as const;
+		const first = tryFirst?.toLowerCase().trim();
+		let order: string[];
+		if (first) {
+			if ((defaults as readonly string[]).includes(first)) {
+				order = [first, ...defaults.filter((s) => s !== first)];
+			} else {
+				order = [first, ...defaults];
+			}
+		} else {
+			order = [...defaults];
+		}
+		const seen = new Set<string>();
+		const deduped = order.filter((s) => (seen.has(s) ? false : (seen.add(s), true)));
+
+		let lastError: Error | undefined;
+		for (const server of deduped) {
+			try {
+				const watch = await this.getMovieWatch(episodeId, mediaId, server, provider);
+				return { watch, serverUsed: server };
+			} catch (e) {
+				lastError = e instanceof Error ? e : new Error(String(e));
+			}
+		}
+		throw lastError ?? new Error('Movie watch failed for all servers');
+	}
+
+	async getMovieSpotlight(provider: string = config.consumet.defaultMovieProvider): Promise<ConsumetMovie[]> {
+		const raw = (await this.requestConsumetJson(`/movies/${provider}/spotlight`)) as { results?: ConsumetMovie[] };
+		return raw.results ?? [];
+	}
+
+	async getMovieTrending(provider: string = config.consumet.defaultMovieProvider): Promise<ConsumetMovie[]> {
+		const raw = (await this.requestConsumetJson(`/movies/${provider}/trending`)) as { results?: ConsumetMovie[] };
+		return raw.results ?? [];
+	}
+
+	async getMovieRecentMovies(provider: string = config.consumet.defaultMovieProvider): Promise<ConsumetMovie[]> {
+		const raw = await this.requestConsumetJson(`/movies/${provider}/recent-movies`);
+		return Array.isArray(raw) ? (raw as ConsumetMovie[]) : [];
+	}
+
+	async getMovieRecentShows(provider: string = config.consumet.defaultMovieProvider): Promise<ConsumetMovie[]> {
+		const raw = await this.requestConsumetJson(`/movies/${provider}/recent-shows`);
+		return Array.isArray(raw) ? (raw as ConsumetMovie[]) : [];
 	}
 
 	/**

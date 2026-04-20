@@ -38,7 +38,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 			"media-src 'self' data: blob: https:", // Allow media from HTTPS sources
 			"font-src 'self' data:", // Allow fonts
 			"connect-src 'self' https: wss:", // Allow API calls and WebSocket
-			"frame-src 'self' https://*.megaplay.buzz https://megaplay.buzz https://www.google.com https://bakaserver.gleeze.com", // Allow megaplay.buzz video embeds, reCAPTCHA, and bakaserver
+			"frame-src 'self' https://*.megaplay.buzz https://megaplay.buzz https://www.google.com https://bakaserver.gleeze.com https://flixhq.to https://*.rabbitstream.net https://rabbitstream.net https://*.dokicloud.one https://dokicloud.one https://mixdrop.co https://*.mixdrop.co https://megacloud.club https://*.megacloud.club https://streameeeeee.site https://*.streameeeeee.site", // MegaPlay + third-party embed hosts (vary by title)
 			"object-src 'none'",
 			"base-uri 'self'",
 			"form-action 'self'",

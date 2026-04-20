@@ -143,7 +143,7 @@
 	let detachNativePlayer: (() => void) | null = null;
 	let hlsAttachRequestId = 0;
 
-	// MegaPlay embed vs Consumet HLS (e.g. AnimeKai)
+	// MegaPlay embed vs catalog HLS (e.g. AnimeKai)
 	$: embedUrl =
 		videoData?.playback === 'embed'
 			? (videoData?.embedUrl || videoData?.sources?.[0]?.url || '')

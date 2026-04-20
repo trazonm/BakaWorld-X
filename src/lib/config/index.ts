@@ -15,13 +15,15 @@ export const config = {
 	consumet: {
 		baseUrl: 'http://192.168.0.107:6000',
 		defaultAnimeProvider: 'animekai',
-		defaultMangaProvider: 'mangadex'
+		defaultMangaProvider: 'mangadex',
+		/** Movies/TV catalog provider id for the streaming metadata service. */
+		defaultMovieProvider: 'flixhq'
 	},
 	/** [Aniwatch-Api](https://github.com/codex0555/Aniwatch-Api) — search + episodes + `?ep=` ids for MegaPlay `s-2`. */
 	aniwatch: {
 		baseUrl: 'https://aniwatch-api-v1-0.onrender.com'
 	},
-	/** When MAL or AniList id + episode number are known, embed MegaPlay instead of Consumet watch (more reliable for many titles). */
+	/** When MAL or AniList id + episode number are known, prefer MegaPlay embed over catalog HLS (more reliable for many titles). */
 	megaplay: {
 		baseUrl: 'https://megaplay.buzz',
 		useMetaEmbedWhenAvailable: true

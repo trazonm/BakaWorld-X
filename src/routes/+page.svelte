@@ -93,7 +93,7 @@
 			BakaWorld <span class="text-theme-accent">χ</span>
 		</h1>
 		<p class="mx-auto mb-10 max-w-md text-sm leading-relaxed text-zinc-400 md:text-base">
-			Anime, manga, comics, and your queue — one place.
+			Anime, movies, manga, comics, and your queue — one place.
 		</p>
 		<div class="flex flex-col justify-center gap-3 sm:flex-row sm:gap-4">
 			<button

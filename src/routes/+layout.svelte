@@ -24,6 +24,7 @@
 		{ href: '/downloads', label: 'Downloads' },
 		{ href: '/youtube', label: 'Premiumizer' },
 		{ href: '/anime', label: 'Anime' },
+		{ href: '/movies', label: 'Movies & TV' },
 		{ href: '/manga', label: 'Manga' },
 		{ href: '/comics', label: 'Comics' },
 		{ href: '/brain', label: 'Brain' },

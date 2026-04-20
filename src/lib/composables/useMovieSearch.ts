@@ -1,10 +1,21 @@
-// Composable for comic search functionality
 import { writable, get } from 'svelte/store';
-import type { Comic, ComicSearchState } from '$lib/types/comic';
+import { movieSearchService } from '$lib/services/movieService';
+import type { MovieSearchState } from '$lib/types/movie';
 import { userFacingErrorMessage } from '$lib/utils/userFacingErrorMessage';
 
-export function useComicSearch() {
-	const initialState: ComicSearchState = {
+function inferTotalPages(
+	prevTotal: number,
+	page: number,
+	hasNextPage: boolean,
+	apiTotal?: number
+): number {
+	if (apiTotal && apiTotal >= 1) return apiTotal;
+	if (!hasNextPage) return page;
+	return Math.max(prevTotal, page + 1);
+}
+
+export function useMovieSearch() {
+	const initialState: MovieSearchState = {
 		query: '',
 		results: [],
 		loading: false,
@@ -15,38 +26,43 @@ export function useComicSearch() {
 		hasSearched: false
 	};
 
-	const state = writable<ComicSearchState>(initialState);
+	const state = writable<MovieSearchState>(initialState);
 
 	async function search(query: string, page: number = 1) {
 		if (!query.trim()) return;
 
-		state.update(s => ({ ...s, loading: true, error: '', currentPage: page, hasSearched: true }));
+		state.update((s) => ({ ...s, loading: true, error: '', currentPage: page, hasSearched: true }));
 
 		try {
-			const response = await fetch(`/api/search/comics?query=${encodeURIComponent(query)}&page=${page}`);
-			
-			if (!response.ok) {
-				throw new Error(`Search failed: ${response.statusText}`);
-			}
-			
-			const data = await response.json();
-			
-			state.update(s => ({
+			const response = await movieSearchService.searchMovies(query, page);
+			const prev = get(state);
+
+			const totalPages = inferTotalPages(
+				page === 1 ? 1 : prev.totalPages,
+				response.currentPage,
+				response.hasNextPage,
+				response.totalPages
+			);
+
+			state.update((s) => ({
 				...s,
 				query,
-				results: data.results,
-				currentPage: data.currentPage,
-				totalPages: data.totalPages || 1,
-				hasNextPage: data.hasNextPage,
+				results: response.results,
+				currentPage: response.currentPage,
+				totalPages,
+				hasNextPage: response.hasNextPage,
 				loading: false,
 				error: '',
 				hasSearched: true
 			}));
-		} catch (error: any) {
-			state.update(s => ({
+		} catch (error: unknown) {
+			const message = userFacingErrorMessage(
+				error instanceof Error ? error.message : 'Search failed'
+			);
+			state.update((s) => ({
 				...s,
 				loading: false,
-				error: userFacingErrorMessage(error?.message || 'Search failed'),
+				error: message,
 				results: [],
 				hasSearched: true
 			}));
@@ -87,4 +103,3 @@ export function useComicSearch() {
 		reset
 	};
 }
-
