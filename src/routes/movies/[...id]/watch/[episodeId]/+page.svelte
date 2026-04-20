@@ -189,7 +189,7 @@
 					class="aspect-video h-[min(70vh,600px)] w-full"
 					allow="fullscreen; autoplay; encrypted-media; picture-in-picture"
 					allowfullscreen
-					referrerpolicy="no-referrer"
+					referrerpolicy="origin"
 				></iframe>
 			{/key}
 		{:else}
@@ -209,6 +209,21 @@
 			</video>
 		{/if}
 	</div>
+
+	{#if embedUrl}
+		<p class="mt-3 text-center text-sm text-gray-400">
+			If the player shows an error here,
+			<a
+				href={embedUrl}
+				target="_blank"
+				rel="noopener noreferrer"
+				class="text-amber-400 underline hover:text-amber-300"
+			>
+				open in new tab
+			</a>
+			<span class="text-gray-500"> (avoids some embed blocks on public sites).</span>
+		</p>
+	{/if}
 
 	<div class="mt-6 flex flex-wrap justify-between gap-3">
 		<button
