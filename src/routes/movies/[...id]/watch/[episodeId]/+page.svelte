@@ -4,6 +4,7 @@
 	import { navigating } from '$app/stores';
 	import { onDestroy, tick } from 'svelte';
 	import type { PageData } from './$types';
+	import { pickBrowserProviderWatchUrl } from '$lib/utils/movieWatchLinks';
 	import { movieWatchPath } from '$lib/utils/moviePaths';
 
 	export let data: PageData;
@@ -43,14 +44,13 @@
 			? (videoData.embedUrl || videoData.sources?.[0]?.url || '')
 			: '';
 
-	/** Provider watch URL from catalog metadata (correct referer when opened on their origin). Not every build includes episode.url. */
-	$: providerWatchPageUrl = (() => {
-		const epU = episode.url?.trim();
-		if (epU && /^https?:\/\//i.test(epU)) return epU;
-		const movU = movie.url?.trim();
-		if (movU && /^https?:\/\//i.test(movU)) return movU;
-		return '';
-	})();
+	/** Real browser watch URL (e.g. /watch-tv/...), not /ajax/... API endpoints from episode.url. */
+	$: providerWatchPageUrl = pickBrowserProviderWatchUrl(
+		data.servers ?? [],
+		selectedServer,
+		movie,
+		episode
+	);
 
 	$: hlsPlaylistUrl =
 		videoData?.playback === 'hls'
