@@ -5,8 +5,9 @@ FROM node:20-alpine AS builder
 WORKDIR /app
 
 # No ffmpeg/python here — not required for `vite build`.
-COPY package.json pnpm-lock.yaml ./
-RUN corepack enable && corepack prepare pnpm@9.15.9 --activate \
+# Workspace + .npmrc must be present so overrides (e.g. Rollup WASM) match the lockfile; pnpm 10+ matches this repo's lockfile.
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
+RUN corepack enable && corepack prepare pnpm@10.15.0 --activate \
 	&& pnpm install --frozen-lockfile
 
 COPY . .
@@ -20,8 +21,8 @@ RUN apk add --no-cache ffmpeg python3 py3-pip ca-certificates \
 	&& pip install --no-cache-dir --break-system-packages -U yt-dlp \
 	&& rm -rf /root/.cache/pip
 
-COPY package.json pnpm-lock.yaml ./
-RUN corepack enable && corepack prepare pnpm@9.15.9 --activate \
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
+RUN corepack enable && corepack prepare pnpm@10.15.0 --activate \
 	&& pnpm install --prod --frozen-lockfile \
 	&& pnpm store prune
 
