@@ -8,6 +8,8 @@ services:
     restart: unless-stopped
     ports:
       - "${PORT:-5002}:${PORT:-5002}"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     environment:
       NODE_ENV: production
       PORT: ${PORT:-5002}
@@ -35,7 +37,7 @@ services:
       YT_DLP_COOKIES: ${YT_DLP_COOKIES:-}
       YT_DLP_YOUTUBE_EXTRACTOR_ARGS: ${YT_DLP_YOUTUBE_EXTRACTOR_ARGS:-}
       # Consumet-compatible API (movies/TV/anime). Must be reachable from this container (use host.docker.internal, Tailscale IP, or public URL).
-      CONSUMET_BASE_URL: ${CONSUMET_BASE_URL:-}
+      CONSUMET_BASE_URL: ${CONSUMET_BASE_URL:-http://host.docker.internal:6000}
     volumes:
       - ./static:/app/static:ro
     networks:

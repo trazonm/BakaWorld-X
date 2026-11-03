@@ -6,7 +6,8 @@ class AnimeSearchService {
 		const response = await fetch(`/api/search/anime?query=${encodeURIComponent(query)}&page=${page}`);
 		
 		if (!response.ok) {
-			throw new Error(`Search failed: ${response.statusText}`);
+			const data = await response.json().catch(() => ({}));
+			throw new Error(data.error || `Search failed: ${response.statusText}`);
 		}
 		
 		const data = await response.json();

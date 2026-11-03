@@ -166,6 +166,9 @@ class ConsumetService {
 				reject(new Error(`Network error: ${err.message ?? String(error)} (${err.code || 'N/A'})`));
 			});
 
+			req.setTimeout(20_000, () => {
+				req.destroy(new Error('Catalog request timed out'));
+			});
 			req.end();
 		});
 	}
@@ -236,6 +239,9 @@ class ConsumetService {
 				reject(new Error(`Network error connecting to Consumet API: ${error.message} (Code: ${error.code || 'N/A'})`));
 			});
 
+			req.setTimeout(20_000, () => {
+				req.destroy(new Error('Catalog request timed out'));
+			});
 			req.end();
 		});
 	}
@@ -307,6 +313,9 @@ class ConsumetService {
 				reject(new Error(`Network error connecting to Consumet API: ${error.message} (Code: ${error.code || 'N/A'})`));
 			});
 
+			req.setTimeout(20_000, () => {
+				req.destroy(new Error('Catalog request timed out'));
+			});
 			req.end();
 		});
 	}
@@ -496,6 +505,9 @@ class ConsumetService {
 				reject(new Error(`Network error: ${error.message} (Code: ${error.code || 'N/A'})`));
 			});
 
+			req.setTimeout(20_000, () => {
+				req.destroy(new Error('Catalog request timed out'));
+			});
 			req.end();
 		});
 	}
@@ -583,6 +595,9 @@ class ConsumetService {
 				reject(new Error(`Network error: ${error.message} (Code: ${error.code || 'N/A'})`));
 			});
 
+			req.setTimeout(20_000, () => {
+				req.destroy(new Error('Catalog request timed out'));
+			});
 			req.end();
 		});
 	}
@@ -677,6 +692,9 @@ class ConsumetService {
 				reject(new Error(`Network error: ${error.message} (Code: ${error.code || 'N/A'})`));
 			});
 
+			req.setTimeout(20_000, () => {
+				req.destroy(new Error('Catalog request timed out'));
+			});
 			req.end();
 		});
 	}
@@ -750,6 +768,9 @@ class ConsumetService {
 				reject(new Error(`Network error connecting to Consumet API: ${error.message} (Code: ${error.code || 'N/A'})`));
 			});
 
+			req.setTimeout(20_000, () => {
+				req.destroy(new Error('Catalog request timed out'));
+			});
 			req.end();
 		});
 	}
@@ -844,6 +865,9 @@ class ConsumetService {
 				reject(new Error(`Network error: ${error.message} (Code: ${error.code || 'N/A'})`));
 			});
 
+			req.setTimeout(20_000, () => {
+				req.destroy(new Error('Catalog request timed out'));
+			});
 			req.end();
 		});
 	}
@@ -933,6 +957,9 @@ class ConsumetService {
 				reject(new Error(`Network error: ${error.message} (Code: ${error.code || 'N/A'})`));
 			});
 
+			req.setTimeout(20_000, () => {
+				req.destroy(new Error('Catalog request timed out'));
+			});
 			req.end();
 		});
 	}

@@ -26,7 +26,8 @@ export function useComicSearch() {
 			const response = await fetch(`/api/search/comics?query=${encodeURIComponent(query)}&page=${page}`);
 			
 			if (!response.ok) {
-				throw new Error(`Search failed: ${response.statusText}`);
+				const data = await response.json().catch(() => ({}));
+				throw new Error(data.error || `Search failed: ${response.statusText}`);
 			}
 			
 			const data = await response.json();

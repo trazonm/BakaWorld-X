@@ -14,9 +14,17 @@ function aniwatchBase(): string {
 
 async function aniwatchFetch(path: string): Promise<Response> {
 	const url = `${aniwatchBase()}${path.startsWith('/') ? path : `/${path}`}`;
-	return fetch(url, {
-		headers: { Accept: 'application/json', 'User-Agent': UA }
-	});
+	try {
+		return await fetch(url, {
+			headers: { Accept: 'application/json', 'User-Agent': UA },
+			signal: AbortSignal.timeout(15_000)
+		});
+	} catch (error) {
+		if (error instanceof Error && (error.name === 'TimeoutError' || error.name === 'AbortError')) {
+			throw new Error('Anime search timed out. The catalog did not respond.');
+		}
+		throw error;
+	}
 }
 
 export interface AniwatchSearchRow {

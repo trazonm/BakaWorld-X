@@ -24,7 +24,7 @@
 		<div class="animate-spin inline-block w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full mb-4"></div>
 		<div class="text-gray-400">Searching for anime...</div>
 	</div>
-{:else if results.length === 0 && hasSearched && !loading}
+{:else if results.length === 0 && hasSearched && !loading && !error}
 	<!-- No Results Message -->
 	<div class="text-center py-12">
 		<div class="text-6xl mb-4">😔</div>

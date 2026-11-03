@@ -36,7 +36,11 @@ export const load: PageServerLoad = async ({ params, fetch }) => {
 		const chapterResponse = await fetch(`/api/manga/read/${encodeURIComponent(fullChapterId)}`);
 		
 		if (!chapterResponse.ok) {
-			throw error(chapterResponse.status, 'Chapter not found');
+			const body = await chapterResponse.json().catch(() => ({} as { error?: string }));
+			throw error(
+				chapterResponse.status === 404 ? 404 : 502,
+				body.error || 'Chapter not found'
+			);
 		}
 
 		const chapterData = await chapterResponse.json();
@@ -49,7 +53,7 @@ export const load: PageServerLoad = async ({ params, fetch }) => {
 		if (manga && manga.chapters) {
 			// Sort chapters by chapter number extracted from title (ascending - oldest to newest)
 			// Mangapill API only provides "title" field like "Chapter 1", "Chapter 2.5"
-			const sortedChapters = [...manga.chapters].sort((a: any, b: any) => {
+			const sortedChapters = [...manga.chapters].filter((ch: any) => !ch.externalUrl).sort((a: any, b: any) => {
 				// Extract chapter number from title (e.g., "Chapter 123" -> 123)
 				const extractChapterNum = (title: string) => {
 					const match = title.match(/chapter\s+(\d+(?:\.\d+)?)/i);
@@ -61,9 +65,10 @@ export const load: PageServerLoad = async ({ params, fetch }) => {
 				return numA - numB;
 			});
 			
-			// The fullChapterId has "chapters/" prefix, but manga.chapters[].id also has "chapters/" prefix
-			// So we need to compare with the full ID
-			currentChapterIndex = sortedChapters.findIndex((ch: any) => ch.id === fullChapterId);
+			const bareId = (value: string) =>
+				decodeURIComponent(value).replace(/^(?:chapters|manga)\//, '').split('/')[0];
+			const currentId = bareId(String(chapterId));
+			currentChapterIndex = sortedChapters.findIndex((ch: any) => bareId(String(ch.id || '')) === currentId);
 			
 			console.log('Chapter navigation debug:', {
 				fullChapterId,
@@ -94,6 +99,7 @@ export const load: PageServerLoad = async ({ params, fetch }) => {
 		};
 	} catch (err) {
 		console.error('Error loading manga chapter:', err);
+		if (err && typeof err === 'object' && 'status' in err) throw err;
 		if (err instanceof Error && err.message.includes('404')) {
 			throw error(404, 'Chapter not found');
 		}

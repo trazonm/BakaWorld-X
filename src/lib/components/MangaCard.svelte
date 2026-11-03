@@ -18,10 +18,14 @@
 		? String(manga.year)
 		: '';
 	
-	// Use our own proxy with proper referer for Mangapill CDN
-	$: imageSrc = manga.image 
-		? `/api/proxy/image?url=${encodeURIComponent(manga.image)}&referer=https://mangapill.com/`
-		: '';
+	$: imageIsMangadex = /mangadex\.(org|network)/i.test(manga.image || '');
+	$: imageReferer = imageIsMangadex ? 'https://mangadex.org/' : 'https://mangapill.com/';
+	// MangaDex covers sit behind a browser check the server proxy cannot pass.
+	$: imageSrc = !manga.image
+		? ''
+		: imageIsMangadex
+			? manga.image
+			: `/api/proxy/image?url=${encodeURIComponent(manga.image)}&referer=${encodeURIComponent(imageReferer)}`;
 </script>
 
 <div class="manga-card bg-gray-900 rounded-xl shadow-xl overflow-hidden border border-gray-800 flex flex-col group h-full w-full">
@@ -33,8 +37,8 @@
 				alt={manga.title} 
 				class="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
 				loading="lazy"
-				crossorigin="anonymous"
-				referrerpolicy="no-referrer"
+				crossorigin={imageIsMangadex ? null : 'anonymous'}
+				referrerpolicy={imageIsMangadex ? 'strict-origin-when-cross-origin' : 'no-referrer'}
 				on:error={(e) => {
 					// Fallback to a placeholder if image fails to load
 					const img = e.currentTarget as HTMLImageElement;

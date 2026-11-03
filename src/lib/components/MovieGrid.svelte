@@ -24,7 +24,7 @@
 		></div>
 		<div class="text-gray-400">Searching…</div>
 	</div>
-{:else if results.length === 0 && hasSearched && !loading}
+{:else if results.length === 0 && hasSearched && !loading && !error}
 	<div class="py-12 text-center">
 		<div class="mb-4 text-6xl">🎬</div>
 		<div class="mb-2 text-lg text-gray-400">Nothing turned up</div>

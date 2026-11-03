@@ -30,6 +30,7 @@ export const load: PageServerLoad = async ({ params, url, fetch }) => {
 		};
 	} catch (err) {
 		console.error('Error loading manga:', err);
+		if (err && typeof err === 'object' && 'status' in err) throw err;
 		if (err instanceof Error && err.message.includes('404')) {
 			throw error(404, 'Manga not found');
 		}

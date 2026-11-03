@@ -16,9 +16,13 @@
 	$: backToResultsUrl = searchQuery ? `/manga?query=${encodeURIComponent(searchQuery)}` : '/manga';
 	
 	// Use our own proxy with proper referer for Mangapill CDN
-	$: imageSrc = manga.image 
-		? `/api/proxy/image?url=${encodeURIComponent(manga.image)}&referer=https://mangapill.com/`
-		: '';
+	$: imageIsMangadex = /mangadex\.(org|network)/i.test(manga.image || '');
+	$: imageReferer = imageIsMangadex ? 'https://mangadex.org/' : 'https://mangapill.com/';
+	$: imageSrc = !manga.image
+		? ''
+		: imageIsMangadex
+			? manga.image
+			: `/api/proxy/image?url=${encodeURIComponent(manga.image)}&referer=${encodeURIComponent(imageReferer)}`;
 	
 	// Track navigation loading state
 	$: isNavigating = !!$navigating;
@@ -116,8 +120,8 @@
 						alt={mangaTitle}
 						class="w-80 h-96 object-cover rounded-lg shadow-2xl"
 						style="width: 300px; height: 400px; object-fit: cover;"
-						crossorigin="anonymous"
-						referrerpolicy="no-referrer"
+						crossorigin={imageIsMangadex ? null : 'anonymous'}
+						referrerpolicy={imageIsMangadex ? 'strict-origin-when-cross-origin' : 'no-referrer'}
 						on:error={(e) => {
 							// Fallback to a placeholder if image fails to load
 							const img = e.currentTarget as HTMLImageElement;
@@ -196,11 +200,16 @@
 						{@const cleanChapterId = chapter.id.startsWith('chapters/') ? chapter.id.substring(9) : chapter.id}
 						{@const cleanMangaId = manga.id.startsWith('manga/') ? manga.id.substring(6) : manga.id}
 						<a 
-							href="/manga/{cleanMangaId}/read/{cleanChapterId}"
+							href={chapter.externalUrl || `/manga/${cleanMangaId}/read/${cleanChapterId}`}
+							target={chapter.externalUrl ? '_blank' : undefined}
+							rel={chapter.externalUrl ? 'noopener noreferrer' : undefined}
 							class="bg-gray-900 border border-gray-800 rounded-lg p-4 hover:bg-gray-800 hover:border-blue-500 transition-all cursor-pointer flex items-center justify-between group"
 						>
 							<h3 class="text-white font-semibold">
 								{chapter.title || 'Chapter N/A'}
+								{#if chapter.externalUrl}
+									<span class="block text-xs font-normal text-gray-400">Opens on the publisher site</span>
+								{/if}
 							</h3>
 							<svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-gray-500 group-hover:text-blue-400 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
 								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />

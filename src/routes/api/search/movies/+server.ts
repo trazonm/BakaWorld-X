@@ -31,15 +31,18 @@ export const GET: RequestHandler = async ({ request }) => {
 		);
 	} catch (error) {
 		const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-		const errorStack = error instanceof Error ? error.stack : undefined;
 		console.error('Movie search error:', errorMessage);
-		console.error('Error stack:', errorStack);
+		const timedOut = /timed out|timeout/i.test(errorMessage);
+		const unavailable = /522|503|502|500|ENOTFOUND|ECONNREFUSED|Network error|catalog/i.test(errorMessage);
 		return new Response(
 			JSON.stringify({
-				error: userFacingErrorMessage(errorMessage),
-				details: errorStack
+				error: timedOut
+					? 'Movie search timed out. The catalog did not respond.'
+					: unavailable
+						? 'Movie search is unavailable right now. Try again in a moment.'
+						: userFacingErrorMessage(errorMessage)
 			}),
-			{ status: 500 }
+			{ status: 502 }
 		);
 	}
 };

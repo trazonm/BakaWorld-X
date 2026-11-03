@@ -2,6 +2,7 @@
 import type { RequestHandler } from '@sveltejs/kit';
 import { getSessionUser } from '$lib/server/session';
 import { mangapillService } from '$lib/services/mangapillService';
+import { getMangadexPages, isMangadexId, unwrapCatalogId } from '$lib/services/mangadexService';
 
 export const GET: RequestHandler = async ({ request, params }) => {
     // TODO: Re-enable auth when ready
@@ -19,7 +20,10 @@ export const GET: RequestHandler = async ({ request, params }) => {
     try {
         console.log('Manga chapter pages - Using Mangapill API for chapter ID:', chapterId);
         
-        const data = await mangapillService.getChapterPages(chapterId);
+        const catalogId = unwrapCatalogId(chapterId || '', 'chapters');
+        const data = isMangadexId(catalogId)
+            ? await getMangadexPages(catalogId)
+            : await mangapillService.getChapterPages(catalogId);
         
         return new Response(JSON.stringify(data), { 
             status: 200,
@@ -30,6 +34,10 @@ export const GET: RequestHandler = async ({ request, params }) => {
         console.error('Manga chapter pages error:', errorMessage);
         
         // Check if it's a Mangapill API error (502, 503, 504, etc.)
+        if (errorMessage.includes('no pages')) {
+            return new Response(JSON.stringify({ error: errorMessage }), { status: 404 });
+        }
+
         const isMangapillError = errorMessage.includes('502') || 
                                   errorMessage.includes('503') || 
                                   errorMessage.includes('504') ||

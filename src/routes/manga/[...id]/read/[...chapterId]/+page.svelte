@@ -734,7 +734,7 @@
 								bind:this={imageContainer}
 							>
 								<img 
-									src={`/api/proxy/image?url=${encodeURIComponent(pages[currentPage].image)}&referer=https://mangapill.com/`}
+									src={`/api/proxy/image?url=${encodeURIComponent(pages[currentPage].image)}&referer=${encodeURIComponent(/mangadex\.(org|network)/i.test(pages[currentPage].image || '') ? 'https://mangadex.org/' : 'https://mangapill.com/')}`}
 									alt="Page {currentPage + 1}"
 									class="manga-page"
 									on:load={handleImageLoad}

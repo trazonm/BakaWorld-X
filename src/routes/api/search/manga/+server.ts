@@ -2,6 +2,7 @@
 import type { RequestHandler } from '@sveltejs/kit';
 import { getSessionUser } from '$lib/server/session';
 import { mangapillService } from '$lib/services/mangapillService';
+import { searchMangadex } from '$lib/services/mangadexService';
 
 export const GET: RequestHandler = async ({ request }) => {
     // TODO: Re-enable auth when ready
@@ -21,7 +22,16 @@ export const GET: RequestHandler = async ({ request }) => {
         console.log('Manga search - Using Mangapill API');
         console.log('Manga search - Query:', query);
         
-        const result = await mangapillService.searchManga(query);
+        let result;
+        try {
+            result = await mangapillService.searchManga(query);
+        } catch (mangapillError) {
+            console.warn('Mangapill search failed, using MangaDex:', mangapillError);
+            result = await searchMangadex(query);
+        }
+        if (!result.results?.length) {
+            result = await searchMangadex(query);
+        }
         
         return new Response(JSON.stringify(result), { 
             status: 200,

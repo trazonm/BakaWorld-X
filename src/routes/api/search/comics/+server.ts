@@ -28,13 +28,13 @@ export const GET: RequestHandler = async ({ request }) => {
         });
     } catch (error) {
         const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-        const errorStack = error instanceof Error ? error.stack : undefined;
         console.error('Comics search error:', errorMessage);
-        console.error('Error stack:', errorStack);
-        return new Response(JSON.stringify({ 
-            error: errorMessage,
-            details: errorStack
-        }), { status: 500 });
+        const blocked = /403|forbidden|cloudflare|just a moment/i.test(errorMessage);
+        return new Response(JSON.stringify({
+            error: blocked
+                ? 'The comic catalog is blocking automated requests right now. Try again later.'
+                : 'Comic search failed. Try again in a moment.'
+        }), { status: blocked ? 503 : 502 });
     }
 };
 

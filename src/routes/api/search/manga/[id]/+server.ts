@@ -2,6 +2,7 @@
 import type { RequestHandler } from '@sveltejs/kit';
 import { getSessionUser } from '$lib/server/session';
 import { mangapillService } from '$lib/services/mangapillService';
+import { getMangadexInfo, isMangadexId, unwrapCatalogId } from '$lib/services/mangadexService';
 
 export const GET: RequestHandler = async ({ request, params }) => {
     // TODO: Re-enable auth when ready
@@ -19,7 +20,10 @@ export const GET: RequestHandler = async ({ request, params }) => {
     try {
         console.log('Manga info - Using Mangapill API for ID:', mangaId);
         
-        const data = await mangapillService.getMangaInfo(mangaId);
+        const catalogId = unwrapCatalogId(mangaId || '', 'manga');
+        const data = isMangadexId(catalogId)
+            ? await getMangadexInfo(catalogId)
+            : await mangapillService.getMangaInfo(catalogId);
         
         return new Response(JSON.stringify(data), { 
             status: 200,

@@ -26,6 +26,8 @@ export interface MangapillMangaInfo {
 export interface MangapillChapter {
 	id: string;
 	title: string; // e.g., "Chapter 1", "Chapter 2.5"
+	/** Set when the chapter is hosted on a publisher site instead of page images. */
+	externalUrl?: string;
 	// Note: API doesn't provide a separate chapter number field
 	// Chapter number must be extracted from title
 }
