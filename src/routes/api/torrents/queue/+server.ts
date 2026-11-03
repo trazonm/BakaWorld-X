@@ -1,7 +1,8 @@
 // Background queue endpoint - handles adding torrents and immediately tracking them
 import type { RequestHandler } from '@sveltejs/kit';
 import { getSessionUser } from '$lib/server/session';
-import { findUserByUsername, updateUserDownloads } from '$lib/server/userModel';
+import { findUserByUsername, mutateDownloads } from '$lib/server/userModel';
+import { grabProwlarrRelease, rewriteJackettLink } from '$lib/server/releaseSearch';
 import {
 	createRealDebridService,
 	RealDebridService,
@@ -32,19 +33,48 @@ export const POST: RequestHandler = async ({ request }) => {
 	}
 
 	try {
-		const { magnetLink, link, title, guid } = await request.json();
+		const { magnetLink, link, title, guid, protocol, grab } = await request.json();
 		
-		if (!magnetLink && !link) {
+		if (!magnetLink && !link && protocol !== 'usenet') {
 			return new Response(JSON.stringify({ error: 'Magnet link or torrent link is required' }), { status: 400 });
+		}
+
+		if (protocol === 'usenet') {
+			const prowlarrUrl = (env.PROWLARR_URL || process.env.PROWLARR_URL || '').replace(/\/$/, '');
+			const prowlarrApiKey = env.PROWLARR_API_KEY || process.env.PROWLARR_API_KEY || '';
+			if (!prowlarrUrl || !prowlarrApiKey) {
+				return new Response(JSON.stringify({ error: 'Prowlarr is not configured' }), { status: 500 });
+			}
+			const grabBody = grab && typeof grab === 'object' ? grab : { guid, title, downloadUrl: link, protocol: 'usenet' };
+			await grabProwlarrRelease(prowlarrUrl, prowlarrApiKey, grabBody);
+			const usenetId = `usenet:${String(guid || title || Date.now())}`;
+			await mutateDownloads(user.username, (downloads) => {
+				const entry = {
+					id: usenetId,
+					filename: title || grabBody.title || 'Usenet download',
+					progress: 100,
+					status: 'sent',
+					link: '',
+					guid: guid || '',
+					protocol: 'usenet',
+					added: new Date().toISOString()
+				};
+				const index = downloads.findIndex((item) => item.id === usenetId);
+				const next = [...downloads];
+				if (index === -1) next.push(entry);
+				else next[index] = { ...next[index], ...entry, added: next[index].added || entry.added };
+				return { downloads: next, result: entry };
+			});
+			return new Response(JSON.stringify({ success: true, id: usenetId, existing: false, protocol: 'usenet' }), {
+				status: 200,
+				headers: { 'Content-Type': 'application/json' }
+			});
 		}
 
 		const realDebridAuth = env.REAL_DEBRID_AUTH || process.env.REAL_DEBRID_AUTH || '';
 		const realDebridService = createRealDebridService(realDebridAuth);
-		let linkToUse = magnetLink || link;
-
-		// Apply the same link conversion as handleLink
-		const baseUrl = 'https://jackett-service.gleeze.com';
-		linkToUse = linkToUse.replace(/http:\/\/192\.168\.0\.107:9117/g, baseUrl);
+		const jackettUrl = env.JACKETT_URL || process.env.JACKETT_URL || '';
+		let linkToUse = rewriteJackettLink(magnetLink || link, jackettUrl);
 
 		// Check if torrents already exist by hash (only for magnet links)
 		let existingTorrent = null;
@@ -118,28 +148,26 @@ export const POST: RequestHandler = async ({ request }) => {
 			}
 		}
 
-		// Immediately save to database
-		let downloads = Array.isArray(user.downloads) ? [...user.downloads] : [];
-		const existingIndex = downloads.findIndex((d: any) => d.id === torrentId);
-		
 		let downloadEntry = {
 			id: torrentId,
 			filename: torrentInfo.filename || title || 'Unknown',
-			progress: torrentInfo.progress || 0,
+			progress: typeof torrentInfo.progress === 'number' ? torrentInfo.progress : 0,
 			status: torrentInfo.status || 'queued',
 			link: torrentInfo.links?.[0] || '',
 			hash: torrentInfo.hash || '',
 			guid: guid || '',
+			protocol: 'torrent',
+			misses: 0,
 			added: new Date().toISOString()
 		};
 
-		if (existingIndex !== -1) {
-			downloads[existingIndex] = downloadEntry;
-		} else {
-			downloads.push(downloadEntry);
-		}
-
-		await updateUserDownloads(user.username, downloads);
+		await mutateDownloads(user.username, (downloads) => {
+			const index = downloads.findIndex((item) => item.id === torrentId);
+			const next = [...downloads];
+			if (index === -1) next.push(downloadEntry);
+			else next[index] = { ...next[index], ...downloadEntry, added: next[index].added || downloadEntry.added };
+			return { downloads: next };
+		});
 
 		// Send database notification to trigger immediate worker poll (real-time trigger)
 		try {
@@ -169,41 +197,40 @@ export const POST: RequestHandler = async ({ request }) => {
 						currentInfo.filename !== downloadEntry.filename ||
 						(currentInfo.links?.[0] && currentInfo.links[0] !== downloadEntry.link)
 					) {
-						downloads = [...downloads];
-						const downloadIndex = downloads.findIndex((d: any) => d.id === torrentId);
-						
-						if (downloadIndex !== -1) {
+						let resolvedLink = currentInfo.links?.[0] || downloadEntry.link || '';
+						if (
+							currentInfo.progress >= 100 &&
+							currentInfo.links?.[0] &&
+							torrentDownloadLinkNeedsUnrestrict(downloadEntry.link, currentInfo.links[0])
+						) {
+							try {
+								const unrestricted = await realDebridService.unrestrictLink(currentInfo.links[0]);
+								resolvedLink = unrestricted.download || unrestricted.link;
+							} catch (unrestrictError) {
+								console.warn(`Failed to unrestrict link for ${torrentId}:`, unrestrictError);
+							}
+						}
+						await mutateDownloads(user.username, (downloads) => {
+							const downloadIndex = downloads.findIndex((item) => item.id === torrentId);
+							if (downloadIndex === -1) return { downloads };
 							const updatedDownload = {
 								...downloads[downloadIndex],
-								progress: currentInfo.progress || downloads[downloadIndex].progress,
+								progress:
+									typeof currentInfo.progress === 'number'
+										? currentInfo.progress
+										: downloads[downloadIndex].progress,
 								status: currentInfo.status || downloads[downloadIndex].status,
 								filename: currentInfo.filename || downloads[downloadIndex].filename,
-								link: currentInfo.links?.[0] || downloads[downloadIndex].link || '',
+								link: resolvedLink || downloads[downloadIndex].link || '',
 								speed: currentInfo.speed,
-								seeders: currentInfo.seeders
+								seeders: currentInfo.seeders,
+								misses: 0
 							};
-
-							// If completed, unrestrict the link immediately
-							if (
-								currentInfo.progress >= 100 &&
-								currentInfo.links?.[0] &&
-								torrentDownloadLinkNeedsUnrestrict(updatedDownload.link, currentInfo.links[0])
-							) {
-								try {
-									const unrestricted = await realDebridService.unrestrictLink(currentInfo.links[0]);
-									updatedDownload.link = unrestricted.download || unrestricted.link;
-								} catch (unrestrictError) {
-									console.warn(`Failed to unrestrict link for ${torrentId}:`, unrestrictError);
-								}
-							}
-
-							downloads[downloadIndex] = updatedDownload;
-							await updateUserDownloads(user.username, downloads);
-							
-							// Update for response
-							torrentInfo = currentInfo;
-							downloadEntry = updatedDownload;
-						}
+							const next = [...downloads];
+							next[downloadIndex] = updatedDownload;
+							return { downloads: next, result: updatedDownload };
+						});
+						torrentInfo = currentInfo;
 					}
 				} catch (pollError) {
 					// If torrent doesn't exist yet (too soon after adding), that's OK

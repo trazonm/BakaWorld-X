@@ -1,14 +1,20 @@
 // Background polling endpoint - updates all active torrents progress
 import type { RequestHandler } from '@sveltejs/kit';
 import { getSessionUser } from '$lib/server/session';
-import { findUserByUsername, updateUserDownloads } from '$lib/server/userModel';
+import { findUserByUsername, mutateDownloads } from '$lib/server/userModel';
 import {
 	createRealDebridService,
 	UnknownResourceError,
 	torrentDownloadLinkNeedsUnrestrict
 } from '$lib/services/realDebridService';
 import { env } from '$env/dynamic/private';
-import { deleteDownloadById } from '$lib/server/userModel';
+import {
+	applyPollSnapshot,
+	isUsenetDownload,
+	numericProgress,
+	shouldDropMissingTorrent,
+	type DownloadRecord
+} from '$lib/server/downloadMerge';
 import type { JwtPayload } from 'jsonwebtoken';
 
 function getUsernameFromSession(session: string | JwtPayload | null): string | null {
@@ -40,17 +46,22 @@ export const POST: RequestHandler = async ({ request }) => {
 		for (const download of downloads) {
 			try {
 				// Only poll downloads that aren't complete
+				if (isUsenetDownload(download)) {
+					updatedDownloads.push(download);
+					continue;
+				}
 				if (download.progress < 100 && download.id) {
 					const torrentInfo = await realDebridService.getTorrentInfo(download.id);
 					
 					const updatedDownload = {
 						...download,
-						progress: torrentInfo.progress || download.progress,
+						progress: numericProgress(torrentInfo.progress, numericProgress(download.progress, 0)),
 						status: torrentInfo.status || download.status,
 						filename: torrentInfo.filename || download.filename,
 						link: torrentInfo.links?.[0] || download.link || '',
 						speed: torrentInfo.speed,
-						seeders: torrentInfo.seeders
+						seeders: torrentInfo.seeders,
+						misses: 0
 					};
 
 					// If completed, unrestrict the link
@@ -75,24 +86,12 @@ export const POST: RequestHandler = async ({ request }) => {
 			} catch (error) {
 				// If torrent doesn't exist (unknown_ressource), remove it from database
 				if (error instanceof UnknownResourceError) {
-					console.log(`Torrent ${download.id} not found in Real-Debrid (unknown_ressource), removing from database`);
-					try {
-						// Try to delete from Real-Debrid once more to be sure
-						await realDebridService.deleteTorrent(download.id);
-					} catch (deleteError) {
-						// If it still returns unknown_ressource, that's fine - it's already gone
-						if (!(deleteError instanceof UnknownResourceError)) {
-							console.error(`Error attempting to delete missing torrent ${download.id}:`, deleteError);
-						}
+					const misses = numericProgress(download.misses, 0) + 1;
+					if (!shouldDropMissingTorrent(download, misses)) {
+						updatedDownloads.push({ ...download, misses });
+						continue;
 					}
-					// Remove from database - don't add to updatedDownloads
-					try {
-						await deleteDownloadById(user.username, download.id);
-						console.log(`Removed missing torrent ${download.id} from database`);
-					} catch (dbError) {
-						console.error(`Error removing torrent ${download.id} from database:`, dbError);
-					}
-					// Skip adding to updatedDownloads - effectively removes it
+					console.log(`Torrent ${download.id} missing from Real-Debrid after ${misses} checks, removing`);
 					continue;
 				}
 				// For other errors, keep the download entry but mark as error
@@ -104,8 +103,11 @@ export const POST: RequestHandler = async ({ request }) => {
 			}
 		}
 
-		// Update database
-		await updateUserDownloads(user.username, updatedDownloads);
+		const kept = new Set(updatedDownloads.map((item) => item.id));
+		const dropIds = new Set(downloads.map((item) => item.id).filter((id: string) => id && !kept.has(id)));
+		await mutateDownloads(user.username, (latest) => ({
+			downloads: applyPollSnapshot(latest, updatedDownloads as DownloadRecord[], dropIds)
+		}));
 
 		return new Response(JSON.stringify({
 			success: true,

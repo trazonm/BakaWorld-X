@@ -9,6 +9,14 @@ import {
 	torrentDownloadLinkNeedsUnrestrict
 } from './lib/services/realDebridService';
 import { cleanupTempFiles } from './lib/server/tempCleanup';
+import {
+	applyPollSnapshot,
+	isUsenetDownload,
+	mutateDownloadsWithPool,
+	numericProgress,
+	shouldDropMissingTorrent,
+	type DownloadRecord
+} from './lib/server/downloadMerge';
 
 // Load environment variables from .env file (for local development)
 config();
@@ -27,7 +35,7 @@ function getDbConfig() {
 const pool = new Pool(getDbConfig());
 
 // Poll interval in milliseconds (default: 1 second; override with POLL_INTERVAL)
-const POLL_INTERVAL = Number(process.env.POLL_INTERVAL) || 1000;
+const POLL_INTERVAL = Number(process.env.POLL_INTERVAL) || 5000;
 
 // Graceful shutdown
 let isShuttingDown = false;
@@ -105,13 +113,6 @@ async function getAllUsersWithDownloads() {
 	return result.rows;
 }
 
-async function updateUserDownloads(username: string, downloads: any[]) {
-	await query(
-		`UPDATE users SET downloads = $1 WHERE username = $2`,
-		[JSON.stringify(downloads), username]
-	);
-}
-
 async function deleteDownloadById(username: string, downloadId: string) {
 	await query(
 		`UPDATE users SET downloads = COALESCE(
@@ -135,6 +136,11 @@ async function pollUserDownloads(username: string, downloads: any[], realDebridS
 
 	for (const download of downloads) {
 		if (!download.id) {
+			updatedDownloads.push(download);
+			continue;
+		}
+
+		if (isUsenetDownload(download)) {
 			updatedDownloads.push(download);
 			continue;
 		}
@@ -187,12 +193,13 @@ async function pollUserDownloads(username: string, downloads: any[], realDebridS
 
 			const updatedDownload = {
 				...download,
-				progress: torrentInfo.progress || download.progress,
+				progress: numericProgress(torrentInfo.progress, numericProgress(download.progress, 0)),
 				status: torrentInfo.status || download.status,
 				filename: torrentInfo.filename || download.filename,
 				link: torrentInfo.links?.[0] || download.link || '',
 				speed: torrentInfo.speed,
-				seeders: torrentInfo.seeders
+				seeders: torrentInfo.seeders,
+				misses: 0
 			};
 
 			const wasCompleted = download.progress < 100 && torrentInfo.progress >= 100;
@@ -224,6 +231,15 @@ async function pollUserDownloads(username: string, downloads: any[], realDebridS
 			}
 		} catch (error) {
 			if (error instanceof UnknownResourceError) {
+				const misses = numericProgress(download.misses, 0) + 1;
+				if (!shouldDropMissingTorrent(download, misses)) {
+					logWithTimestamp(
+						`⚠️ [${username}] Torrent not on Real-Debrid yet (${misses}/3): ${download.filename || download.id}`,
+						'warn'
+					);
+					updatedDownloads.push({ ...download, misses, status: download.status || 'queued' });
+					continue;
+				}
 				logWithTimestamp(
 					`🗑️ [${username}] Removing missing torrent: ${download.filename || download.id} (${download.id})`
 				);
@@ -237,13 +253,7 @@ async function pollUserDownloads(username: string, downloads: any[], realDebridS
 						);
 					}
 				}
-				try {
-					await deleteDownloadById(username, download.id);
-					removed++;
-				} catch (dbError) {
-					logWithTimestamp(`❌ [${username}] Error removing torrent ${download.id} from database: ${dbError}`, 'error');
-					errors++;
-				}
+				removed++;
 				continue;
 			}
 			logWithTimestamp(`❌ [${username}] Error polling torrent ${download.id}: ${error}`, 'error');
@@ -255,28 +265,12 @@ async function pollUserDownloads(username: string, downloads: any[], realDebridS
 		}
 	}
 
-	// Update database if there were changes
-	if (updatedDownloads.length !== downloads.length) {
-		// Some downloads were removed
-		await updateUserDownloads(username, updatedDownloads);
-	} else {
-		// Check if any downloads changed (including speed/seeders for better UX)
-		const hasChanges = updatedDownloads.some((updated, index) => {
-			const original = downloads[index];
-			return (
-				updated.progress !== original.progress ||
-				updated.status !== original.status ||
-				updated.link !== original.link ||
-				updated.filename !== original.filename ||
-				updated.speed !== original.speed ||
-				updated.seeders !== original.seeders
-			);
-		});
-
-		if (hasChanges) {
-			await updateUserDownloads(username, updatedDownloads);
-		}
-	}
+	const kept = new Set(updatedDownloads.map((item) => item.id));
+	const dropIds = new Set(downloads.map((item) => item.id).filter((id) => id && !kept.has(id)));
+	await mutateDownloadsWithPool(pool, username, (latest) => {
+		const next = applyPollSnapshot(latest as DownloadRecord[], updatedDownloads, dropIds);
+		return { downloads: next };
+	});
 
 	return {
 		updated: updatedDownloads.length,
@@ -463,8 +457,7 @@ async function startWorker() {
 	// Verify Real-Debrid auth on startup
 	const realDebridAuth = process.env.REAL_DEBRID_AUTH || '';
 	if (!realDebridAuth) {
-		logWithTimestamp('❌ REAL_DEBRID_AUTH not configured. Exiting.', 'error');
-		process.exit(1);
+		logWithTimestamp('⚠️ REAL_DEBRID_AUTH is not set. Torrent progress will not update until it is.', 'warn');
 	}
 
 	logWithTimestamp('✅ Worker initialized successfully');

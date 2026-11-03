@@ -1,5 +1,6 @@
 // src/lib/server/userModel.ts
-import { query } from './db';
+import { pool, query } from './db';
+import { mutateDownloadsWithPool, type DownloadRecord } from './downloadMerge';
 
 export async function createUserTable() {
   const sql = `
@@ -42,6 +43,13 @@ export async function updateUserDownloads(username: string, downloads: any) {
     WHERE username = $2;
   `;
   await query(sql, [JSON.stringify(downloads), username]);
+}
+
+export async function mutateDownloads<T>(
+	username: string,
+	mutate: (downloads: DownloadRecord[]) => { downloads: DownloadRecord[]; result?: T }
+): Promise<T | undefined> {
+	return mutateDownloadsWithPool(pool, username, mutate);
 }
 
 export async function deleteDownloadById(username: string, downloadId: string) {

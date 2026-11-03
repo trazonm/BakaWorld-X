@@ -12,6 +12,7 @@
 	let searchResults: SearchResult[] = [];
 	let searchLoading = false;
 	let searchError = '';
+	let searchNote = '';
 	let username = '';
 	let modalSearch = '';
 	let searchQuery = '';
@@ -22,51 +23,11 @@
 	const torrentManager = useTorrentManager();
 
 	const taglines = [
-		'anyways.',
-		"you're here. neat.",
-		'hydrate or dont im not ur mom',
-		"we're so back (probably)",
-		'my tabs are basically furniture now',
-		'wifi said no and i respect the honesty',
-		'gojo would scroll this at 3am',
-		'luffy would 100% lose the remote on purpose',
-		'namek exploded again lol (monday)',
-		'vegeta judging my queue from the sidelines',
-		'if it works its canon idc',
-		'this runs on spite and decent bandwidth',
-		'chi-chi yelling at the ui same energy',
-		'frieza five minutes = my entire afternoon',
-		'eren would simply uninstall the problem',
-		'light yagami with a sticky note vs me with a todo list',
-		'power levels fake snacks real',
-		'one piece is long. so is this week.',
-		'jjk brain rot acquired legally',
-		'chainsaw man said read the fine print. i didnt.',
-		'behold: a loading bar with main character syndrome',
-		'brain empty just vibes',
-		'its always tuesday somewhere',
-		'me vs the back button (im losing)',
-		'cooked. not in a good way. maybe in a good way.',
-		'no thoughts just pixels',
-		'certified silliness',
-		'peak behavior (delusional)',
-		'ok but what if we didnt',
-		'girlboss gaslight gatekeep (jk please be normal)',
-		'sigma male grindset (i took a nap)',
-		'skibidi ohio rizz (jk)',
-		'touch grass later we busy',
-		'slay the day or slay minimally',
-		'ratio + L + ur router fell off',
-		'mewing while reading this? iconic.',
-		'rent free in my own head first',
-		'gyatt (this means nothing)',
-		'fr fr on god no cap (sorry)',
-		'anime was a mistake - jk we love it here',
-		'dragon ball zed more like dragon ball zzz',
-		'naruto run to the fridge type day',
-		'goku would share his food. would you.',
-		'piccolo babysitting energy loading…',
-		'buu ate the cookies. it was me. i was buu.'
+		'The night market is open.',
+		'Pick a title. The queue can mind itself.',
+		'Subs, dubs, and the OVA you forgot on purpose.',
+		'Torrents from Jackett. Usenet when Prowlarr is awake.',
+		'Stay for one episode. You will not.'
 	];
 	let tagline = '';
 
@@ -141,22 +102,18 @@
 				fetch('/api/torrents/poll-progress', { method: 'POST' }).catch((err) =>
 					console.error('Background polling error:', err)
 				);
-			}, 1000);
+			}, 12000);
 
 			downloadRefreshInterval = setInterval(async () => {
+				const downloads = await torrentManager.initializeRowStatusFromDownloads();
+				torrentManager.startProgressPolling();
 				if (searchResults.length > 0) {
-					const downloads = await torrentManager.initializeRowStatusFromDownloads();
-					const updatedResults = await torrentManager.updateSearchResultsWithBackendIds(
+					searchResults = await torrentManager.updateSearchResultsWithBackendIds(
 						searchResults,
 						downloads
 					);
-					const nextIds = updatedResults.map((r) => r.id ?? '').join('\0');
-					const curIds = searchResults.map((r) => r.id ?? '').join('\0');
-					if (nextIds !== curIds) {
-						searchResults = updatedResults;
-					}
 				}
-			}, 1000);
+			}, 2000);
 		})();
 
 		return () => {
@@ -181,19 +138,21 @@
 
 		searchLoading = true;
 		searchError = '';
+		searchNote = '';
 		searchResults = [];
 		showResultsStore.set(true);
 
 		try {
 			const res = await fetch(`/api/search?query=${encodeURIComponent(query)}`);
-			if (!res.ok) throw new Error('Failed to fetch search results');
-			const data = await res.json();
-			let results = data.Results || [];
+			const data = await res.json().catch(() => ({}));
+			if (!res.ok) throw new Error(data.error || 'Failed to fetch search results');
+			let results: SearchResult[] = data.Results || [];
+			searchNote = Array.isArray(data.warnings) ? data.warnings.filter(Boolean).join(' ') : '';
 
-			const minSeeders = 5;
 			results = results.filter((r: SearchResult) => {
+				if (r.protocol === 'usenet') return true;
 				const seeders = parseInt(r.Seeders?.toString() || '0', 10);
-				return seeders >= minSeeders;
+				return seeders >= 5;
 			});
 
 			searchResults = results;
@@ -250,58 +209,33 @@
 	<title>BakaWorld χ - Home</title>
 </svelte:head>
 
-<main
-	class="relative z-[1] flex min-h-[calc(100vh-5rem)] w-full flex-col items-center justify-center bg-transparent px-4 py-20 sm:px-6 sm:py-24 md:py-28"
->
-	<div class="mx-auto w-full max-w-2xl">
-		<header class="flex flex-col items-center text-center">
-			<!-- <p
-				class="text-lg font-semibold uppercase leading-none tracking-[0.2em] text-zinc-300 antialiased sm:text-xl md:text-2xl md:tracking-[0.22em]"
-			>
-				BakaWorld&nbsp;χ
-			</p> -->
-
-			<h1
-				class="mt-6 text-balance text-3xl font-bold leading-[1.15] tracking-tight text-zinc-50 sm:mt-8 sm:text-4xl sm:leading-[1.12] md:mt-10 md:text-5xl md:leading-[1.08]"
-			>
-				Welcome back, <span class="text-theme-accent">{username}</span>
-			</h1>
-
-			<div class="mt-5 w-full max-w-full sm:mt-6 md:mt-8">
-				<p
-					class="inline-block w-max max-w-full overflow-x-auto whitespace-nowrap px-1 text-center text-sm leading-normal text-zinc-400 [scrollbar-width:thin] sm:text-base md:text-base [&::-webkit-scrollbar]:h-1 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-white/15"
-				>
-					{tagline}
-				</p>
-			</div>
+<main class="den">
+	<div class="den__stage">
+		<p class="den__seal" aria-hidden="true">バカ</p>
+		<header class="den__header">
+			<p class="den__kicker">BakaWorld χ</p>
+			<h1>Welcome back, <span>{username}</span></h1>
+			<p class="den__tagline">{tagline}</p>
 		</header>
 
-		<section class="mt-12 w-full sm:mt-14 md:mt-20" aria-label="Torrent search">
-			<label for="home-torrent-search" class="sr-only">Search torrents by keyword</label>
-			<form
-				class="flex w-full flex-col gap-2 overflow-hidden rounded-2xl border border-white/10 bg-zinc-950/40 p-2 shadow-xl shadow-black/25 ring-1 ring-white/5 backdrop-blur-md sm:flex-row sm:items-stretch sm:gap-2 sm:p-2"
-				on:submit={handleSearch}
-			>
+		<section class="den__search" aria-label="Release search">
+			<label for="home-torrent-search" class="sr-only">Search releases by keyword</label>
+			<form on:submit={handleSearch}>
 				<input
 					id="home-torrent-search"
 					type="search"
 					bind:value={searchQuery}
-					placeholder="Search torrents…"
-					class="min-h-[52px] flex-1 rounded-xl border-0 bg-transparent px-4 py-3.5 text-base text-zinc-50 placeholder:text-zinc-500 transition focus:outline-none focus-visible:ring-0 disabled:opacity-50 sm:min-h-14"
+					placeholder="A title, a season, a whim"
 					required
 					disabled={searchLoading}
 					autocomplete="off"
 					enterkeyhint="search"
 				/>
-				<button
-					type="submit"
-					class="min-h-[52px] shrink-0 rounded-xl px-8 text-sm font-semibold text-white shadow-sm transition hover:brightness-110 active:brightness-[0.97] disabled:pointer-events-none disabled:opacity-45 disabled:hover:brightness-100 sm:min-h-14 sm:px-9 sm:text-base"
-					style="background-color: var(--theme-accent);"
-					disabled={searchLoading}
-				>
+				<button type="submit" disabled={searchLoading}>
 					{searchLoading ? 'Searching…' : 'Search'}
 				</button>
 			</form>
+			<p class="den__hint">Jackett for torrents. Prowlarr adds Usenet when it is connected.</p>
 		</section>
 	</div>
 
@@ -309,6 +243,7 @@
 		results={filteredResults}
 		loading={searchLoading}
 		error={searchError}
+		note={searchNote}
 		bind:modalSearch
 		{sortKey}
 		{sortDirection}
@@ -316,3 +251,103 @@
 		onAddToQueue={handleAddToQueue}
 	/>
 </main>
+
+<style>
+	.den {
+		position: relative;
+		z-index: 1;
+		min-height: calc(100vh - 5rem);
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		padding: 4.5rem 1.25rem 5rem;
+	}
+	.den__stage {
+		width: min(42rem, 100%);
+		position: relative;
+	}
+	.den__seal {
+		position: absolute;
+		top: -1.5rem;
+		right: 0.25rem;
+		margin: 0;
+		font-size: 2.4rem;
+		line-height: 1;
+		color: transparent;
+		-webkit-text-stroke: 1.5px rgba(255, 90, 54, 0.85);
+		transform: rotate(8deg);
+		user-select: none;
+	}
+	.den__kicker {
+		margin: 0;
+		letter-spacing: 0.28em;
+		text-transform: uppercase;
+		font-size: 0.72rem;
+		color: var(--theme-accent);
+	}
+	.den__header h1 {
+		margin: 0.7rem 0 0;
+		font-size: clamp(2.2rem, 5vw, 3.6rem);
+		line-height: 1.02;
+		letter-spacing: -0.04em;
+		font-weight: 650;
+		color: var(--theme-text-primary);
+	}
+	.den__header h1 span {
+		color: var(--theme-accent);
+	}
+	.den__tagline {
+		margin: 0.9rem 0 0;
+		max-width: 28rem;
+		color: var(--theme-text-secondary);
+		font-size: 1.05rem;
+	}
+	.den__search {
+		margin-top: 2.25rem;
+	}
+	.den__search form {
+		display: flex;
+		gap: 0.5rem;
+		padding: 0.45rem;
+		border-radius: 1.1rem;
+		background: rgba(18, 8, 12, 0.72);
+		border: 1px solid var(--theme-border);
+		box-shadow: 0 20px 50px rgba(0, 0, 0, 0.28);
+	}
+	.den__search input {
+		flex: 1;
+		min-height: 3.25rem;
+		border: 0;
+		background: transparent;
+		color: var(--theme-text-primary);
+		padding: 0 0.9rem;
+		font-size: 1.05rem;
+	}
+	.den__search input:focus {
+		outline: none;
+	}
+	.den__search button {
+		min-height: 3.25rem;
+		padding: 0 1.4rem;
+		border: 0;
+		border-radius: 0.8rem;
+		background: var(--theme-accent);
+		color: #1a0906;
+		font-weight: 700;
+		cursor: pointer;
+	}
+	.den__search button:disabled {
+		opacity: 0.55;
+		cursor: progress;
+	}
+	.den__hint {
+		margin: 0.75rem 0 0 0.2rem;
+		color: var(--theme-text-secondary);
+		font-size: 0.82rem;
+	}
+	@media (max-width: 640px) {
+		.den__search form {
+			flex-direction: column;
+		}
+	}
+</style>

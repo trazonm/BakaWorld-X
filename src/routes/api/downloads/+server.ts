@@ -1,7 +1,7 @@
 // SvelteKit endpoint for managing user downloads (CRUD)
 import type { RequestHandler } from '@sveltejs/kit';
 import { getSessionUser } from '$lib/server/session';
-import { findUserByUsername, updateUserDownloads } from '$lib/server/userModel';
+import { findUserByUsername, mutateDownloads } from '$lib/server/userModel';
 import type { JwtPayload } from 'jsonwebtoken';
 
 function getUsernameFromSession(session: string | JwtPayload | null): string | null {
@@ -21,7 +21,8 @@ export const GET: RequestHandler = async ({ request }) => {
 	if (!user) {
 		return new Response(JSON.stringify({ error: 'User not found' }), { status: 404 });
 	}
-	return new Response(JSON.stringify(user.downloads.reverse() || []), { status: 200 });
+	const downloads = Array.isArray(user.downloads) ? [...user.downloads] : [];
+	return new Response(JSON.stringify(downloads.reverse()), { status: 200 });
 };
 
 export const POST: RequestHandler = async ({ request }) => {
@@ -39,9 +40,6 @@ export const POST: RequestHandler = async ({ request }) => {
 	if (!id) {
 		return new Response(JSON.stringify({ error: 'id is required' }), { status: 400 });
 	}
-	const downloads = Array.isArray(user.downloads) ? [...user.downloads] : [];
-	const index = downloads.findIndex((d: any) => d.id === id);
-	const existing = index !== -1 ? { ...downloads[index] } : {};
 	const mergeKeys = [
 		'filename',
 		'progress',
@@ -51,19 +49,22 @@ export const POST: RequestHandler = async ({ request }) => {
 		'seeders',
 		'hash',
 		'guid',
-		'added'
+		'added',
+		'protocol',
+		'misses'
 	] as const;
-	for (const key of mergeKeys) {
-		if (key in body) {
-			(existing as any)[key] = body[key];
+	await mutateDownloads(user.username, (downloads) => {
+		const index = downloads.findIndex((item) => item.id === id);
+		const existing = index !== -1 ? { ...downloads[index] } : {};
+		for (const key of mergeKeys) {
+			if (key in body) {
+				(existing as Record<string, unknown>)[key] = body[key];
+			}
 		}
-	}
-	const newDownload = { ...existing, id };
-	if (index !== -1) {
-		downloads[index] = newDownload;
-	} else {
-		downloads.push(newDownload);
-	}
-	await updateUserDownloads(user.username, downloads);
+		const next = [...downloads];
+		if (index !== -1) next[index] = { ...existing, id };
+		else next.push({ ...existing, id });
+		return { downloads: next };
+	});
 	return new Response(JSON.stringify({ success: true }), { status: 200 });
 };

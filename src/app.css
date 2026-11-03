@@ -44,36 +44,39 @@
 
 /* Theme variables — zinc base + accent (used across layouts & content) */
 :root {
-  --theme-bg-primary: #09090b;
-  --theme-bg-secondary: #18181b;
-  --theme-bg-tertiary: #27272a;
-  --theme-text-primary: #fafafa;
-  --theme-text-secondary: #a1a1aa;
-  --theme-border: rgba(255, 255, 255, 0.08);
-  --theme-accent: #a78bfa;
-  --theme-accent-muted: rgba(167, 139, 250, 0.35);
+  --theme-bg-primary: #12080d;
+  --theme-bg-secondary: #1c0e14;
+  --theme-bg-tertiary: #2a1520;
+  --theme-text-primary: #fff6ea;
+  --theme-text-secondary: #d7c0b8;
+  --theme-border: rgba(255, 214, 186, 0.16);
+  --theme-accent: #ff5a36;
+  --theme-accent-muted: rgba(255, 90, 54, 0.35);
+  --theme-matcha: #c6f26d;
 }
 
 [data-theme="dark"] {
-  --theme-bg-primary: #09090b;
-  --theme-bg-secondary: #18181b;
-  --theme-bg-tertiary: #27272a;
-  --theme-text-primary: #fafafa;
-  --theme-text-secondary: #a1a1aa;
-  --theme-border: rgba(255, 255, 255, 0.08);
-  --theme-accent: #a78bfa;
-  --theme-accent-muted: rgba(167, 139, 250, 0.35);
+  --theme-bg-primary: #12080d;
+  --theme-bg-secondary: #1c0e14;
+  --theme-bg-tertiary: #2a1520;
+  --theme-text-primary: #fff6ea;
+  --theme-text-secondary: #d7c0b8;
+  --theme-border: rgba(255, 214, 186, 0.16);
+  --theme-accent: #ff5a36;
+  --theme-accent-muted: rgba(255, 90, 54, 0.35);
+  --theme-matcha: #c6f26d;
 }
 
 [data-theme="midnight"] {
-  --theme-bg-primary: #030303;
-  --theme-bg-secondary: #0a0a0a;
-  --theme-bg-tertiary: #171717;
-  --theme-text-primary: #fafafa;
-  --theme-text-secondary: #a3a3a3;
-  --theme-border: rgba(255, 255, 255, 0.06);
-  --theme-accent: #f472b6;
-  --theme-accent-muted: rgba(244, 114, 182, 0.35);
+  --theme-bg-primary: #07060c;
+  --theme-bg-secondary: #100e18;
+  --theme-bg-tertiary: #1b1730;
+  --theme-text-primary: #fff7fb;
+  --theme-text-secondary: #d7c6d4;
+  --theme-border: rgba(255, 196, 224, 0.16);
+  --theme-accent: #ff4d8d;
+  --theme-accent-muted: rgba(255, 77, 141, 0.35);
+  --theme-matcha: #d6ff70;
 }
 
 .text-theme-accent {

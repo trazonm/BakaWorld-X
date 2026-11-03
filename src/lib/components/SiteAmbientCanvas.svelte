@@ -70,11 +70,11 @@
 			col = mix(col, uColor3, bandB * 0.2 + bandC * 0.14 + mist * 0.18);
 
 			vec2 orbUv = uv - vec2(0.62 + sin(t * 0.11) * 0.04, 0.35 + cos(t * 0.09) * 0.05);
-			float orb = smoothstep(0.55, 0.0, length(orbUv)) * 0.22;
+			float orb = smoothstep(0.55, 0.0, length(orbUv)) * 0.08;
 			col += uAccent * orb;
 
 			vec2 orb2Uv = uv - vec2(0.18 + cos(t * 0.08) * 0.05, 0.72 + sin(t * 0.1) * 0.04);
-			float orb2 = smoothstep(0.7, 0.0, length(orb2Uv)) * 0.12;
+			float orb2 = smoothstep(0.7, 0.0, length(orb2Uv)) * 0.05;
 			col += mix(uAccent, uColor3, 0.35) * orb2;
 
 			float vig = smoothstep(1.35, 0.38, length(uv - 0.5));
@@ -106,7 +106,7 @@
 			gl_Position = vec4(pos.xy, 0.0, 1.0);
 
 			float scale = max(uResolution.y / 900.0, 0.55);
-			gl_PointSize = aSize * scale * (18.0 + 16.0 * vTwinkle);
+			gl_PointSize = aSize * scale * (3.2 + 2.4 * vTwinkle);
 		}
 	`;
 
@@ -122,16 +122,16 @@
 			float soft = smoothstep(0.5, 0.0, r);
 			float core = exp(-r * r * 14.0);
 			float glow = mix(0.35, 1.0, vTwinkle);
-			vec3 rgb = uAccent * (0.15 + core * 1.25) * soft * glow * 0.55;
+			vec3 rgb = uAccent * (0.12 + core) * soft * glow * 0.35;
 			gl_FragColor = vec4(rgb, 1.0);
 		}
 	`;
 
 	function themePalette(t: Theme): { c1: number; c2: number; c3: number; alpha: number; accent: number } {
 		if (t === 'midnight') {
-			return { c1: 0x040008, c2: 0x12041a, c3: 0x2a0a32, alpha: 0.44, accent: 0xf472b6 };
+			return { c1: 0x07060c, c2: 0x140816, c3: 0x2a1024, alpha: 0.55, accent: 0xff4d8d };
 		}
-		return { c1: 0x06060f, c2: 0x0c1228, c3: 0x1a1f4a, alpha: 0.4, accent: 0xa78bfa };
+		return { c1: 0x12080d, c2: 0x2a1014, c3: 0x4a1c18, alpha: 0.5, accent: 0xff5a36 };
 	}
 
 	let teardown: (() => void) | undefined;
@@ -176,7 +176,7 @@
 			bgMesh.renderOrder = 0;
 			scene.add(bgMesh);
 
-			const particleCount = 1600;
+			const particleCount = 180;
 			const positions = new Float32Array(particleCount * 3);
 			const phases = new Float32Array(particleCount);
 			const sizes = new Float32Array(particleCount);

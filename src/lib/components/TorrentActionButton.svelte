@@ -1,4 +1,3 @@
-<!-- Action button component for torrent rows -->
 <script lang="ts">
 	import type { SearchResult, RowStatus, Download } from '$lib/types';
 	import { torrentService } from '$lib/services/torrentService';
@@ -7,14 +6,8 @@
 	export let rowState: RowStatus | undefined;
 	export let onAddToQueue: (result: SearchResult) => void;
 
-	async function getTorrentInfo(id: string): Promise<{ progress?: number; [key: string]: any }> {
-		try {
-			return await torrentService.getTorrentInfo(id);
-		} catch (e) {
-			console.error('Failed to get torrent info for', id);
-			return {};
-		}
-	}
+	$: progress = typeof rowState?.progress === 'number' ? Math.round(rowState.progress) : 0;
+	$: usenet = result.protocol === 'usenet' || rowState?.protocol === 'usenet';
 
 	async function getDownloadLink(id: string) {
 		try {
@@ -29,65 +22,108 @@
 </script>
 
 {#if !rowState || rowState.state === 'idle'}
-	<button
-		class="rounded bg-blue-700 px-3 py-2 font-semibold text-white hover:bg-blue-800 touch-manipulation min-h-[44px] text-sm md:text-base"
-		on:click={() => onAddToQueue(result)}>Add to Queue</button
-	>
+	<button class="queue" type="button" on:click={() => onAddToQueue(result)}>
+		{usenet ? 'Send to Usenet' : 'Add to queue'}
+	</button>
 {:else if rowState.state === 'adding'}
-	<span class="text-sky-400">Processing</span>
+	<span class="status">Sending…</span>
 {:else if rowState.state === 'progress'}
-	{#if result.id}
-		{#if rowState.progress !== undefined}
-			<span class="text-sky-400 text-sm md:text-base">Progress: {rowState.progress}%</span>
-		{:else}
-			{#await getTorrentInfo(result.id)}
-				<span class="text-sky-400">Uploading</span>
-			{:then torrentInfo}
-				<span class="text-sky-400 text-sm md:text-base">Progress: {torrentInfo.progress || 0}%</span>
-			{/await}
-		{/if}
-	{:else}
-		<span class="text-sky-400 text-sm md:text-base">Uploading</span>
-	{/if}
+	<div class="meter" aria-label="Download progress {progress}%">
+		<div class="meter__bar" style="width: {progress}%"></div>
+		<span>{progress}%</span>
+	</div>
 {:else if rowState.state === 'done'}
-	{#if result.id}
+	{#if usenet}
+		<span class="sent">In your usenet queue</span>
+	{:else if result.id}
 		{#await getDownloadLink(result.id)}
-			<button
-				class="rounded bg-green-700 px-3 py-2 font-semibold text-white hover:bg-green-800 disabled:opacity-50 touch-manipulation min-h-[44px] text-sm md:text-base"
-				disabled>Download Link</button>
+			<button class="ready" type="button" disabled>Opening link…</button>
 		{:then downloadLink}
 			{#if downloadLink}
-				<button
-					class="rounded bg-green-700 px-3 py-2 font-semibold text-white hover:bg-green-800 touch-manipulation min-h-[44px] text-sm md:text-base"
-					on:click={() => window.open(downloadLink, '_blank', 'noopener')}
-				>
-					Download Link
+				<button class="ready" type="button" on:click={() => window.open(downloadLink, '_blank', 'noopener')}>
+					Download
 				</button>
 			{:else}
-				<button
-					class="rounded bg-green-700 px-3 py-2 font-semibold text-white hover:bg-green-800 disabled:opacity-50 touch-manipulation min-h-[44px] text-sm md:text-base"
-					disabled>Download Link</button>
-				{/if}
-			{:catch}
-				<button
-					class="rounded bg-green-700 px-3 py-2 font-semibold text-white hover:bg-green-800 disabled:opacity-50 touch-manipulation min-h-[44px] text-sm md:text-base"
-					disabled>Download Link</button>
-			{/await}
+				<button class="ready" type="button" disabled>Finishing…</button>
+			{/if}
+		{:catch}
+			<button class="ready" type="button" disabled>Link unavailable</button>
+		{/await}
 	{:else}
-		<button
-			class="rounded bg-green-700 px-3 py-2 font-semibold text-white hover:bg-green-800 disabled:opacity-50 touch-manipulation min-h-[44px] text-sm md:text-base"
-			disabled>Download Link</button
-		>
+		<button class="ready" type="button" disabled>Finishing…</button>
 	{/if}
 {:else if rowState.state === 'error'}
-	<div class="flex flex-col items-start">
-		{#if rowState.error?.toLowerCase().includes('invalid torrent')}
-			<span class="text-red-400 font-semibold">Invalid Torrent</span>
-		{:else}
-			<span class="text-red-400">Error</span>
-			{#if rowState.error}
-				<span class="text-xs text-red-300 mt-1" title={rowState.error}>{rowState.error.substring(0, 50)}...</span>
-			{/if}
+	<div class="error">
+		<span>{rowState.error?.toLowerCase().includes('invalid torrent') ? 'Invalid torrent' : 'Could not queue'}</span>
+		{#if rowState.error}
+			<small title={rowState.error}>{rowState.error.slice(0, 80)}</small>
 		{/if}
 	</div>
 {/if}
+
+<style>
+	.queue,
+	.ready {
+		border: 0;
+		border-radius: 999px;
+		min-height: 2.6rem;
+		padding: 0 0.95rem;
+		font-weight: 700;
+		cursor: pointer;
+		white-space: nowrap;
+	}
+	.queue {
+		background: var(--theme-text-primary);
+		color: #1a0906;
+	}
+	.ready {
+		background: var(--theme-matcha, #c6f26d);
+		color: #142006;
+	}
+	.ready:disabled,
+	.queue:disabled {
+		opacity: 0.6;
+		cursor: progress;
+	}
+	.status,
+	.sent {
+		color: var(--theme-accent);
+		font-size: 0.85rem;
+		font-weight: 650;
+	}
+	.meter {
+		position: relative;
+		min-width: 7.5rem;
+		height: 2.2rem;
+		border-radius: 999px;
+		overflow: hidden;
+		background: rgba(255, 246, 234, 0.06);
+		border: 1px solid var(--theme-border);
+	}
+	.meter__bar {
+		position: absolute;
+		inset: 0 auto 0 0;
+		background: linear-gradient(90deg, #ff5a36, #ffb057);
+	}
+	.meter span {
+		position: relative;
+		z-index: 1;
+		display: grid;
+		place-items: center;
+		height: 100%;
+		font-size: 0.8rem;
+		font-weight: 750;
+		color: white;
+		text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
+	}
+	.error {
+		display: flex;
+		flex-direction: column;
+		color: #ffb4a8;
+		font-size: 0.82rem;
+		max-width: 12rem;
+	}
+	.error small {
+		opacity: 0.8;
+	}
+</style>

@@ -12,7 +12,8 @@ export function getRowKey(result: { id?: string; Guid?: string; Title?: string; 
  * on multiple rows; Svelte requires unique each keys, so the index is always included.
  */
 export function eachSearchResultKey(result: SearchResult, index: number): string {
-	return `${index}${US}${getRowKey(result)}`;
+	// Keep the key stable when a backend id is attached, so the row does not remount mid-download.
+	return `${index}${US}${result.Guid || result.Title || getRowKey(result)}`;
 }
 
 export function sortSearchResults<T extends SearchResult>(

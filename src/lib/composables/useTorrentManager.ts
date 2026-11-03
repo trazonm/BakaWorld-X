@@ -12,8 +12,8 @@ export function useTorrentManager() {
 		const status = get(rowStatusStore);
 		Object.keys(status).forEach(id => {
 			// Start polling for any download in 'progress' state (including queued with 0%)
-			if (status[id].state === 'progress' && !progressIntervals[id]) {
-				progressIntervals[id] = setInterval(() => pollProgress(id), 1000);
+			if (status[id].state === 'progress' && !progressIntervals[id] && !id.startsWith('usenet:')) {
+				progressIntervals[id] = setInterval(() => pollProgress(id), 2500);
 			}
 		});
 	}
@@ -39,9 +39,9 @@ export function useTorrentManager() {
 				}
 			}
 			
-			const progress = data.progress;
-			
-			// Save progress to database if we have filename
+			const progress = typeof data.progress === 'number' ? data.progress : undefined;
+			if (progress === undefined) return;
+
 			if (data.filename && data.filename.trim() !== '') {
 				await fetch('/api/downloads', {
 					method: 'POST',
@@ -53,31 +53,27 @@ export function useTorrentManager() {
 					})
 				});
 			}
-			
+
 			rowStatusStore.update(status => {
 				if (status[id]) {
 					if (progress >= 100 && data.links && data.links[0]) {
 						finalizeDownload(id, data.filename, data.links[0]);
 						clearInterval(progressIntervals[id]);
 						delete progressIntervals[id];
-						status[id] = { ...status[id], state: 'done', progress: progress };
+						status[id] = { ...status[id], state: 'done', progress };
 					} else {
-						status[id] = { ...status[id], state: 'progress', progress: progress };
+						status[id] = { ...status[id], state: 'progress', progress };
 					}
 				}
 				return { ...status };
 			});
 		} catch (error: any) {
-			// Check if torrent was deleted (404 or unknown_ressource)
 			const errorMsg = error?.message?.toLowerCase() || '';
 			if (errorMsg.includes('404') || errorMsg.includes('unknown_ressource') || errorMsg.includes('not found')) {
-				// Download was deleted - clear state
 				clearTorrentState(id);
-			} else {
-				console.error('Error polling progress for', id, error);
-				clearInterval(progressIntervals[id]);
-				delete progressIntervals[id];
+				return;
 			}
+			console.error('Error polling progress for', id, error);
 		}
 	}
 
@@ -103,9 +99,12 @@ export function useTorrentManager() {
 						const guid = existingStatus?.guid || download.guid || '';
 						
 						// Store progress from database so UI can display it without calling API
-						const progress = download.progress || 0;
+						const dbProgress = typeof download.progress === 'number' ? download.progress : 0;
+						const liveProgress = existingStatus?.progress;
+						const progress =
+							typeof liveProgress === 'number' ? Math.max(liveProgress, dbProgress) : dbProgress;
 						
-						if (download.progress >= 100 && download.link) {
+						if (progress >= 100 && (download.link || download.protocol === 'usenet')) {
 							newStatus[download.id] = {
 								state: 'done',
 								guid: guid,
@@ -311,57 +310,28 @@ export function useTorrentManager() {
 			if (!response || !response.id) {
 				throw new Error('Invalid response from queue endpoint');
 			}
-			const { id, existing } = response;
-			
-			// Move state from temp key to backend ID
+			const { id } = response;
+			const sentToUsenet = result.protocol === 'usenet';
+
 			rowStatusStore.update((store) => {
-				// Remove old temp key if it's different from the new ID
-				if (tempKey !== id) {
-					delete store[tempKey];
-				}
-				
-				// Also clean up any other potential old keys for this GUID
+				const next = { ...store };
+				if (tempKey !== id) delete next[tempKey];
 				if (result.Guid) {
-					Object.keys(store).forEach(key => {
-						if (store[key].guid === result.Guid && key !== id) {
-							delete store[key];
-						}
+					Object.keys(next).forEach((key) => {
+						if (next[key].guid === result.Guid && key !== id) delete next[key];
 					});
 				}
-				
-				// Check if already completed
-				const downloads = torrentService.getDownloads();
-				downloads.then(downloadsList => {
-					const download = downloadsList.find((d: any) => d.id === id);
-					if (download && download.progress >= 100 && download.link) {
-						rowStatusStore.update(s => ({
-							...s,
-							[id]: { state: 'done', guid: result.Guid }
-						}));
-						return;
-					}
-					
-					rowStatusStore.update(s => ({
-						...s,
-						[id]: {
-							state: existing && download?.progress >= 100 ? 'done' : 'progress',
-							guid: result.Guid,
-						},
-					}));
-				});
-				
-				return {
-					...store,
-					[id]: {
-						state: 'progress',
-						guid: result.Guid,
-					},
+				next[id] = {
+					state: sentToUsenet ? 'done' : 'progress',
+					guid: result.Guid,
+					progress: sentToUsenet ? 100 : 0,
+					protocol: result.protocol
 				};
+				return next;
 			});
 
-			// Start polling for this torrent (client-side for UI updates)
-			if (!progressIntervals[id]) {
-				progressIntervals[id] = setInterval(() => pollProgress(id), 1000);
+			if (!sentToUsenet && !progressIntervals[id]) {
+				progressIntervals[id] = setInterval(() => pollProgress(id), 2500);
 			}
 
 			// Trigger background polling (server-side)

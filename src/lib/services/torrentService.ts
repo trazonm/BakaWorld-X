@@ -85,8 +85,6 @@ class TorrentService {
 	}
 
 	async handleLink(link: string): Promise<string> {
-		const baseUrl = 'https://jackett-service.gleeze.com';
-		link = link.replace(/http:\/\/192\.168\.0\.107:9117/g, baseUrl);
 		if (link.includes('magnet')) return this.addMagnet(link);
 		const redirectUrl = await this.getRedirectUrl(link);
 		return redirectUrl.includes('magnet') ? this.addMagnet(redirectUrl) : this.addTorrent(link);
@@ -116,7 +114,14 @@ class TorrentService {
 	 * Add torrent to queue (background service)
 	 * This immediately adds to Real-Debrid and saves to database
 	 */
-	async addToQueue(result: { MagnetUri?: string; Link?: string; Title?: string; Guid?: string }): Promise<{ id: string; existing: boolean }> {
+	async addToQueue(result: {
+		MagnetUri?: string;
+		Link?: string;
+		Title?: string;
+		Guid?: string;
+		protocol?: string;
+		grab?: Record<string, unknown>;
+	}): Promise<{ id: string; existing: boolean }> {
 		const response = await fetch('/api/torrents/queue', {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
@@ -124,7 +129,9 @@ class TorrentService {
 				magnetLink: result.MagnetUri,
 				link: result.Link,
 				title: result.Title,
-				guid: result.Guid
+				guid: result.Guid,
+				protocol: result.protocol,
+				grab: result.grab
 			})
 		});
 		

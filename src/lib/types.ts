@@ -7,6 +7,10 @@ export interface SearchResult {
 	Seeders: number;
 	Link: string;
 	MagnetUri?: string;
+	protocol?: 'torrent' | 'usenet';
+	indexer?: string;
+	indexerId?: number;
+	grab?: Record<string, unknown>;
 }
 
 export interface RowStatus {
@@ -14,6 +18,7 @@ export interface RowStatus {
 	guid: string;
 	progress?: number; // Progress from database (updated by worker)
 	error?: string;
+	protocol?: 'torrent' | 'usenet';
 }
 
 export interface Download {

@@ -8,6 +8,7 @@
 	export let results: SearchResult[] = [];
 	export let loading = false;
 	export let error = '';
+	export let note = '';
 	export let modalSearch = '';
 	export let sortKey: 'Title' | 'Size' | 'Seeders' = 'Seeders';
 	export let sortDirection: 'asc' | 'desc' = 'desc';
@@ -75,10 +76,10 @@
 
 {#if $showResultsStore}
 	<div
-		class="search-modal-backdrop fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-2 md:p-4"
+		class="search-modal-backdrop fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-2 md:items-center md:p-6"
 	>
 		<div
-			class="relative flex h-[90vh] max-h-full w-full max-w-5xl flex-col rounded-2xl border border-white/10 bg-zinc-950/95 p-4 shadow-2xl shadow-black/40 ring-1 ring-white/5 backdrop-blur-md md:h-[min(42rem,90vh)] md:max-h-[90vh] md:p-6"
+			class="relative flex h-[92vh] max-h-full w-full max-w-5xl flex-col rounded-t-3xl border border-[var(--theme-border)] bg-[#160c12]/95 p-4 shadow-2xl shadow-black/50 md:h-[min(44rem,90vh)] md:rounded-3xl md:p-6"
 			role="dialog"
 			aria-modal="true"
 			aria-labelledby="search-modal-title"
@@ -90,9 +91,12 @@
 			>&times;</button
 			>
 			<div class="mb-3 flex flex-col gap-1 pr-10 md:mb-4">
-				<h2 id="search-modal-title" class="text-xl font-bold tracking-tight text-zinc-50 md:text-2xl">
-					Torrent results
+				<h2 id="search-modal-title" class="text-xl font-bold tracking-tight text-[var(--theme-text-primary)] md:text-2xl">
+					From the stacks
 				</h2>
+				{#if note}
+					<p class="text-xs text-amber-200/80">{note}</p>
+				{/if}
 				{#if !error && results.length > 0}
 					<p class="text-xs text-zinc-500 md:text-sm">
 						Showing {windowedResults.length} of {totalResults}
