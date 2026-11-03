@@ -20,6 +20,12 @@ services:
       JWT_SECRET: ${JWT_SECRET}
       REAL_DEBRID_AUTH: ${REAL_DEBRID_AUTH}
       JACKETT_API_KEY: ${JACKETT_API_KEY}
+      # Reach the host's Jackett/Prowlarr/SABnzbd (172.17.0.1 or Tailscale), not 127.0.0.1.
+      JACKETT_URL: ${JACKETT_URL:-}
+      PROWLARR_URL: ${PROWLARR_URL:-}
+      PROWLARR_API_KEY: ${PROWLARR_API_KEY:-}
+      SABNZBD_URL: ${SABNZBD_URL:-}
+      SABNZBD_API_KEY: ${SABNZBD_API_KEY:-}
       RECAPTCHA_SITE_KEY: ${RECAPTCHA_SITE_KEY}
       RECAPTCHA_SECRET_KEY: ${RECAPTCHA_SECRET_KEY}
       IP_INFO_TOKEN: ${IP_INFO_TOKEN}
@@ -51,6 +57,8 @@ services:
       DB_USER: ${DB_USER}
       DB_PASSWORD: ${DB_PASSWORD}
       REAL_DEBRID_AUTH: ${REAL_DEBRID_AUTH}
+      SABNZBD_URL: ${SABNZBD_URL:-}
+      SABNZBD_API_KEY: ${SABNZBD_API_KEY:-}
       # Poll interval in ms (compose default 30s for prod; set POLL_INTERVAL=5000 for snappier dev)
       POLL_INTERVAL: ${POLL_INTERVAL:-30000}
     networks:
