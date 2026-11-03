@@ -27,8 +27,12 @@ export interface Download {
 	progress: number;
 	status?: string;
 	link?: string;
+	linkError?: string;
 	seeders?: number;
 	speed?: number;
+	protocol?: string;
+	pollAfter?: number;
+	healAfter?: number;
 }
 
 export interface TorrentInfo {

@@ -2,6 +2,7 @@ import type { RequestHandler } from '@sveltejs/kit';
 import { getSessionUser } from '$lib/server/session';
 import { findUserByUsername, updateUserDownloads } from '$lib/server/userModel';
 import { createRealDebridService, UnknownResourceError } from '$lib/services/realDebridService';
+import { isUsenetId } from '$lib/downloadState';
 import { env } from '$env/dynamic/private';
 import type { JwtPayload } from 'jsonwebtoken';
 
@@ -33,6 +34,10 @@ export const POST: RequestHandler = async ({ request, params }) => {
 	const index = downloads.findIndex((d: any) => d.id === id);
 	if (index === -1) {
 		return new Response(JSON.stringify({ error: 'Download not found' }), { status: 404 });
+	}
+
+	if (isUsenetId(id) || downloads[index]?.protocol === 'usenet') {
+		return new Response(JSON.stringify({ error: 'Usenet downloads are tracked in SABnzbd' }), { status: 400 });
 	}
 
 	const realDebridAuth = env.REAL_DEBRID_AUTH || process.env.REAL_DEBRID_AUTH || '';

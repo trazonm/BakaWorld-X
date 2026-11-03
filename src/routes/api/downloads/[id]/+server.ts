@@ -4,6 +4,7 @@ import { getSessionUser } from '$lib/server/session';
 import { findUserByUsername, deleteDownloadById } from '$lib/server/userModel';
 import type { JwtPayload } from 'jsonwebtoken';
 import { createRealDebridService } from '$lib/services/realDebridService';
+import { isUsenetId } from '$lib/downloadState';
 import { env } from '$env/dynamic/private';
 import dns from 'dns';
 
@@ -37,6 +38,10 @@ export const DELETE: RequestHandler = async ({ request, params }) => {
   
   // Delete from database first
   await deleteDownloadById(user.username, id);
+
+  if (isUsenetId(id)) {
+    return new Response(JSON.stringify({ success: true }), { status: 200 });
+  }
 
   // Then delete from Real-Debrid (this may return 204 No Content)
   try {

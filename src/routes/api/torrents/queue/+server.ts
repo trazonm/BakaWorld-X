@@ -271,7 +271,10 @@ export const POST: RequestHandler = async ({ request }) => {
 			headers: { 'Content-Type': 'application/json' }
 		});
 	} catch (error) {
-		const errorMessage = error instanceof Error ? error.message : 'Failed to add torrent to queue';
+		let errorMessage = error instanceof Error ? error.message : 'Failed to add torrent to queue';
+		if (errorMessage === 'bad_token') {
+			errorMessage = 'Real-Debrid refused the saved API token.';
+		}
 		const errorStack = error instanceof Error ? error.stack : undefined;
 		console.error('Queue error:', errorMessage);
 		console.error('Queue error stack:', errorStack);

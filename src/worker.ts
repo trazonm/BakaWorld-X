@@ -18,6 +18,14 @@ import {
 	type DownloadRecord
 } from './lib/server/downloadMerge';
 import { sabJobSnapshot } from './lib/server/sabnzbd';
+import {
+	isPermanentLinkError,
+	isTerminalTorrentStatus,
+	retryDelayMs,
+	shouldDeferLinkHeal,
+	shouldDeferRemotePoll,
+	terminalStatusDelayMs
+} from './lib/downloadState';
 
 // Load environment variables from .env file (for local development)
 config();
@@ -124,6 +132,30 @@ async function deleteDownloadById(username: string, downloadId: string) {
 	);
 }
 
+function backoffLinkHeal(entry: Record<string, unknown>, err: unknown) {
+	const attempts = Math.max(0, Number(entry.healAttempts) || 0) + 1;
+	const message = err instanceof Error ? err.message : String(err || 'link unavailable');
+	return {
+		...entry,
+		linkError: message,
+		healAttempts: attempts,
+		healAfter: Date.now() + retryDelayMs(attempts, isPermanentLinkError(err))
+	};
+}
+
+function backoffStatusPoll(download: Record<string, unknown>, err: unknown) {
+	const attempts = Math.max(0, Number(download.pollAttempts) || 0) + 1;
+	const permanent = isPermanentLinkError(err) || isTerminalTorrentStatus(download.status);
+	const message = err instanceof Error ? err.message : String(err || 'error');
+	return {
+		...download,
+		status: permanent ? message : download.status || 'error',
+		linkError: message,
+		pollAttempts: attempts,
+		pollAfter: Date.now() + retryDelayMs(attempts, permanent)
+	};
+}
+
 async function pollUserDownloads(username: string, downloads: any[], realDebridService: any): Promise<{
 	updated: number;
 	completed: number;
@@ -169,6 +201,13 @@ async function pollUserDownloads(username: string, downloads: any[], realDebridS
 			let entry = { ...download };
 			const shouldHeal =
 				!entry.link?.trim() || isRealDebridWebDownloadPage(entry.link);
+			if (!shouldHeal && (entry.linkError || entry.healAfter)) {
+				entry = { ...entry, linkError: '', healAfter: 0, healAttempts: 0 };
+			}
+			if (shouldHeal && shouldDeferLinkHeal(entry)) {
+				updatedDownloads.push(entry);
+				continue;
+			}
 			if (shouldHeal) {
 				try {
 					const torrentInfo = await realDebridService.getTorrentInfo(download.id);
@@ -177,9 +216,19 @@ async function pollUserDownloads(username: string, downloads: any[], realDebridS
 						const unrestricted = await realDebridService.unrestrictLink(apiLink);
 						entry = {
 							...entry,
-							link: unrestricted.download || unrestricted.link
+							link: unrestricted.download || unrestricted.link,
+							linkError: '',
+							healAfter: 0,
+							healAttempts: 0
 						};
 						logWithTimestamp(`🔧 [${username}] Resolved direct link for ${entry.filename || download.id}`);
+					} else if (!entry.link?.trim() || isRealDebridWebDownloadPage(entry.link)) {
+						const reason = new Error(torrentInfo.status || 'no file link');
+						entry = backoffLinkHeal(entry, reason);
+						logWithTimestamp(
+							`⚠️ [${username}] Link heal waiting ${Math.round((Number(entry.healAfter) - Date.now()) / 1000)}s for ${download.id}: ${reason.message}`,
+							'warn'
+						);
 					}
 				} catch (err) {
 					if (err instanceof UnknownResourceError) {
@@ -200,10 +249,20 @@ async function pollUserDownloads(username: string, downloads: any[], realDebridS
 						}
 						continue;
 					}
-					logWithTimestamp(`⚠️ [${username}] Could not heal link for ${download.id}: ${err}`, 'warn');
+					entry = backoffLinkHeal(entry, err);
+					const waitSec = Math.max(1, Math.round((Number(entry.healAfter) - Date.now()) / 1000));
+					logWithTimestamp(
+						`⚠️ [${username}] Could not heal link for ${download.id} (retry in ${waitSec}s): ${err}`,
+						'warn'
+					);
 				}
 			}
 			updatedDownloads.push(entry);
+			continue;
+		}
+
+		if (shouldDeferRemotePoll(download)) {
+			updatedDownloads.push(download);
 			continue;
 		}
 
@@ -240,7 +299,29 @@ async function pollUserDownloads(username: string, downloads: any[], realDebridS
 				}
 			}
 
-			updatedDownloads.push(updatedDownload);
+			if (isTerminalTorrentStatus(torrentInfo.status) && numericProgress(torrentInfo.progress, 0) < 100) {
+				const attempts = Math.max(0, Number(download.pollAttempts) || 0) + 1;
+				const waitMs = terminalStatusDelayMs(attempts);
+				updatedDownloads.push({
+					...updatedDownload,
+					linkError: String(torrentInfo.status || 'error'),
+					pollAttempts: attempts,
+					pollAfter: Date.now() + waitMs
+				});
+				if (attempts === 1) {
+					logWithTimestamp(
+						`⚠️ [${username}] ${download.filename || download.id} is ${torrentInfo.status}; next check in ${Math.round(waitMs / 1000)}s`,
+						'warn'
+					);
+				}
+			} else {
+				updatedDownloads.push({
+					...updatedDownload,
+					linkError: '',
+					pollAttempts: 0,
+					pollAfter: 0
+				});
+			}
 
 			const progressChange = Math.abs((torrentInfo.progress || 0) - (download.progress || 0));
 			if (progressChange >= 5 || torrentInfo.progress >= 100) {
@@ -275,12 +356,14 @@ async function pollUserDownloads(username: string, downloads: any[], realDebridS
 				removed++;
 				continue;
 			}
-			logWithTimestamp(`❌ [${username}] Error polling torrent ${download.id}: ${error}`, 'error');
+			const deferred = backoffStatusPoll(download, error);
+			const waitSec = Math.max(1, Math.round((Number(deferred.pollAfter) - Date.now()) / 1000));
+			logWithTimestamp(
+				`❌ [${username}] Error polling torrent ${download.id} (retry in ${waitSec}s): ${error}`,
+				'error'
+			);
 			errors++;
-			updatedDownloads.push({
-				...download,
-				status: 'error'
-			});
+			updatedDownloads.push(deferred);
 		}
 	}
 

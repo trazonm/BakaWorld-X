@@ -1,6 +1,7 @@
 // Real-Debrid torrent info endpoint
 import type { RequestHandler } from '@sveltejs/kit';
 import { createRealDebridService, UnknownResourceError } from '$lib/services/realDebridService';
+import { isUsenetId } from '$lib/downloadState';
 import { env } from '$env/dynamic/private';
 
 export const GET: RequestHandler = async ({ params }) => {
@@ -13,6 +14,13 @@ export const GET: RequestHandler = async ({ params }) => {
             return new Response(
                 JSON.stringify({ error: 'Missing torrent id' }), 
                 { status: 400 }
+            );
+        }
+
+        if (isUsenetId(id)) {
+            return new Response(
+                JSON.stringify({ error: 'Usenet downloads are not tracked on Real-Debrid' }),
+                { status: 400, headers: { 'Content-Type': 'application/json' } }
             );
         }
 

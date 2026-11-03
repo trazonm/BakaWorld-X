@@ -56,7 +56,12 @@ export function applyPollSnapshot(
 				link: patch.link || item.link,
 				speed: patch.speed ?? item.speed,
 				seeders: patch.seeders ?? item.seeders,
-				misses: patch.misses ?? item.misses
+				misses: patch.misses ?? item.misses,
+				linkError: patch.linkError !== undefined ? patch.linkError : item.linkError,
+				healAfter: patch.healAfter !== undefined ? patch.healAfter : item.healAfter,
+				healAttempts: patch.healAttempts !== undefined ? patch.healAttempts : item.healAttempts,
+				pollAfter: patch.pollAfter !== undefined ? patch.pollAfter : item.pollAfter,
+				pollAttempts: patch.pollAttempts !== undefined ? patch.pollAttempts : item.pollAttempts
 			}
 		];
 	});

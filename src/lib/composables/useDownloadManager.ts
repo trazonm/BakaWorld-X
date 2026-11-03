@@ -5,6 +5,7 @@ import { formatSpeed } from '$lib/utils';
 import type { Download } from '$lib/types';
 import { useTorrentManager } from './useTorrentManager';
 import { torrentDownloadLinkNeedsUnrestrict } from '$lib/services/realDebridService';
+import { downloadProblem, isUsenetId, shouldDeferRemotePoll } from '$lib/downloadState';
 
 export function useDownloadManager() {
 	const downloads = writable<Download[]>([]);
@@ -147,7 +148,20 @@ export function useDownloadManager() {
 
 	function startPolling(downloads: Download[]) {
 		downloads.forEach(download => {
-			if (download.progress < 100 && !intervals[download.id]) {
+			const skip =
+				download.progress >= 100 ||
+				isUsenetId(download.id) ||
+				download.protocol === 'usenet' ||
+				Boolean(downloadProblem(download)) ||
+				shouldDeferRemotePoll(download);
+			if (skip) {
+				if (intervals[download.id]) {
+					clearInterval(intervals[download.id]);
+					delete intervals[download.id];
+				}
+				return;
+			}
+			if (!intervals[download.id]) {
 				intervals[download.id] = setInterval(() => fetchProgress(download.id), 1000);
 			}
 		});

@@ -16,6 +16,13 @@ import {
 	type DownloadRecord
 } from '$lib/server/downloadMerge';
 import { sabJobSnapshot } from '$lib/server/sabnzbd';
+import {
+	isPermanentLinkError,
+	isTerminalTorrentStatus,
+	retryDelayMs,
+	shouldDeferRemotePoll,
+	terminalStatusDelayMs
+} from '$lib/downloadState';
 import type { JwtPayload } from 'jsonwebtoken';
 
 function getUsernameFromSession(session: string | JwtPayload | null): string | null {
@@ -70,6 +77,10 @@ export const POST: RequestHandler = async ({ request }) => {
 					);
 					continue;
 				}
+				if (download.progress < 100 && download.id && shouldDeferRemotePoll(download)) {
+					updatedDownloads.push(download);
+					continue;
+				}
 				if (download.progress < 100 && download.id) {
 					const torrentInfo = await realDebridService.getTorrentInfo(download.id);
 					
@@ -98,7 +109,22 @@ export const POST: RequestHandler = async ({ request }) => {
 						}
 					}
 
-					updatedDownloads.push(updatedDownload);
+					if (isTerminalTorrentStatus(torrentInfo.status) && numericProgress(torrentInfo.progress, 0) < 100) {
+						const attempts = Math.max(0, Number(download.pollAttempts) || 0) + 1;
+						updatedDownloads.push({
+							...updatedDownload,
+							linkError: String(torrentInfo.status || 'error'),
+							pollAttempts: attempts,
+							pollAfter: Date.now() + terminalStatusDelayMs(attempts)
+						});
+					} else {
+						updatedDownloads.push({
+							...updatedDownload,
+							linkError: '',
+							pollAttempts: 0,
+							pollAfter: 0
+						});
+					}
 				} else {
 					// Keep completed downloads as-is
 					updatedDownloads.push(download);
@@ -115,10 +141,16 @@ export const POST: RequestHandler = async ({ request }) => {
 					continue;
 				}
 				// For other errors, keep the download entry but mark as error
-				console.error(`Error polling torrent ${download.id}:`, error);
+				const attempts = Math.max(0, Number(download.pollAttempts) || 0) + 1;
+				const permanent = isPermanentLinkError(error);
+				const message = error instanceof Error ? error.message : 'error';
+				console.error(`Error polling torrent ${download.id} (retry in ${Math.round(retryDelayMs(attempts, permanent) / 1000)}s):`, error);
 				updatedDownloads.push({
 					...download,
-					status: 'error'
+					status: permanent ? message : download.status || 'error',
+					linkError: message,
+					pollAttempts: attempts,
+					pollAfter: Date.now() + retryDelayMs(attempts, permanent)
 				});
 			}
 		}

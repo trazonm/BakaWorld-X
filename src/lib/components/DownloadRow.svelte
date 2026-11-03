@@ -4,6 +4,7 @@
 	import type { Download } from '$lib/types';
 	import { createEventDispatcher } from 'svelte';
 	import { downloadService } from '$lib/services/downloadService';
+	import { downloadProblem, hasDirectDownload } from '$lib/downloadState';
 
 	export let download: Download;
 	export let onDelete: (id: string) => void;
@@ -12,6 +13,8 @@
 	const dispatch = createEventDispatcher();
 
 	let renewing = false;
+	$: problem = downloadProblem(download);
+	$: ready = hasDirectDownload(download);
 
 	async function renewDirectLink() {
 		if (!download.id || renewing) return;
@@ -63,7 +66,9 @@
 		</div>
 	</td>
 	<td class="px-4 py-3 text-gray-300">
-		{#if download.link && download.progress >= 100}
+		{#if problem}
+			{problem}
+		{:else if ready}
 			Downloaded
 		{:else}
 			{download.status || '—'}
@@ -77,7 +82,7 @@
 	</td>
 	<td class="px-4 py-3">
 		<div class="flex items-center space-x-2 relative">
-			{#if download.link && download.progress >= 100}
+			{#if ready}
 				<a
 					href={download.link}
 					target="_blank"
@@ -105,6 +110,8 @@
 						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
 					</svg>
 				</button>
+			{:else if problem}
+				<span class="text-amber-200 text-sm">{problem}</span>
 			{:else if download.progress >= 100}
 				<span class="text-yellow-400 text-sm">Processing...</span>
 			{:else}
