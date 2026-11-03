@@ -17,6 +17,7 @@ import {
 	shouldDropMissingTorrent,
 	type DownloadRecord
 } from './lib/server/downloadMerge';
+import { sabJobSnapshot } from './lib/server/sabnzbd';
 
 // Load environment variables from .env file (for local development)
 config();
@@ -134,6 +135,13 @@ async function pollUserDownloads(username: string, downloads: any[], realDebridS
 	let removed = 0;
 	let errors = 0;
 
+	let sabJobs = new Map<string, { progress: number; status: string; filename: string }>();
+	try {
+		sabJobs = await sabJobSnapshot();
+	} catch (error) {
+		logWithTimestamp(`⚠️ SABnzbd progress check failed: ${error}`, 'warn');
+	}
+
 	for (const download of downloads) {
 		if (!download.id) {
 			updatedDownloads.push(download);
@@ -141,7 +149,18 @@ async function pollUserDownloads(username: string, downloads: any[], realDebridS
 		}
 
 		if (isUsenetDownload(download)) {
-			updatedDownloads.push(download);
+			const nzoId = String(download.sabId || download.id).replace(/^usenet:/, '');
+			const job = sabJobs.get(nzoId);
+			if (job) {
+				updatedDownloads.push({
+					...download,
+					progress: job.progress,
+					status: job.status || download.status,
+					filename: job.filename || download.filename
+				});
+			} else {
+				updatedDownloads.push(download);
+			}
 			continue;
 		}
 

@@ -312,6 +312,7 @@ export function useTorrentManager() {
 			}
 			const { id } = response;
 			const sentToUsenet = result.protocol === 'usenet';
+			const startingProgress = typeof response.progress === 'number' ? response.progress : 0;
 
 			rowStatusStore.update((store) => {
 				const next = { ...store };
@@ -322,9 +323,9 @@ export function useTorrentManager() {
 					});
 				}
 				next[id] = {
-					state: sentToUsenet ? 'done' : 'progress',
+					state: startingProgress >= 100 ? 'done' : 'progress',
 					guid: result.Guid,
-					progress: sentToUsenet ? 100 : 0,
+					progress: startingProgress,
 					protocol: result.protocol
 				};
 				return next;

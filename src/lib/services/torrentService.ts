@@ -121,7 +121,7 @@ class TorrentService {
 		Guid?: string;
 		protocol?: string;
 		grab?: Record<string, unknown>;
-	}): Promise<{ id: string; existing: boolean }> {
+	}): Promise<{ id: string; existing: boolean; progress?: number }> {
 		const response = await fetch('/api/torrents/queue', {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
@@ -169,7 +169,7 @@ class TorrentService {
 		if (!data.id) {
 			throw new Error('Invalid response: missing torrent ID');
 		}
-		return { id: data.id, existing: data.existing || false };
+		return { id: data.id, existing: data.existing || false, progress: data.progress };
 	}
 
 	/**

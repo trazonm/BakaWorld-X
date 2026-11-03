@@ -15,6 +15,7 @@ import {
 	shouldDropMissingTorrent,
 	type DownloadRecord
 } from '$lib/server/downloadMerge';
+import { sabJobSnapshot } from '$lib/server/sabnzbd';
 import type { JwtPayload } from 'jsonwebtoken';
 
 function getUsernameFromSession(session: string | JwtPayload | null): string | null {
@@ -37,17 +38,36 @@ export const POST: RequestHandler = async ({ request }) => {
 	}
 
 	try {
+		process.env.SABNZBD_URL = env.SABNZBD_URL || process.env.SABNZBD_URL || '';
+		process.env.SABNZBD_API_KEY = env.SABNZBD_API_KEY || process.env.SABNZBD_API_KEY || '';
 		const realDebridAuth = env.REAL_DEBRID_AUTH || process.env.REAL_DEBRID_AUTH || '';
 		const realDebridService = createRealDebridService(realDebridAuth);
 		const downloads = Array.isArray(user.downloads) ? [...user.downloads] : [];
 		const updatedDownloads = [];
+		let sabJobs = new Map<string, { progress: number; status: string; filename: string }>();
+		try {
+			sabJobs = await sabJobSnapshot();
+		} catch (error) {
+			console.warn('SABnzbd progress check failed', error);
+		}
 
 		// Poll each active download
 		for (const download of downloads) {
 			try {
 				// Only poll downloads that aren't complete
 				if (isUsenetDownload(download)) {
-					updatedDownloads.push(download);
+					const nzoId = String(download.sabId || download.id).replace(/^usenet:/, '');
+					const job = sabJobs.get(nzoId);
+					updatedDownloads.push(
+						job
+							? {
+									...download,
+									progress: job.progress,
+									status: job.status || download.status,
+									filename: job.filename || download.filename
+								}
+							: download
+					);
 					continue;
 				}
 				if (download.progress < 100 && download.id) {

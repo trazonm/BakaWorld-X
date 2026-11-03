@@ -3,6 +3,7 @@ import type { RequestHandler } from '@sveltejs/kit';
 import { getSessionUser } from '$lib/server/session';
 import { findUserByUsername, mutateDownloads } from '$lib/server/userModel';
 import { grabProwlarrRelease, rewriteJackettLink } from '$lib/server/releaseSearch';
+import { addNzbFromUrl } from '$lib/server/sabnzbd';
 import {
 	createRealDebridService,
 	RealDebridService,
@@ -46,17 +47,31 @@ export const POST: RequestHandler = async ({ request }) => {
 				return new Response(JSON.stringify({ error: 'Prowlarr is not configured' }), { status: 500 });
 			}
 			const grabBody = grab && typeof grab === 'object' ? grab : { guid, title, downloadUrl: link, protocol: 'usenet' };
-			await grabProwlarrRelease(prowlarrUrl, prowlarrApiKey, grabBody);
-			const usenetId = `usenet:${String(guid || title || Date.now())}`;
+			const downloadUrl = typeof grabBody.downloadUrl === 'string' && grabBody.downloadUrl
+				? grabBody.downloadUrl
+				: typeof link === 'string'
+					? link
+					: '';
+			process.env.SABNZBD_URL = env.SABNZBD_URL || process.env.SABNZBD_URL || '';
+			process.env.SABNZBD_API_KEY = env.SABNZBD_API_KEY || process.env.SABNZBD_API_KEY || '';
+			const sabConfigured = Boolean(process.env.SABNZBD_URL && process.env.SABNZBD_API_KEY);
+			let sabId = '';
+			if (sabConfigured && downloadUrl) {
+				sabId = await addNzbFromUrl(downloadUrl, String(title || grabBody.title || 'release'));
+			} else {
+				await grabProwlarrRelease(prowlarrUrl, prowlarrApiKey, grabBody);
+			}
+			const usenetId = sabId ? `usenet:${sabId}` : `usenet:${String(guid || title || Date.now())}`;
 			await mutateDownloads(user.username, (downloads) => {
 				const entry = {
 					id: usenetId,
 					filename: title || grabBody.title || 'Usenet download',
-					progress: 100,
-					status: 'sent',
+					progress: sabId ? 0 : 100,
+					status: sabId ? 'Queued' : 'sent',
 					link: '',
 					guid: guid || '',
 					protocol: 'usenet',
+					sabId,
 					added: new Date().toISOString()
 				};
 				const index = downloads.findIndex((item) => item.id === usenetId);
@@ -65,7 +80,7 @@ export const POST: RequestHandler = async ({ request }) => {
 				else next[index] = { ...next[index], ...entry, added: next[index].added || entry.added };
 				return { downloads: next, result: entry };
 			});
-			return new Response(JSON.stringify({ success: true, id: usenetId, existing: false, protocol: 'usenet' }), {
+			return new Response(JSON.stringify({ success: true, id: usenetId, existing: false, protocol: 'usenet', progress: sabId ? 0 : 100 }), {
 				status: 200,
 				headers: { 'Content-Type': 'application/json' }
 			});

@@ -19,7 +19,9 @@ export type ReleaseSearchSources = {
 };
 
 const DEFAULT_JACKETT_URL = 'https://jackett-service.gleeze.com';
-const SEARCH_TIMEOUT_MS = 22_000;
+const SEARCH_TIMEOUT_MS = 20_000;
+const INDEXER_TIMEOUT_MS = 12_000;
+const INDEXER_CONCURRENCY = 4;
 
 export function indexerOrigin(raw: string | undefined, fallback = ''): string {
 	const value = (raw || fallback).trim().replace(/\/$/, '');
@@ -132,20 +134,84 @@ async function fetchJson(url: string, init: RequestInit, timeoutMs = SEARCH_TIME
 	return response.json();
 }
 
-export async function searchJackett(query: string, baseUrl: string, apiKey: string): Promise<ReleaseHit[]> {
-	const url = new URL('/api/v2.0/indexers/all/results', baseUrl.replace(/\/$/, '') || DEFAULT_JACKETT_URL);
+async function mapPool<T, R>(items: T[], limit: number, fn: (item: T) => Promise<R>): Promise<R[]> {
+	const results = new Array<R>(items.length);
+	let next = 0;
+	async function worker() {
+		while (next < items.length) {
+			const index = next++;
+			results[index] = await fn(items[index]);
+		}
+	}
+	const workers = Math.min(limit, items.length);
+	await Promise.all(Array.from({ length: workers }, () => worker()));
+	return results;
+}
+
+export async function listConfiguredJackettIndexers(baseUrl: string, apiKey: string): Promise<string[]> {
+	const url = new URL('/api/v2.0/indexers/all/results/torznab/api', baseUrl.replace(/\/$/, '') || DEFAULT_JACKETT_URL);
 	url.searchParams.set('apikey', apiKey);
-	url.searchParams.set('Query', query);
-	const payload = (await fetchJson(url.toString(), { headers: { Accept: 'application/json' } })) as {
-		Results?: unknown[];
-	};
-	return normalizeJackettResults(payload, baseUrl);
+	url.searchParams.set('t', 'indexers');
+	const response = await fetch(url, { signal: AbortSignal.timeout(INDEXER_TIMEOUT_MS) });
+	if (!response.ok) return [];
+	const xml = await response.text();
+	return [...xml.matchAll(/<indexer id="([^"]+)" configured="true"/g)].map((match) => match[1]);
+}
+
+export async function searchJackett(query: string, baseUrl: string, apiKey: string): Promise<ReleaseHit[]> {
+	const origin = baseUrl.replace(/\/$/, '') || DEFAULT_JACKETT_URL;
+	const ids = await listConfiguredJackettIndexers(origin, apiKey);
+	const targets = ids.length ? ids : ['all'];
+	let failures = 0;
+	const groups = await mapPool(targets, INDEXER_CONCURRENCY, async (id) => {
+		try {
+			const url = new URL(`/api/v2.0/indexers/${encodeURIComponent(id)}/results`, origin);
+			url.searchParams.set('apikey', apiKey);
+			url.searchParams.set('Query', query);
+			const payload = (await fetchJson(url.toString(), { headers: { Accept: 'application/json' } }, INDEXER_TIMEOUT_MS)) as {
+				Results?: unknown[];
+			};
+			return normalizeJackettResults(payload, origin);
+		} catch {
+			failures++;
+			return [] as ReleaseHit[];
+		}
+	});
+	if (failures === targets.length) {
+		throw new Error('Jackett indexers did not respond');
+	}
+	return dedupeTorrents(groups.flat());
+}
+
+let usenetIndexerCache: { key: string; at: number; ids: number[] } | null = null;
+
+async function prowlarrUsenetIndexerIds(baseUrl: string, apiKey: string): Promise<number[]> {
+	const cacheKey = `${baseUrl}|${apiKey.slice(0, 6)}`;
+	if (usenetIndexerCache && usenetIndexerCache.key === cacheKey && Date.now() - usenetIndexerCache.at < 5 * 60_000) {
+		return usenetIndexerCache.ids;
+	}
+	const url = new URL('/api/v1/indexer', baseUrl.replace(/\/$/, ''));
+	const payload = await fetchJson(url.toString(), {
+		headers: { Accept: 'application/json', 'X-Api-Key': apiKey }
+	});
+	const ids = (Array.isArray(payload) ? payload : [])
+		.filter((item) => {
+			if (!item || typeof item !== 'object') return false;
+			const row = item as { protocol?: string; enable?: boolean; id?: number };
+			return row.enable !== false && String(row.protocol || '').toLowerCase() === 'usenet' && typeof row.id === 'number';
+		})
+		.map((item) => (item as { id: number }).id);
+	usenetIndexerCache = { key: cacheKey, at: Date.now(), ids };
+	return ids;
 }
 
 export async function searchProwlarrUsenet(query: string, baseUrl: string, apiKey: string): Promise<ReleaseHit[]> {
-	const url = new URL('/api/v1/search', baseUrl.replace(/\/$/, ''));
+	const origin = baseUrl.replace(/\/$/, '');
+	const ids = await prowlarrUsenetIndexerIds(origin, apiKey);
+	const url = new URL('/api/v1/search', origin);
 	url.searchParams.set('query', query);
 	url.searchParams.set('type', 'search');
+	for (const id of ids) url.searchParams.append('indexerIds', String(id));
 	const payload = await fetchJson(url.toString(), {
 		headers: { Accept: 'application/json', 'X-Api-Key': apiKey }
 	});
